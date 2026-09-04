@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package table.v1;
+
+import "table/v1/table.proto";
+
+message ListTablesRequest {
+  string catalog_name = 1;
+}
+
+message ListTablesResponse {
+  repeated DataSourceNamespaceTable tables = 1;
+}
+
+message ListTablesByNamespaceRequest {
+  string catalog_name = 1;
+  string data_source_name = 2;
+  repeated string namespace_names = 3;
+}
+
+message ListTablesByNamespaceResponse {
+  repeated DataSourceNamespaceTable tables = 1;
+}
+
+message DescribeTableRequest {
+  string catalog_name = 1;
+  string data_source_name = 2;
+  repeated string namespace_names = 3;
+  string table_name = 4;
+}
+
+message DescribeTableResponse {
+  optional DataSourceNamespaceTableDetail table = 1;
+}
+
+message DescribeTableByIdRequest {
+  string table_id = 1;
+}
+
+message DescribeTableByIdResponse {
+  optional DataSourceNamespaceTableDetail table = 1;
+}
+
+service TableService {
+  // ListTables returns a list of tables in the catalog.
+  rpc ListTables(ListTablesRequest) returns (ListTablesResponse) {}
+
+  // ListTablesByNamespace returns a list of tables in the specified namespace.
+  rpc ListTablesByNamespace(ListTablesByNamespaceRequest) returns (ListTablesByNamespaceResponse) {}
+
+  // DescribeTable returns a table by name.
+  rpc DescribeTable(DescribeTableRequest) returns (DescribeTableResponse) {}
+
+  // DescribeTableById returns a table by ID.
+  rpc DescribeTableById(DescribeTableByIdRequest) returns (DescribeTableByIdResponse) {}
+}

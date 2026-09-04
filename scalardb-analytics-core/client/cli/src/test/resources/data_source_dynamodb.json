@@ -1,0 +1,59 @@
+{
+  "catalog": "dynamodb_catalog",
+  "name": "dynamodb_source",
+  "provider": {
+    "type": "dynamodb",
+    "region": "us-east-1",
+    "schema": {
+      "namespaces": [
+        {
+          "names": [
+            "default"
+          ],
+          "tables": [
+            {
+              "name": "users",
+              "columns": [
+                {
+                  "name": "id",
+                  "type": "TEXT",
+                  "nullable": false
+                },
+                {
+                  "name": "name",
+                  "type": "TEXT",
+                  "nullable": true
+                },
+                {
+                  "name": "age",
+                  "type": "INT",
+                  "nullable": true
+                }
+              ]
+            },
+            {
+              "name": "orders",
+              "columns": [
+                {
+                  "name": "order_id",
+                  "type": "TEXT",
+                  "nullable": false
+                },
+                {
+                  "name": "customer_id",
+                  "type": "TEXT",
+                  "nullable": false
+                },
+                {
+                  "name": "total",
+                  "type": "DECIMAL",
+                  "nullable": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

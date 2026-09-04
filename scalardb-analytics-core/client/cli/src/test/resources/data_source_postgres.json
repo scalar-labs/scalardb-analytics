@@ -1,0 +1,12 @@
+{
+  "catalog": "postgres_catalog",
+  "name": "postgres_source",
+  "provider": {
+    "type": "postgresql",
+    "host": "postgres.example.com",
+    "port": 5432,
+    "username": "postgres",
+    "password": "password",
+    "database": "postgres"
+  }
+}

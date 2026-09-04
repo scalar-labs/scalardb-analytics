@@ -1,0 +1,12 @@
+{
+  "catalog": "oracle_catalog",
+  "name": "oracle_source",
+  "provider": {
+    "type": "oracle",
+    "host": "oracle.example.com",
+    "port": 1521,
+    "username": "system",
+    "password": "password",
+    "serviceName": "ORCL"
+  }
+}

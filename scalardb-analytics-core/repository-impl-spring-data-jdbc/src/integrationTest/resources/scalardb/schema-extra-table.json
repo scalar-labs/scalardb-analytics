@@ -1,0 +1,19 @@
+{
+  "scalardb_analytics.catalogs": {
+    "partition-key": ["catalog_id"],
+    "columns": {
+      "catalog_id": "TEXT",
+      "name": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "description": "TEXT"
+    }
+  },
+  "scalardb_analytics.registry_extra_table": {
+    "partition-key": ["extra_id"],
+    "columns": {
+      "extra_id": "TEXT",
+      "label": "TEXT",
+      "created_at": "TIMESTAMPTZ"
+    }
+  }
+}

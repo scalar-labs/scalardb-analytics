@@ -1,0 +1,160 @@
+{
+  "scalardb_analytics.catalogs": {
+    "partition-key": ["catalog_id"],
+    "columns": {
+      "catalog_id": "TEXT",
+      "tenant_id": "TEXT",
+      "name": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["tenant_id", "name"]
+  },
+  "scalardb_analytics.registry_data_sources": {
+    "partition-key": ["data_source_id"],
+    "columns": {
+      "data_source_id": "TEXT",
+      "catalog_id": "TEXT",
+      "name": "TEXT",
+      "provider_type": "TEXT",
+      "provider_payload_json": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["catalog_id"]
+  },
+  "scalardb_analytics.registry_namespaces": {
+    "partition-key": ["namespace_id"],
+    "columns": {
+      "namespace_id": "TEXT",
+      "data_source_id": "TEXT",
+      "names": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["data_source_id"]
+  },
+  "scalardb_analytics.registry_tables": {
+    "partition-key": ["table_id"],
+    "columns": {
+      "table_id": "TEXT",
+      "namespace_id": "TEXT",
+      "name": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["namespace_id"]
+  },
+  "scalardb_analytics.registry_columns": {
+    "partition-key": ["column_id"],
+    "columns": {
+      "column_id": "TEXT",
+      "table_id": "TEXT",
+      "name": "TEXT",
+      "type": "TEXT",
+      "ordinal_position": "INT",
+      "nullable": "BOOLEAN",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["table_id"]
+  },
+  "scalardb_analytics.auth_users": {
+    "partition-key": ["user_id"],
+    "columns": {
+      "user_id": "TEXT",
+      "username": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["username"]
+  },
+  "scalardb_analytics.auth_password_identities": {
+    "partition-key": ["identity_id"],
+    "columns": {
+      "identity_id": "TEXT",
+      "user_id": "TEXT",
+      "backend": "TEXT",
+      "backend_user_id": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["user_id", "backend", "backend_user_id"]
+  },
+  "scalardb_analytics.auth_access_tokens": {
+    "partition-key": ["user_id"],
+    "clustering-key": ["token"],
+    "columns": {
+      "token": "TEXT",
+      "user_id": "TEXT",
+      "expires_at": "TIMESTAMPTZ",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    }
+  },
+  "scalardb_analytics.auth_internal_credentials": {
+    "partition-key": ["username"],
+    "columns": {
+      "username": "TEXT",
+      "password_hash": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    }
+  },
+  "scalardb_analytics.authz_roles": {
+    "partition-key": ["id"],
+    "columns": {
+      "id": "TEXT",
+      "name": "TEXT",
+      "built_in": "BOOLEAN",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["name", "built_in"]
+  },
+  "scalardb_analytics.authz_role_assignments": {
+    "partition-key": ["user_id"],
+    "clustering-key": ["role_id"],
+    "columns": {
+      "user_id": "TEXT",
+      "role_id": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["role_id"]
+  },
+  "scalardb_analytics.authz_resource_types": {
+    "partition-key": ["id"],
+    "columns": {
+      "id": "TEXT",
+      "name": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["name"]
+  },
+  "scalardb_analytics.authz_permissions": {
+    "partition-key": ["id"],
+    "columns": {
+      "id": "TEXT",
+      "name": "TEXT",
+      "resource_type_id": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["name", "resource_type_id"]
+  },
+  "scalardb_analytics.authz_access_control_entries": {
+    "partition-key": ["grantee_id"],
+    "clustering-key": ["permission_id", "resource_id", "grantee_type"],
+    "columns": {
+      "grantee_type": "TEXT",
+      "grantee_id": "TEXT",
+      "resource_id": "TEXT",
+      "permission_id": "TEXT",
+      "created_at": "TIMESTAMPTZ",
+      "updated_at": "TIMESTAMPTZ"
+    },
+    "secondary-index": ["resource_id"]
+  }
+}

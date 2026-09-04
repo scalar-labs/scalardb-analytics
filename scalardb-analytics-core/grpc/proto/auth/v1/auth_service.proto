@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package auth.v1;
+
+message AuthenticateWithPasswordRequest {
+  string username = 1;
+  // SECURITY: This field contains a plaintext password. TLS must be enabled
+  // on the gRPC server to protect credentials in transit.
+  string password = 2;
+}
+
+message AuthenticateWithPasswordResponse {
+  string token = 1;
+  // Unix timestamp (seconds since epoch) at which the token expires.
+  int64 expires_at = 2;
+  // The authenticated user's ID. Clients must include this value in the
+  // x-user-id metadata header on subsequent authenticated requests.
+  string user_id = 3;
+}
+
+service AuthService {
+  // AuthenticateWithPassword authenticates a user with username and password.
+  // Returns an access token and its expiration time.
+  rpc AuthenticateWithPassword(AuthenticateWithPasswordRequest) returns (AuthenticateWithPasswordResponse) {}
+}
