@@ -1,0 +1,11 @@
+{
+  "catalog": "snowflake_catalog",
+  "name": "snowflake_source",
+  "provider": {
+    "type": "snowflake",
+    "account": "myaccount.us-east-1",
+    "username": "user",
+    "password": "password",
+    "database": "MYDB"
+  }
+}

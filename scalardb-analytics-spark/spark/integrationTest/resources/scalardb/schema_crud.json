@@ -1,0 +1,31 @@
+{
+  "sample_db_crud.sample_table": {
+    "partition-key": [
+      "int_col"
+    ],
+    "clustering-key": [
+      "bigint_col ASC"
+    ],
+    "columns": {
+      "boolean_col": "BOOLEAN",
+      "int_col": "INT",
+      "bigint_col": "BIGINT",
+      "float_col": "FLOAT",
+      "double_col": "DOUBLE",
+      "text_col": "TEXT",
+      "blob_col": "BLOB",
+      "date_col": "DATE",
+      "time_col": "TIME",
+      "timestamp_col": "TIMESTAMP",
+      "timestamptz_col": "TIMESTAMPTZ"
+    }
+  },
+  "sample_db_crud.sample_table2": {
+    "partition-key": [
+      "int_col"
+    ],
+    "columns": {
+      "int_col": "INT"
+    }
+  }
+}

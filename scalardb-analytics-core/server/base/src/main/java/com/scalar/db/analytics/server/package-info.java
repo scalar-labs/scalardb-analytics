@@ -1,0 +1,9 @@
+/*
+ * Copyright Scalar, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+// TODO: Move this annotation to the module level
+@NullMarked
+package com.scalar.db.analytics.server;
+
+import org.jspecify.annotations.NullMarked;

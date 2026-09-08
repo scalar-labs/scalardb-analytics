@@ -1,0 +1,13 @@
+{
+  "catalog": "databricks_catalog",
+  "name": "databricks_source",
+  "provider": {
+    "type": "databricks",
+    "host": "databricks.example.com",
+    "port": 443,
+    "httpPath": "/sql/1.0/warehouses/abcd1234",
+    "oAuthClientId": "client-id",
+    "oAuthSecret": "client-secret",
+    "catalog": "hive_metastore"
+  }
+}

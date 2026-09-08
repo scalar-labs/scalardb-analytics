@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package auth.v1;
+
+// Authentication backend that holds a password-based identity.
+// Mirrors the api-layer PasswordBackendType enum; the UNSPECIFIED value is
+// the proto3 default-zero placeholder and is rejected by the server.
+enum PasswordBackend {
+  PASSWORD_BACKEND_UNSPECIFIED = 0;
+  PASSWORD_BACKEND_INTERNAL = 1;
+  PASSWORD_BACKEND_SCALARDB_CLUSTER = 2;
+}
+
+message UserInfo {
+  string user_id = 1;
+  string backend_user_id = 2;
+  PasswordBackend backend = 3;
+  string username = 4;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated UserInfo users = 1;
+}
+
+message UserDetail {
+  string user_id = 1;
+  string backend_user_id = 2;
+  PasswordBackend backend = 3;
+  repeated string roles = 4;
+  string username = 5;
+}
+
+message DescribeUserByIdRequest {
+  string user_id = 1;
+}
+
+message DescribeUserByIdResponse {
+  UserDetail user = 1;
+}
+
+message DescribeUserByNameRequest {
+  string username = 1;
+}
+
+message DescribeUserByNameResponse {
+  UserDetail user = 1;
+}
+
+// --- Create / Delete principal ---
+
+message CreateUserRequest {
+  // Name of the Analytics user (principal) to create.
+  string username = 1;
+}
+
+message CreateUserResponse {
+  string user_id = 1;
+}
+
+message DeleteUserRequest {
+  string username = 1;
+  // When true, also delete linked backend users, identities, role assignments, and ACEs.
+  // When false, the operation fails if any of those still exist.
+  bool cascade = 2;
+}
+
+message DeleteUserResponse {
+  bool deleted = 1;
+}
+
+message DeleteUserByIdRequest {
+  string user_id = 1;
+  bool cascade = 2;
+}
+
+message DeleteUserByIdResponse {
+  bool deleted = 1;
+}
+
+// --- Convenience composite: create principal + internal-backend user + link ---
+
+message CreateUserWithBackendUserRequest {
+  // Name of the Analytics user (principal) to create.
+  string username = 1;
+  // Name of the internal-backend user to create and link.
+  string backend_username = 2;
+  // SECURITY: This field contains a plaintext password. TLS must be enabled
+  // on the gRPC server to protect credentials in transit.
+  string password = 3;
+}
+
+message CreateUserWithBackendUserResponse {
+  string user_id = 1;
+}
+
+// --- Link / Unlink principal ↔ backend user ---
+
+message LinkBackendUserRequest {
+  // Analytics user (principal) name.
+  string username = 1;
+  // Backend user name.
+  string backend_username = 2;
+  // User-directory backend that holds the backend user. Must be set;
+  // PASSWORD_BACKEND_UNSPECIFIED is rejected with INVALID_ARGUMENT.
+  PasswordBackend backend = 3;
+}
+
+message LinkBackendUserResponse {}
+
+message UnlinkBackendUserRequest {
+  string username = 1;
+  string backend_username = 2;
+  // Must be set; PASSWORD_BACKEND_UNSPECIFIED is rejected with INVALID_ARGUMENT.
+  PasswordBackend backend = 3;
+}
+
+message UnlinkBackendUserResponse {}
+
+// UserService provides Analytics user (principal) management and principal ↔ backend-user
+// link operations.
+service UserService {
+  // --- Read ---
+
+  // ListUsers returns all users regardless of authentication backend. SUPERADMIN only.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {}
+
+  // DescribeUserById returns detailed information about a user by ID. SUPERADMIN only.
+  rpc DescribeUserById(DescribeUserByIdRequest) returns (DescribeUserByIdResponse) {}
+
+  // DescribeUserByName returns detailed information about a user by username. SUPERADMIN only.
+  rpc DescribeUserByName(DescribeUserByNameRequest) returns (DescribeUserByNameResponse) {}
+
+  // --- Write: principal ---
+
+  // CreateUser creates an Analytics user (principal) with no credential attached.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {}
+
+  // DeleteUser deletes a principal by name. Without `cascade`, fails if any dependent
+  // (linked backend users, role assignments) still exists.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {}
+
+  // DeleteUserById deletes a principal by ID.
+  rpc DeleteUserById(DeleteUserByIdRequest) returns (DeleteUserByIdResponse) {}
+
+  // CreateUserWithBackendUser creates the principal, an internal-backend user, and their
+  // link atomically. Convenience composite for the common case where principal and
+  // backend user are created together. Only the internal backend is supported for backend-user
+  // writes today.
+  rpc CreateUserWithBackendUser(CreateUserWithBackendUserRequest) returns (CreateUserWithBackendUserResponse) {}
+
+  // --- Write: link ---
+
+  // LinkBackendUser links an existing principal to an existing backend user.
+  rpc LinkBackendUser(LinkBackendUserRequest) returns (LinkBackendUserResponse) {}
+
+  // UnlinkBackendUser removes the link between a principal and a backend user.
+  rpc UnlinkBackendUser(UnlinkBackendUserRequest) returns (UnlinkBackendUserResponse) {}
+}
