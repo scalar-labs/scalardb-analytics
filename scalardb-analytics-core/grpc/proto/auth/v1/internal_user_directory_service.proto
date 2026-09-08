@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package auth.v1;
+
+// CreateInternalBackendUser creates a user in the internal authentication backend.
+message CreateInternalBackendUserRequest {
+  string username = 1;
+  // SECURITY: This field contains a plaintext password. TLS must be enabled
+  // on the gRPC server to protect credentials in transit.
+  string password = 2;
+}
+
+message CreateInternalBackendUserResponse {}
+
+// DeleteInternalBackendUser deletes a user from the internal authentication backend.
+// Without `cascade`, the operation fails if the user is still linked to a principal.
+message DeleteInternalBackendUserRequest {
+  string username = 1;
+  bool cascade = 2;
+}
+
+message DeleteInternalBackendUserResponse {
+  bool deleted = 1;
+}
+
+// InternalUserDirectoryService manages users in the internal authentication backend
+// (credentials). Principal management is on UserService; principal ↔ backend-user
+// linking is on UserService as well.
+service InternalUserDirectoryService {
+  // CreateInternalBackendUser creates a credential in the internal directory.
+  rpc CreateInternalBackendUser(CreateInternalBackendUserRequest) returns (CreateInternalBackendUserResponse);
+
+  // DeleteInternalBackendUser removes a credential from the internal directory.
+  rpc DeleteInternalBackendUser(DeleteInternalBackendUserRequest) returns (DeleteInternalBackendUserResponse);
+}

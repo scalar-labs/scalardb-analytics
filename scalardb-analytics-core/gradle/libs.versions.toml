@@ -1,0 +1,223 @@
+[versions]
+slf4j = "2.0.18"
+guava = "33.6.0-jre"
+mybatis = "3.5.19"
+hikaricp = "4.0.3"
+grpc = "1.83.1"
+hikaricp5 = "5.1.0"          # For Spring Data JDBC module (Java 21)
+javax-annotation = "1.3.2"
+jakarta-annotation = "3.0.0"
+google-cloud-storage = "2.71.0"
+azure-storage-blob = "12.35.0"
+jackson-bom = "2.22.1"            # Should match Spring Boot managed version
+picocli = "4.7.7"
+owner = "1.0.12"
+guice = "7.0.0"
+# Spring versions (spring-framework, spring-data-*) managed by Spring Boot dependency management
+spring-boot = "4.1.0"
+spring-dependency-management = "1.1.7"
+spring-retry = "2.0.13"
+
+jspecify = "1.0.1"
+
+# JDBC drivers
+h2 = "2.4.240"
+postgresql = "42.7.13"
+mariadb = "3.5.10"
+sqlserver = "12.10.2.jre8"
+sqlserver11 = "12.10.2.jre8" # For Spring Data JDBC module (Java 21)
+oracle = "23.26.3.0.0"
+oracle11 = "23.26.3.0.0"    # ojdbc11 for Spring Data JDBC module (Java 21)
+
+# Data Sources
+scalardb = "3.20.0-SNAPSHOT"
+emr-dynamodb = "5.8.0"
+aws = "2.53.1"
+databricks = "1.0.11-oss"
+snowflake = "3.28.0"
+
+# MapStruct
+mapstruct = "1.6.3"
+
+# Test libraries
+junit-jupiter = "5.13.1"
+assertj-core = "3.27.7"
+testcontainers = "1.21.4"
+mockito = "4.11.0"
+system-stubs = "1.2.1"
+jqwik = "1.10.1"
+bouncycastle = "1.85"
+
+# Build tools
+errorprone-core = "2.50.0"
+nullaway = "0.13.8"
+checkstyle = "10.18.2"
+
+# Gradle plugins
+lombok-plugin = "8.14.4"
+buf-gradle-plugin = "0.11.1"
+spotbugs-plugin = "6.0.21"
+shadow-plugin = "8.3.11"
+license-report-plugin = "3.1.2"
+errorprone-plugin = "4.2.0"
+spotless-plugin = "6.25.0"
+detekt-plugin = "1.23.8"
+
+# Tool versions
+lombok = "1.18.34"
+spotbugs = "4.8.6"
+googleJavaFormat = "1.23.0"
+ktfmt = "0.46"
+buf-tool = "1.39.0"
+
+[libraries]
+slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+mybatis = { module = "org.mybatis:mybatis", version.ref = "mybatis" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+hikaricp5 = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp5" }
+aws-sdk-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
+google-cloud-storage = { module = "com.google.cloud:google-cloud-storage", version.ref = "google-cloud-storage" }
+azure-storage-blob = { module = "com.azure:azure-storage-blob", version.ref = "azure-storage-blob" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson-bom" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
+picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
+owner = { module = "org.aeonbits.owner:owner", version.ref = "owner" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+# MapStruct
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+
+
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+mariadb = { module = "org.mariadb.jdbc:mariadb-java-client", version.ref = "mariadb" }
+sqlserver = { module = "com.microsoft.sqlserver:mssql-jdbc", version.ref = "sqlserver" }
+sqlserver11 = { module = "com.microsoft.sqlserver:mssql-jdbc", version.ref = "sqlserver11" }
+oracle = { module = "com.oracle.database.jdbc:ojdbc8", version.ref = "oracle" }
+databricks = { module = "com.databricks:databricks-jdbc", version.ref = "databricks" }
+snowflake = { module = "net.snowflake:snowflake-jdbc", version.ref = "snowflake" }
+oracle11 = { module = "com.oracle.database.jdbc:ojdbc11", version.ref = "oracle11" }
+
+scalardb-core = { module = "com.scalar-labs:scalardb", version.ref = "scalardb" }
+scalardb-schema-loader = { module = "com.scalar-labs:scalardb-schema-loader", version.ref = "scalardb" }
+scalardb-sql-spring-data = { module = "com.scalar-labs:scalardb-sql-spring-data", version.ref = "scalardb" }
+scalardb-sql-direct-mode = { module = "com.scalar-labs:scalardb-sql-direct-mode", version.ref = "scalardb" }
+# Use the forked version of EMR DynamoDB Hadoop by ScyllaDB because The original has not been
+# released in its latest version yet. This required the latest version of the original does not
+# include the necessary changes below:
+# https://github.com/awslabs/emr-dynamodb-connector/pull/203
+# https://github.com/awslabs/emr-dynamodb-connector/pull/201
+# Once the original version is released, we should switch back to the original version.
+emr-dynamodb-hadoop = { module = "com.scylladb.alternator:emr-dynamodb-hadoop", version.ref = "emr-dynamodb" }
+aws-sdk-dynamodb = { module = "software.amazon.awssdk:dynamodb", version.ref = "aws" }
+
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj-core" }
+bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-mssqlserver = { module = "org.testcontainers:mssqlserver", version.ref = "testcontainers" }
+testcontainers-oracle-free = { module = "org.testcontainers:oracle-free", version.ref = "testcontainers" }
+testcontainers-cassandra = { module = "org.testcontainers:cassandra", version.ref = "testcontainers" }
+junit-platform-suite-api = { module = "org.junit.platform:junit-platform-suite-api" }
+junit-platform-suite-engine = { module = "org.junit.platform:junit-platform-suite-engine" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+system-stubs-core = { module = "uk.org.webcompere:system-stubs-core", version.ref = "system-stubs" }
+system-stubs-jupiter = { module = "uk.org.webcompere:system-stubs-jupiter", version.ref = "system-stubs" }
+
+# Spring Test - version managed by Spring Boot
+spring-test = { module = "org.springframework:spring-test" }
+
+grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpc" }
+# Versions come from the gRPC BOM (see build-logic.java-common-conventions), so the whole family
+# stays aligned instead of being partially pinned.
+grpc-core = { module = "io.grpc:grpc-core" }
+grpc-stub = { module = "io.grpc:grpc-stub" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf" }
+grpc-netty = { module = "io.grpc:grpc-netty-shaded" }
+grpc-inprocess = { module = "io.grpc:grpc-inprocess" }
+grpc-testing = { module = "io.grpc:grpc-testing" }
+grpc-services = { module = "io.grpc:grpc-services" }
+proto-google-common-protos = { module = "com.google.api.grpc:proto-google-common-protos", version = "2.74.0" }
+# javax.annotation is required because the generated code by gRPC uses @javax.annotation.Generated
+javax-annotation = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation" }
+jakarta-annotation = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta-annotation" }
+# Test: Cloud storage simulators
+testcontainers-localstack = { module = "org.testcontainers:localstack", version.ref = "testcontainers" }
+
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+checkstyle = { module = "com.puppycrawl.tools:checkstyle-backport-jre8", version.ref = "checkstyle" }
+
+# Spring Framework
+# Spring dependencies - versions managed by Spring Boot
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
+spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-retry = { module = "org.springframework.retry:spring-retry", version.ref = "spring-retry" }
+spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
+spring-boot-jackson2 = { module = "org.springframework.boot:spring-boot-jackson2" }
+spring-context = { module = "org.springframework:spring-context" }
+spring-jdbc = { module = "org.springframework:spring-jdbc" }
+spring-tx = { module = "org.springframework:spring-tx" }
+spring-data-jdbc = { module = "org.springframework.data:spring-data-jdbc" }
+spring-data-commons = { module = "org.springframework.data:spring-data-commons" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine" }
+
+# Guice
+guice = { module = "com.google.inject:guice", version.ref = "guice" }
+
+# The following Gradle plugins are defined in the libraries section to use them in the convention plugins
+spotbugs-plugin = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs-plugin" }
+license-report-plugin = { module = "com.github.jk1:gradle-license-report", version.ref = "license-report-plugin" }
+errorprone-plugin = { module = "net.ltgt.gradle:gradle-errorprone-plugin", version.ref = "errorprone-plugin" }
+spotless-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless-plugin" }
+lombok-plugin = { module = "io.freefair.gradle:lombok-plugin", version.ref = "lombok-plugin" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless-plugin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt-plugin" }
+buf-gradle-plugin = { id = "build.buf", version.ref = "buf-gradle-plugin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow-plugin" }
+
+[bundles]
+testcontainers = [
+    "testcontainers-core",
+    "testcontainers-junit-jupiter",
+    "testcontainers-mysql",
+    "testcontainers-postgresql",
+    "testcontainers-mssqlserver",
+    "testcontainers-oracle-free",
+    "testcontainers-cassandra",
+]
+
+jdbc-drivers = [
+    "postgresql",
+    "mariadb",
+    "sqlserver",
+    "oracle",
+    "databricks",
+    "snowflake",
+]
+jdbc-drivers11 = ["postgresql", "mariadb", "sqlserver11", "oracle11", "h2"]
+jdbc-drivers-extra = ["databricks", "snowflake"]
+
+cloud-storage = [
+    "aws-sdk-s3",
+    "google-cloud-storage",
+    "azure-storage-blob",
+]

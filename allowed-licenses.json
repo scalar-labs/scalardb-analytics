@@ -1,0 +1,31 @@
+{
+  "allowedLicenses": [
+    { "moduleLicense": "Apache License, Version 2\\.0" },
+    { "moduleLicense": "MIT License" },
+    { "moduleLicense": "MIT-0" },
+    { "moduleLicense": "Eclipse Public License - v 2\\.0" },
+    { "moduleLicense": "MPL 2\\.0" },
+    { "moduleLicense": "PUBLIC DOMAIN" },
+    { "moduleLicense": "Common Public License - v 1\\.0" },
+    { "moduleLicense": "The 2-Clause BSD License" },
+    { "moduleLicense": "The 3-Clause BSD License" },
+    { "moduleLicense": "BSD Zero Clause License" },
+    { "moduleLicense": "The BSD License" },
+    { "moduleLicense": "BSD licence" },
+    { "moduleLicense": "Unicode/ICU License" },
+    { "moduleLicense": "Go License" },
+    { "moduleLicense": "Bouncy Castle Licence" },
+    { "moduleLicense": "International Program License Agreement \\(IPLA\\)" },
+    { "moduleLicense": "Oracle Free Use Terms and Conditions \\(FUTC\\)" },
+    { "moduleLicense": "LGPL-2\\.1-or-later" },
+    { "moduleLicense": "GNU LESSER GENERAL PUBLIC LICENSE, Version 2\\.1" },
+    { "moduleLicense": "GNU LESSER GENERAL PUBLIC LICENSE, Version 3" },
+    { "moduleLicense": "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE \\(CDDL\\) Version 1\\.0" },
+    { "moduleLicense": "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE \\(CDDL\\) Version 1\\.1" },
+    { "moduleLicense": "GNU GENERAL PUBLIC LICENSE, Version 2 \\+ Classpath Exception" },
+    { "moduleLicense": "CDDL \\+ GPLv2 with classpath exception" },
+    { "moduleLicense": "CDDL/GPLv2\\+CE" },
+    { "moduleLicense": "\\s*Dual license consisting of the CDDL v1\\.1 and GPL v2\\s*" },
+    { "moduleLicense": "", "moduleName": "org\\.antlr:ST4", "moduleVersion": "4\\.3\\.1" }
+  ]
+}

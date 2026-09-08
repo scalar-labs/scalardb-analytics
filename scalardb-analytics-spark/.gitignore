@@ -1,0 +1,23 @@
+# Mill
+out/
+
+# Scala
+*.class
+*.log
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*~
