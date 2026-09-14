@@ -7,8 +7,6 @@ grpc = "1.83.1"
 hikaricp5 = "5.1.0"          # For Spring Data JDBC module (Java 21)
 javax-annotation = "1.3.2"
 jakarta-annotation = "3.0.0"
-google-cloud-storage = "2.71.0"
-azure-storage-blob = "12.35.0"
 jackson-bom = "2.22.1"            # Should match Spring Boot managed version
 picocli = "4.7.7"
 owner = "1.0.12"
@@ -78,9 +76,6 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
 mybatis = { module = "org.mybatis:mybatis", version.ref = "mybatis" }
 hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
 hikaricp5 = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp5" }
-aws-sdk-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws" }
-google-cloud-storage = { module = "com.google.cloud:google-cloud-storage", version.ref = "google-cloud-storage" }
-azure-storage-blob = { module = "com.azure:azure-storage-blob", version.ref = "azure-storage-blob" }
 jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson-bom" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
@@ -151,7 +146,6 @@ proto-google-common-protos = { module = "com.google.api.grpc:proto-google-common
 javax-annotation = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation" }
 jakarta-annotation = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta-annotation" }
 # Test: Cloud storage simulators
-testcontainers-localstack = { module = "org.testcontainers:localstack", version.ref = "testcontainers" }
 
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
@@ -166,7 +160,6 @@ spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-aut
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-retry = { module = "org.springframework.retry:spring-retry", version.ref = "spring-retry" }
-spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
 spring-boot-jackson2 = { module = "org.springframework.boot:spring-boot-jackson2" }
 spring-context = { module = "org.springframework:spring-context" }
 spring-jdbc = { module = "org.springframework:spring-jdbc" }
@@ -216,8 +209,3 @@ jdbc-drivers = [
 jdbc-drivers11 = ["postgresql", "mariadb", "sqlserver11", "oracle11", "h2"]
 jdbc-drivers-extra = ["databricks", "snowflake"]
 
-cloud-storage = [
-    "aws-sdk-s3",
-    "google-cloud-storage",
-    "azure-storage-blob",
-]
