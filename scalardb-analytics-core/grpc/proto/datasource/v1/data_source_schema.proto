@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package datasource.v1;
+
+message DataSourceSchema {
+  repeated NamespaceSchema namespaces = 1;
+}
+
+message NamespaceSchema {
+  repeated string names = 1;
+  repeated TableSchema tables = 2;
+}
+
+message TableSchema {
+  string name = 1;
+  repeated ColumnSchema columns = 2;
+}
+
+message ColumnSchema {
+  string name = 1;
+  string type = 2;
+  bool nullable = 3;
+}

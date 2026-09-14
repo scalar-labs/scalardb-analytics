@@ -1,0 +1,47 @@
+// Copied from https://github.com/scalar-labs/scalardb-cluster
+// Source: rpc/src/main/proto/scalardb-auth.proto
+// Version: 3.17
+
+syntax = "proto3";
+
+package scalardb.cluster.rpc.v1.auth;
+
+option java_multiple_files = true;
+option java_outer_classname = "ScalarDbClusterAuthProto";
+option java_package = "com.scalar.db.cluster.rpc.v1.auth";
+
+// Service that provides authentication for Scalar DB cluster.
+service AuthLogin {
+  // Authenticates a user and returns an auth token for authentication.
+  rpc Login(LoginRequest) returns (LoginResponse) {}
+
+  // Logs out a user.
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {}
+}
+
+// Request message for AuthLogin.Login.
+message LoginRequest {
+  // The username of the user.
+  string username = 1;
+
+  // The password of the user. If not set, the user is logged in without a password.
+  optional string password = 2;
+}
+
+// Response message for AuthLogin.Login.
+message LoginResponse {
+  // The auth token for authentication.
+  string auth_token = 1;
+
+  // The expiration time of the auth token in milliseconds since the epoch.
+  int64 expiration_time_millis = 2;
+}
+
+// Request message for AuthLogin.Logout.
+message LogoutRequest {
+  // The auth token.
+  string auth_token = 1;
+}
+
+// Response message for AuthLogin.Logout.
+message LogoutResponse {}

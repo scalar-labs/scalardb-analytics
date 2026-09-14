@@ -1,0 +1,223 @@
+syntax = "proto3";
+
+package auth.v1;
+
+enum GranteeType {
+  GRANTEE_TYPE_UNSPECIFIED = 0;
+  GRANTEE_TYPE_USER = 1;
+  GRANTEE_TYPE_ROLE = 2;
+}
+
+enum PermissionType {
+  PERMISSION_TYPE_UNSPECIFIED = 0;
+  PERMISSION_TYPE_CATALOG_READ = 1;
+  PERMISSION_TYPE_CATALOG_WRITE = 2;
+  PERMISSION_TYPE_CATALOG_ADMIN = 3;
+  PERMISSION_TYPE_DATA_SOURCE_READ = 4;
+  PERMISSION_TYPE_DATA_SOURCE_ADMIN = 5;
+  PERMISSION_TYPE_NAMESPACE_READ = 6;
+  PERMISSION_TYPE_TABLE_READ = 7;
+}
+
+enum PermissionSource {
+  PERMISSION_SOURCE_UNSPECIFIED = 0;
+  PERMISSION_SOURCE_DIRECT = 1;
+  PERMISSION_SOURCE_VIA_ROLE = 2;
+}
+
+message EffectivePermission {
+  PermissionType permission = 1;
+  string resource_id = 2;
+  PermissionSource source = 3;
+  // Set when source is VIA_ROLE.
+  optional string via_role_id = 4;
+  optional string via_role_name = 5;
+}
+
+// --- Grant by name (per resource type) ---
+
+message GrantCatalogPermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+}
+
+message GrantCatalogPermissionResponse {}
+
+message GrantDataSourcePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+}
+
+message GrantDataSourcePermissionResponse {}
+
+message GrantNamespacePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+  repeated string namespace_names = 6;
+}
+
+message GrantNamespacePermissionResponse {}
+
+message GrantTablePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+  repeated string namespace_names = 6;
+  string table_name = 7;
+}
+
+message GrantTablePermissionResponse {}
+
+// --- Grant by ID (single, resource-type agnostic) ---
+
+message GrantPermissionByIdRequest {
+  GranteeType grantee_type = 1;
+  string grantee_id = 2;
+  PermissionType permission = 3;
+  string resource_id = 4;
+}
+
+message GrantPermissionByIdResponse {}
+
+// --- Revoke by name (per resource type) ---
+
+message RevokeCatalogPermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+}
+
+message RevokeCatalogPermissionResponse {}
+
+message RevokeDataSourcePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+}
+
+message RevokeDataSourcePermissionResponse {}
+
+message RevokeNamespacePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+  repeated string namespace_names = 6;
+}
+
+message RevokeNamespacePermissionResponse {}
+
+message RevokeTablePermissionRequest {
+  GranteeType grantee_type = 1;
+  string grantee_name = 2;
+  PermissionType permission = 3;
+  string catalog_name = 4;
+  string data_source_name = 5;
+  repeated string namespace_names = 6;
+  string table_name = 7;
+}
+
+message RevokeTablePermissionResponse {}
+
+// --- Revoke by ID (single, resource-type agnostic) ---
+
+message RevokePermissionByIdRequest {
+  GranteeType grantee_type = 1;
+  string grantee_id = 2;
+  PermissionType permission = 3;
+  string resource_id = 4;
+}
+
+message RevokePermissionByIdResponse {}
+
+// --- List ---
+
+message ListPermissionsRequest {
+  string username = 1;
+}
+
+message ListPermissionsResponse {
+  repeated EffectivePermission permissions = 1;
+}
+
+message ListPermissionsByIdRequest {
+  string user_id = 1;
+}
+
+message ListPermissionsByIdResponse {
+  repeated EffectivePermission permissions = 1;
+}
+
+message ListPermissionsForRoleRequest {
+  string role_name = 1;
+}
+
+message ListPermissionsForRoleResponse {
+  repeated EffectivePermission permissions = 1;
+}
+
+message ListPermissionsForRoleByIdRequest {
+  string role_id = 1;
+}
+
+message ListPermissionsForRoleByIdResponse {
+  repeated EffectivePermission permissions = 1;
+}
+
+service PermissionService {
+  // Grant permission on a catalog to a user or role by name.
+  rpc GrantCatalogPermission(GrantCatalogPermissionRequest) returns (GrantCatalogPermissionResponse) {}
+
+  // Grant permission on a data source to a user or role by name.
+  rpc GrantDataSourcePermission(GrantDataSourcePermissionRequest) returns (GrantDataSourcePermissionResponse) {}
+
+  // Grant permission on a namespace to a user or role by name.
+  rpc GrantNamespacePermission(GrantNamespacePermissionRequest) returns (GrantNamespacePermissionResponse) {}
+
+  // Grant permission on a table to a user or role by name.
+  rpc GrantTablePermission(GrantTablePermissionRequest) returns (GrantTablePermissionResponse) {}
+
+  // Grant permission by ID. Resource-type agnostic.
+  rpc GrantPermissionById(GrantPermissionByIdRequest) returns (GrantPermissionByIdResponse) {}
+
+  // Revoke permission on a catalog from a user or role by name.
+  rpc RevokeCatalogPermission(RevokeCatalogPermissionRequest) returns (RevokeCatalogPermissionResponse) {}
+
+  // Revoke permission on a data source from a user or role by name.
+  rpc RevokeDataSourcePermission(RevokeDataSourcePermissionRequest) returns (RevokeDataSourcePermissionResponse) {}
+
+  // Revoke permission on a namespace from a user or role by name.
+  rpc RevokeNamespacePermission(RevokeNamespacePermissionRequest) returns (RevokeNamespacePermissionResponse) {}
+
+  // Revoke permission on a table from a user or role by name.
+  rpc RevokeTablePermission(RevokeTablePermissionRequest) returns (RevokeTablePermissionResponse) {}
+
+  // Revoke permission by ID. Resource-type agnostic.
+  rpc RevokePermissionById(RevokePermissionByIdRequest) returns (RevokePermissionByIdResponse) {}
+
+  // List effective permissions for a user by username.
+  rpc ListPermissions(ListPermissionsRequest) returns (ListPermissionsResponse) {}
+
+  // List effective permissions for a user by ID.
+  rpc ListPermissionsById(ListPermissionsByIdRequest) returns (ListPermissionsByIdResponse) {}
+
+  // List effective permissions for a role by name.
+  rpc ListPermissionsForRole(ListPermissionsForRoleRequest) returns (ListPermissionsForRoleResponse) {}
+
+  // List effective permissions for a role by ID.
+  rpc ListPermissionsForRoleById(ListPermissionsForRoleByIdRequest) returns (ListPermissionsForRoleByIdResponse) {}
+}

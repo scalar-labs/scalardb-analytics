@@ -1,0 +1,979 @@
+//| mill-version: 1.0.6
+//| mill-jvm-version: temurin:17
+//| mvnDeps: ["com.goyeau::mill-scalafix::0.6.0"]
+
+/*
+ * Copyright Scalar, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import mill.*
+import mill.scalalib.*
+import mill.scalalib.publish.*
+import mill.scalalib.scalafmt.ScalafmtModule
+import com.goyeau.mill.scalafix.ScalafixModule
+import mill.api.BuildCtx
+
+// Version constants
+object ScalaVersions {
+  val v212 = "2.12.20"
+  val v213 = "2.13.16"
+}
+
+object SparkVersions {
+  val v34 = "3.4.4"
+  val v35 = "3.5.6"
+}
+
+// Type-safe version representations
+sealed trait ScalaVersion {
+  def version: String
+  def short: String
+}
+object ScalaVersion {
+  case object V212 extends ScalaVersion {
+    val version = ScalaVersions.v212
+    val short   = "2.12"
+  }
+  case object V213 extends ScalaVersion {
+    val version = ScalaVersions.v213
+    val short   = "2.13"
+  }
+
+  val all = Seq(V212, V213)
+
+  // Define Cross.ToSegments instance for ScalaVersion
+  implicit val scalaVersionToSegments: Cross.ToSegments[ScalaVersion] =
+    Cross.ToSegments[ScalaVersion](v => List(v.short))
+}
+
+sealed trait SparkVersion {
+  def version: String
+  def short: String
+}
+object SparkVersion {
+  case object V34 extends SparkVersion {
+    val version = SparkVersions.v34
+    val short   = "3.4"
+  }
+  case object V35 extends SparkVersion {
+    val version = SparkVersions.v35
+    val short   = "3.5"
+  }
+
+  val all = Seq(V34, V35)
+
+  // Define Cross.ToSegments instance for SparkVersion
+  implicit val sparkVersionToSegments: Cross.ToSegments[SparkVersion] =
+    Cross.ToSegments[SparkVersion](v => List(v.short))
+}
+
+object Versions {
+  // ScalarDB Analytics version (this project)
+  val scalardbAnalytics = "3.20.0-SNAPSHOT"
+  // External ScalarDB dependencies
+  val scalardb = "3.20.0-SNAPSHOT"
+
+  val scalapb          = "0.11.17"
+  val scalatest        = "3.2.19"
+  val grpc             = "1.83.1"
+  val wartremover      = "3.2.2"
+  val slf4j            = "2.0.17"
+  val testcontainers   = "2.0.2"
+  val hikaricp         = "5.1.0"
+  val collectionCompat = "2.14.0"
+
+  // JDBC drivers
+  val postgresql = "42.7.8"
+  val mariadb    = "3.5.10"
+  val sqlserver  = "12.8.1.jre8"
+  val oracle     = "23.26.0.0.0"
+  val databricks = "1.0.11-oss"
+  val snowflake  = "3.27.1"
+
+  // AWS
+  val dynamodbHadoop = "5.8.0"
+  // AWS SDK v2 version for the dynamodb and apache-client artifacts. Kept in sync with the AWS SDK
+  // that ScalarDB pulls transitively (see the dynamodb/apache-client deps in datasource.dynamodb).
+  val awsDynamodb = "2.46.5"
+
+  // Hadoop
+  val hadoopCommon = "3.3.4"
+
+  // Native interop (must match Cassandra Driver's Apple Silicon profile on every platform)
+  val jnrFfi = "2.2.10"
+
+  // Jackson (must match jackson-bom in core's Gradle build)
+  val jacksonModuleScala = "2.22.0"
+
+  // Joda Time (required by emr-dynamodb-hadoop in Spark 3.4)
+  val jodaTime = "2.12.5"
+}
+
+// Base module with shared functionality
+// Extends PublishingConfig to make all modules publishable, which allows them to be used
+// in moduleDeps of other PublishModules (like spark). This prevents TestModule from trying
+// to resolve internal modules as Maven dependencies.
+trait BaseModule extends ScalaModule with ScalafmtModule with ScalafixModule with PublishingConfig {
+
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"com.typesafe.scala-logging::scala-logging:3.9.5".excludeOrg("org.scala-lang"),
+    mvn"org.scala-lang.modules::scala-collection-compat:${Versions.collectionCompat}"
+      .excludeOrg("org.scala-lang")
+  )
+
+  // Exclude scala-library from mandatory dependencies (it's provided by Spark)
+  override def mandatoryMvnDeps = Seq.empty
+
+  def repositories: T[Seq[String]] = Seq(
+    "central",
+    "m2local",
+    // Sonatype snapshots repository for SNAPSHOT versions
+    "https://central.sonatype.com/repository/maven-snapshots/"
+  )
+
+  def scalacOptions = Task {
+    val baseOptions = Seq(
+      "-deprecation",
+      "-feature",
+      "-unchecked",
+      "-Xlint"
+    )
+
+    // Scala 2.13+ specific warnings
+    val scala213Options = if (scalaVersion().startsWith("2.13")) {
+      Seq(
+        "-Wvalue-discard",
+        "-Wunused:imports",
+        "-Wunused:patvars",
+        "-Wunused:privates",
+        "-Wunused:locals",
+        "-Wunused:explicits",
+        "-Wunused:implicits",
+        "-Wunused:params"
+      )
+    } else {
+      Seq(
+        "-Ywarn-unused:imports",
+        "-Ywarn-unused:privates",
+        "-Ywarn-unused:locals",
+        "-Ywarn-value-discard"
+      )
+    }
+
+    // WartRemover options - all rules are now in error mode
+    val wartRemoverRules = Seq(
+      // Type safety
+      "AsInstanceOf",
+      "IsInstanceOf",
+      "Null",
+      "Product",
+      "Serializable",
+      // Code quality
+      "DefaultArguments",
+      "ExplicitImplicitTypes",
+      "FinalVal",
+      "ImplicitConversion",
+      "JavaConversions",
+      "JavaSerializable",
+      "LeakingSealed",
+      "MutableDataStructures",
+      "Nothing",
+      "PublicInference",
+      "Recursion",
+      "Return",
+      "StringPlusAny",
+      "Var",
+      // Partial functions
+      "EitherProjectionPartial",
+      "Option2Iterable",
+      "OptionPartial",
+      "TryPartial"
+    )
+
+    val wartRemoverOptions =
+      wartRemoverRules.map(rule => s"-P:wartremover:traverser:org.wartremover.warts.$rule")
+
+    baseOptions ++ scala213Options ++ wartRemoverOptions
+  }
+
+  def scalacPluginMvnDeps = Seq(
+    mvn"org.wartremover::wartremover:${Versions.wartremover}"
+  )
+
+  trait TestBaseModule extends ScalaTests with TestModule.ScalaTest {
+    def mvnDeps = Seq(
+      mvn"org.scalatest::scalatest:${Versions.scalatest}"
+    )
+  }
+}
+
+// Cross-build specific settings (Scala version first, Spark version second)
+trait CrossBuildModule extends Cross.Module2[ScalaVersion, SparkVersion] with BaseModule {
+  def scalaVersion = crossValue.version
+  def sparkVersion = crossValue2.version
+
+  // Spark dependencies as compileOnly by default
+  override def compileMvnDeps = super.compileMvnDeps() ++ Seq(
+    mvn"org.scala-lang:scala-library:$scalaVersion",
+    mvn"org.apache.spark::spark-core:$sparkVersion",
+    mvn"org.apache.spark::spark-sql:$sparkVersion",
+    mvn"org.apache.spark::spark-catalyst:$sparkVersion"
+  )
+}
+
+// Publishing configuration trait
+trait PublishingConfig extends PublishModule {
+  // Publishing configuration
+  def publishVersion = Versions.scalardbAnalytics
+
+  def pomSettings = PomSettings(
+    description =
+      "The analytics component of ScalarDB, enabling advanced query operations such as joins and aggregations by leveraging the power of Apache Spark and Spark SQL",
+    organization = "com.scalar-labs",
+    url = "https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/",
+    licenses = Seq(
+      License(
+        id = "Apache-2.0",
+        name = "Apache License, Version 2.0",
+        url = "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        isOsiApproved = true,
+        isFsfLibre = true,
+        distribution = "repo"
+      )
+    ),
+    versionControl = VersionControl.github("scalar-labs", "scalardb-analytics"),
+    developers = Seq(
+      Developer("hiroyuki", "Hiroyuki Yamada", "hiroyuki.yamada@scalar-labs.com"),
+      Developer("aki", "Akihiro Okuno", "akihiro.okuno@scalar-labs.com")
+    )
+  )
+}
+
+// Cross-build matrix for two axes (Scala version first, then Spark version)
+lazy val crossMatrix = for {
+  scalaVer <- ScalaVersion.all
+  sparkVer <- SparkVersion.all
+} yield (scalaVer, sparkVer)
+
+// Define cross modules with new names (no spark- prefix)
+object compat      extends Cross[CompatModule](crossMatrix)
+trait CompatModule extends CrossBuildModule {
+  // Base source directory
+  def baseSources = Task.Sources("src")
+
+  // Scala version specific sources
+  def scalaVersionSources = crossValue match {
+    case ScalaVersion.V212 => Task.Sources("src-2.12")
+    case ScalaVersion.V213 => Task.Sources("src-2.13")
+  }
+
+  // Spark version specific sources
+  def sparkVersionSources = crossValue2 match {
+    case SparkVersion.V34 => Task.Sources("src-spark3.4")
+    case SparkVersion.V35 => Task.Sources("src-spark3.5")
+  }
+
+  // Combine all sources
+  override def sources =
+    baseSources() ++ scalaVersionSources() ++ sparkVersionSources()
+
+  object test extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      // Add Spark dependencies for tests
+      mvn"org.apache.spark::spark-sql:$sparkVersion",
+      mvn"org.apache.spark::spark-catalyst:$sparkVersion"
+    )
+  }
+}
+
+object lib extends Cross[LibModule](crossMatrix)
+trait LibModule extends CrossBuildModule {
+  def moduleDeps = Seq(
+    compat(crossValue, crossValue2)
+  )
+
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}"
+  )
+
+  object test extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.apache.spark::spark-sql:$sparkVersion"
+    )
+  }
+}
+
+object spark      extends Cross[SparkModule](crossMatrix)
+trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCentralPublishModule {
+
+  /** POM licenses and embedded license/NOTICE files for this assembly variant. */
+  def dependencyLicenseInventory: T[PathRef] = Task {
+    val rootDependency = BoundDep(
+      coursierDependencyTask().withVariantSelector(
+        coursier.core.VariantSelector.ConfigurationBased(coursier.core.Configuration.runtime)
+      ),
+      force = false
+    )
+    LicenseReportSupport.collectInventory(
+      millResolver(),
+      rootDependency,
+      resolvedRunMvnDeps(),
+      Task.dest / "inventory.json"
+    )
+  }
+
+  // artifactName should not include Scala version as Mill adds it automatically
+  def artifactName = Task {
+    val sparkMajorMinor = crossValue2.short
+    s"scalardb-analytics-spark-all-$sparkMajorMinor"
+  }
+
+  // Custom pom generation to exclude fat jar dependencies
+  override def pom = Task {
+    val pomXml = super.pom()
+
+    // Create a custom pom that only includes runtime dependencies
+    import scala.xml._
+    import scala.xml.transform._
+
+    // Capture versions before transform to ensure they're available in XML literals
+    val scalaVer   = crossValue.version
+    val sparkVer   = crossValue2.version
+    val scalaShort = crossValue.short
+
+    val customTransform = new RuleTransformer(new RewriteRule {
+      override def transform(n: Node): Seq[Node] = n match {
+        case e: Elem if e.label == "name" =>
+          <name>ScalarDB Analytics with Spark</name>
+        case e: Elem if e.label == "licenses" =>
+          <licenses>
+            <license>
+              <name>Apache License, Version 2.0</name>
+              <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+              <distribution>repo</distribution>
+            </license>
+          </licenses>
+        case e: Elem if e.label == "developers" =>
+          <developers>
+            <developer>
+              <id>hiroyuki</id>
+              <name>Hiroyuki Yamada</name>
+              <email>hiroyuki.yamada@scalar-labs.com</email>
+            </developer>
+            <developer>
+              <id>aki</id>
+              <name>Akihiro Okuno</name>
+              <email>akihiro.okuno@scalar-labs.com</email>
+            </developer>
+          </developers>
+        case e: Elem if e.label == "scm" =>
+          // Remove connection and developerConnection, keep only url for private repository
+          e.copy(child = e.child.filter {
+            case elem: Elem => elem.label != "connection" && elem.label != "developerConnection"
+            case other      => true
+          })
+        case e: Elem if e.label == "dependencies" =>
+          // Create new dependencies with runtime scope
+          <dependencies>
+            <dependency>
+              <groupId>org.scala-lang</groupId>
+              <artifactId>scala-library</artifactId>
+              <version>{Text(scalaVer)}</version>
+              <scope>runtime</scope>
+            </dependency>
+            <dependency>
+              <groupId>org.apache.spark</groupId>
+              <artifactId>{Text(s"spark-core_$scalaShort")}</artifactId>
+              <version>{Text(sparkVer)}</version>
+              <scope>runtime</scope>
+            </dependency>
+            <dependency>
+              <groupId>org.apache.spark</groupId>
+              <artifactId>{Text(s"spark-sql_$scalaShort")}</artifactId>
+              <version>{Text(sparkVer)}</version>
+              <scope>runtime</scope>
+            </dependency>
+          </dependencies>
+        case other => other
+      }
+    })
+
+    val transformedXml = customTransform(XML.loadString(os.read(pomXml.path)))
+    val outputPath     = Task.dest / s"${artifactId()}.pom"
+
+    // Format XML with PrettyPrinter for clean output
+    val prettyPrinter = new PrettyPrinter(120, 2)
+    val formattedXml  = prettyPrinter.format(transformedXml)
+    os.write(outputPath, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + formattedXml)
+
+    PathRef(outputPath)
+  }
+
+  // Override extraPublish to publish assembly jar
+  override def extraPublish = Seq(
+    PublishInfo(
+      file = assembly(),
+      classifier = None,
+      ext = "jar",
+      ivyConfig = "compile"
+    )
+  )
+
+  // Override docJar to create dummy javadoc jar with only README
+  override def docJar = Task {
+    val readmePath = Task.dest / "README"
+    os.write(readmePath, "")
+    val jarPath = Task.dest / "javadoc.jar"
+    os.proc("jar", "cf", jarPath, "-C", Task.dest, "README").call()
+    PathRef(jarPath)
+  }
+
+  // Override sourceJar to create dummy sources jar with only README
+  override def sourceJar = Task {
+    val readmePath = Task.dest / "README"
+    os.write(readmePath, "")
+    val jarPath = Task.dest / "sources.jar"
+    os.proc("jar", "cf", jarPath, "-C", Task.dest, "README").call()
+    PathRef(jarPath)
+  }
+
+  // Internal module dependencies
+  override def moduleDeps = Seq(
+    lib(crossValue, crossValue2),
+    datasource.scalardb(crossValue, crossValue2),
+    datasource.dynamodb(crossValue, crossValue2)
+  )
+
+  // Dependencies that should be included in the fat jar (but not in pom)
+  def mvnDeps = super.mvnDeps() ++ Seq(
+    // ScalarDB Analytics client SDK
+    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}",
+    mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
+    mvn"com.scalar-labs:scalardb-analytics-grpc-common:${Versions.scalardbAnalytics}",
+    // Cassandra Driver 3.12.1 otherwise selects 2.2.10 only on Apple Silicon and 2.1.7 elsewhere.
+    mvn"com.github.jnr:jnr-ffi:${Versions.jnrFfi}",
+    // JDBC drivers
+    mvn"org.postgresql:postgresql:${Versions.postgresql}",
+    mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
+    mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
+    mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
+    mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
+    mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}"
+  )
+
+  // Fat JAR assembly with proper exclusions and relocations
+  import mill.scalalib.Assembly._
+  override def assemblyRules = Seq(
+    // Exclude files that should not be in the fat jar
+    Rule.ExcludePattern("META-INF/INDEX\\.LIST"),
+    Rule.ExcludePattern("META-INF/.*\\.SF"),
+    Rule.ExcludePattern("META-INF/.*\\.DSA"),
+    Rule.ExcludePattern("META-INF/.*\\.RSA"),
+    Rule.ExcludePattern("module-info\\.class"),
+    // Exclude third-party attribution files. They collide first-writer-wins, which leaves one
+    // arbitrary dependency's text at the paths a consumer reads as this artifact's own. Their
+    // content is preserved verbatim in META-INF/THIRD-PARTY-NOTICES.txt, so nothing is lost.
+    // The match is case-insensitive because META-INF/license.txt is the same colliding path:
+    // 53 dependencies ship it, and which one survives is an accident of resolution order.
+    // When this artifact ships its own LICENSE (scalardb-analytics#559), narrow these patterns
+    // or add that file after the rules are applied, or it will be stripped along with the rest.
+    Rule.ExcludePattern("(?i)META-INF/LICENSE(\\..*)?"),
+    Rule.ExcludePattern("(?i)META-INF/NOTICE(\\..*)?"),
+    Rule.ExcludePattern("(?i)META-INF/(LICENSE|NOTICE)_binary(\\..*)?"),
+    Rule.ExcludePattern("(?i)META-INF/DEPENDENCIES"),
+    // Merge service files
+    Rule.AppendPattern("META-INF/services/.*"),
+    // Then relocate packages (this will also relocate the service file names and contents)
+    Rule.Relocate("com.google.common.**", "com.scalar.db.relocated.google.common.@1"),
+    Rule.Relocate("com.google.protobuf.**", "com.scalar.db.relocated.google.protobuf.@1"),
+    Rule.Relocate("io.grpc.**", "com.scalar.db.relocated.io.grpc.@1"),
+    Rule.Relocate("com.zaxxer.hikari.**", "com.scalar.db.relocated.com.zaxxer.hikari.@1"),
+    // These two relocations are required for Azure Synapse Analytics
+    Rule.Relocate(
+      "org.apache.commons.pool2.**",
+      "com.scalar.db.relocated.org.apache.commons.pool2.@1"
+    ),
+    Rule.Relocate("com.fasterxml.jackson.**", "com.scalar.db.relocated.com.fasterxml.jackson.@1")
+  )
+
+  /** Aggregate notice and Oracle FUTC text for exactly what this assembly variant bundles.
+    *
+    * Generation runs as part of the build rather than from a committed copy, so the text always
+    * matches the dependencies that were just resolved.
+    */
+  def generateLicenseReport: T[PathRef] = Task {
+    val inventory = ujson.read(os.read(dependencyLicenseInventory().path))
+    val metaInf   = Task.dest / "META-INF"
+    os.makeDir.all(metaInf)
+    os.write.over(
+      metaInf / "THIRD-PARTY-NOTICES.txt",
+      LicenseReportSupport.renderReport(
+        inventory,
+        ujson.read(licenseReport.normalizerBundle()),
+        Versions.scalardbAnalytics
+      )
+    )
+    os.write.over(metaInf / "ORACLE-FUTC.txt", LicenseReportSupport.oracleFutc(inventory))
+    PathRef(Task.dest)
+  }
+
+  /** Carry the generated license texts in the assembly only.
+    *
+    * Appending them to `resources` would put them on `localClasspath`, which Mill's nested test
+    * module also depends on. `oracleFutc` fails the build unless ojdbc8 ships exactly one FUTC text
+    * — a packaging-time invariant that has no business failing the unit tests.
+    *
+    * This mirrors `AssemblyModule.assembly`, adding the generated directory to `inputPaths`.
+    */
+  override def assembly: T[PathRef] = Task {
+    val prependScript = Option(prependShellScript()).filter(_ != "")
+    Assembly
+      .create(
+        destJar = Task.dest / "out.jar",
+        inputPaths = localClasspath().map(_.path) :+ generateLicenseReport().path,
+        manifest = manifest(),
+        prependShellScript = prependScript,
+        base = Some(upstreamAssembly()),
+        assemblyRules = assemblyRules,
+        shader = mill.javalib.AssemblyModule.jarjarabramsWorker()
+      )
+      .pathRef
+  }
+
+  object test extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.apache.spark::spark-sql:$sparkVersion",
+      mvn"org.apache.spark::spark-catalyst:$sparkVersion"
+    )
+  }
+
+  object integrationTest extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      // Test framework
+      mvn"org.scalatest::scalatest:${Versions.scalatest}",
+      // ScalarDB Analytics Client SDK (use hardcoded version same as publishVersion)
+      mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
+      // Testcontainers
+      mvn"org.testcontainers:testcontainers-mysql:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-postgresql:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-oracle-free:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-mssqlserver:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-localstack:${Versions.testcontainers}",
+      // JDBC drivers
+      mvn"org.postgresql:postgresql:${Versions.postgresql}",
+      mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
+      mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
+      mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
+      mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
+      mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}",
+      // HikariCP for connection pooling
+      mvn"com.zaxxer:HikariCP:${Versions.hikaricp}",
+      // ScalarDB
+      mvn"com.scalar-labs:scalardb:${Versions.scalardb}",
+      mvn"com.scalar-labs:scalardb-schema-loader:${Versions.scalardb}",
+      // AWS SDK for DynamoDB
+      mvn"software.amazon.awssdk:dynamodb:${Versions.awsDynamodb}",
+      // Spark dependencies
+      mvn"org.apache.spark::spark-core:$sparkVersion",
+      mvn"org.apache.spark::spark-sql:$sparkVersion",
+      mvn"org.apache.spark::spark-catalyst:$sparkVersion",
+      // Jackson - override Spark's bundled version to match client-sdk's jackson-bom
+      mvn"com.fasterxml.jackson.module::jackson-module-scala:${Versions.jacksonModuleScala}",
+      // SLF4J for logging
+      mvn"org.slf4j:slf4j-api:${Versions.slf4j}",
+      mvn"org.slf4j:slf4j-simple:${Versions.slf4j}"
+    )
+
+    override def scalacOptions =
+      super
+        .scalacOptions()
+        // Value discard warnings: Testcontainers' configure blocks return non-Unit values.
+        // Note: @nowarn annotation is not available in Scala 2.12 (only 2.13+).
+        .filterNot(_ == "-Ywarn-value-discard")
+        // Null checks: Integration tests commonly use Java APIs that accept null values
+        // (e.g., RegisterDataSourceRequest's null schema parameter).
+        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.Null"))
+        // AsInstanceOf checks: Integration tests require type casting for dynamic data access
+        // (e.g., row.get().asInstanceOf[Array[Byte]]).
+        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.AsInstanceOf"))
+
+    // JVM options for Spark on Java 17+
+    def forkArgs = Seq(
+      "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
+      "--add-exports=java.base/sun.util.calendar=ALL-UNNAMED",
+      "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+      // Apache Arrow (used by Databricks JDBC driver) requires access to java.nio
+      "--add-opens=java.base/java.nio=ALL-UNNAMED",
+      // Suppress SLF4J internal messages (initialization warnings, etc.) in SLF4J 2.x
+      // Set to ERROR to suppress WARN-level messages like "multiple SLF4J providers"
+      "-Dslf4j.internal.verbosity=ERROR",
+      // Configure java.util.logging (for SQL Server JDBC and other JUL-based loggers)
+      "-Djava.util.logging.config.file=spark/integrationTest/resources/logging.properties"
+    )
+
+    // Run tests sequentially (parallelism = 1)
+    // Set timeout to 15 minutes for Oracle tests (large image download + startup)
+    def testArgs = Seq("-P1", "-T900")
+  }
+}
+
+// Datasource modules
+object datasource extends Module {
+  object scalardb                extends Cross[ScalarDbDataSourceModule](crossMatrix)
+  trait ScalarDbDataSourceModule extends CrossBuildModule {
+    // This module is not published independently; it's included in spark fat jar
+    def artifactName = "scalardb-analytics-spark-datasource-scalardb"
+
+    def moduleDeps = Seq(
+      compat(crossValue, crossValue2),
+      lib(crossValue, crossValue2)
+    )
+
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"com.scalar-labs:scalardb:${Versions.scalardb}"
+    )
+
+    object test extends TestBaseModule {
+      def mvnDeps = super.mvnDeps() ++ Seq(
+        mvn"org.apache.spark::spark-sql:$sparkVersion"
+      )
+    }
+  }
+
+  object dynamodb                extends Cross[DynamoDbDataSourceModule](crossMatrix)
+  trait DynamoDbDataSourceModule extends CrossBuildModule {
+    // This module is not published independently; it's included in spark fat jar
+    def artifactName = "scalardb-analytics-spark-datasource-dynamodb"
+
+    def moduleDeps = Seq(
+      lib(crossValue, crossValue2),
+      compat(crossValue, crossValue2)
+    )
+
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      // AWS DynamoDB dependencies.
+      // We use ScyllaDB's fork of EMR DynamoDB Hadoop instead of the upstream
+      // com.amazon.emr:emr-dynamodb-hadoop. It was originally adopted because the upstream had not
+      // released a version with the AWS SDK v2 changes we needed:
+      //   https://github.com/awslabs/emr-dynamodb-connector/pull/203
+      //   https://github.com/awslabs/emr-dynamodb-connector/pull/201
+      // Upstream has since released those (5.6.0), but we now also depend on the fork-only
+      // DynamoDbClientBuilderTransformer hook (DynamoDBConstants.CUSTOM_CLIENT_BUILDER_TRANSFORMER),
+      // which upstream still lacks. We use it via RemoveRegionDynamoDbClientBuilderTransformer to
+      // drop the region from the client builder so a custom endpoint (e.g. DynamoDB Local) is
+      // honored. Switching back to upstream would not compile until that hook is available there.
+      mvn"com.scylladb.alternator:emr-dynamodb-hadoop:${Versions.dynamodbHadoop}",
+      // This version is a floor: ScalarDB pulls a newer AWS SDK transitively, so dynamodb may be
+      // overridden to a higher version at resolution. We keep Versions.awsDynamodb aligned with it
+      // so apache-client below (which nothing else requests) resolves to the same AWS SDK version.
+      mvn"software.amazon.awssdk:dynamodb:${Versions.awsDynamodb}",
+      // emr-dynamodb-hadoop's DynamoDBClient hardcodes the AWS SDK v2 Apache HTTP client
+      // (software.amazon.awssdk.http.apache.ApacheHttpClient) as its sync HTTP client. AWS SDK
+      // 2.46.0 made apache5-client the default sync HTTP client of the service modules, dropping
+      // apache-client from the transitive classpath; ScalarDB now resolves AWS SDK 2.46.x, so
+      // apache-client is no longer present and reading DynamoDB data sources fails with
+      // NoClassDefFoundError. Declare it explicitly. See:
+      //   https://github.com/aws/aws-sdk-java-v2/pull/6732 (made apache5-client the default)
+      //   https://github.com/aws/aws-sdk-java-v2/pull/6964 (acknowledges the EMR / ApacheHttpClient break)
+      //   https://github.com/aws/aws-sdk-java-v2/commit/faf0ded25c57c9183fc7dac986ab20d238c67db6
+      mvn"software.amazon.awssdk:apache-client:${Versions.awsDynamodb}",
+      // Joda Time (transitive dependency of emr-dynamodb-hadoop, explicitly added for Spark 3.4)
+      mvn"joda-time:joda-time:${Versions.jodaTime}"
+    )
+
+    object test extends TestBaseModule {
+      def mvnDeps = super.mvnDeps() ++ Seq(
+        // Add Hadoop dependency for tests
+        mvn"org.apache.hadoop:hadoop-common:${Versions.hadoopCommon}"
+      )
+    }
+  }
+}
+
+/** Dependency license policy enforcement across all Spark assembly variants.
+  *
+  * The merged inventory is an intermediate result and is never published; each assembly variant
+  * generates its own notice from its own runtime classpath.
+  */
+object licenseReport extends Module {
+  private def repositoryRoot: os.Path = BuildCtx.workspaceRoot / os.up
+
+  private def allowedLicensesFile: T[PathRef] =
+    Task.Source(repositoryRoot / "allowed-licenses.json")
+
+  private def normalizerBundleFile: T[PathRef] =
+    Task.Source(
+      BuildCtx.workspaceRoot / "license-normalizer" / "default-license-normalizer-bundle.json"
+    )
+
+  def normalizerBundle: T[String] = Task {
+    os.read(normalizerBundleFile().path)
+  }
+
+  private def allInventories: T[Seq[PathRef]] = Task {
+    Task.traverse(crossMatrix) { case (scalaVersion, sparkVersion) =>
+      spark(scalaVersion, sparkVersion).dependencyLicenseInventory
+    }()
+  }
+
+  private def mergedInventory: T[ujson.Value] = Task {
+    LicenseReportSupport.mergeInventories(allInventories())
+  }
+
+  def checkLicense() = Task.Command {
+    val allowedRules = ujson.read(os.read(allowedLicensesFile().path))("allowedLicenses").arr
+    val bundle       = ujson.read(normalizerBundle())
+    val rejected = mergedInventory().arr.flatMap { module =>
+      val normalized = module("licenses").arr.flatMap { license =>
+        LicenseReportSupport
+          .normalizedLicenses(license("name").str, license("url").str, bundle)
+          .map(_._1)
+      }.distinct
+      val moduleName = s"${module("group").str}:${module("name").str}"
+      val candidates = if (normalized.nonEmpty) normalized else Seq("")
+      val approved = candidates.exists { licenseName =>
+        allowedRules.exists { rule =>
+          licenseName.matches(rule("moduleLicense").str) &&
+          rule.obj.get("moduleName").forall(pattern => moduleName.matches(pattern.str)) &&
+          rule.obj
+            .get("moduleVersion")
+            .forall(pattern => module("version").str.matches(pattern.str))
+        }
+      }
+      if (approved) None
+      else {
+        val coordinate =
+          s"${module("group").str}:${module("name").str}:${module("version").str}"
+        Some(coordinate -> normalized)
+      }
+    }
+
+    if (rejected.nonEmpty) {
+      val details = rejected
+        .map { case (coordinate, licenses) =>
+          val names = if (licenses.nonEmpty) licenses.mkString(", ") else "<missing POM license>"
+          s"- $coordinate: $names"
+        }
+        .mkString("\n")
+      throw new RuntimeException(s"Dependencies with unapproved POM licenses:\n$details")
+    }
+    println(s"All ${mergedInventory().arr.size} dependencies use approved POM licenses.")
+  }
+}
+
+/** Collect all test reports from all modules and copy them to Task.dest directory.
+  *
+  * This task collects test reports from all modules (spark, compat, lib, datasource). Reports are
+  * organized by module path preserving the original structure.
+  *
+  * Usage: ./mill collectTestReports Output location: out/collectTestReports.dest/
+  */
+def collectTestReports() = Task.Command {
+  val outputPath = Task.dest
+  val outDir     = Task.dest / os.up // out/collectTestReports.dest/.. = out/
+
+  println(s"Collecting test reports from $outDir to $outputPath")
+
+  if (os.exists(outDir)) {
+    var reportCount = 0
+
+    // Walk through out/ and find all testForked.dest directories (Mill test reports)
+    os.walk(outDir).filter(p => p.last == "testForked.dest").foreach { reportDir =>
+      val relativePath = reportDir.relativeTo(outDir)
+      val parts        = relativePath.segments.toSeq
+
+      // Build destination path with version prefix
+      // Example: out/spark/2.12/3.4/test/testForked.dest -> {Task.dest}/2.12-3.4/spark/test/
+      val pathSegments = parts.dropRight(1) // Remove "testForked.dest" from path
+      if (pathSegments.length >= 3) {
+        // Extract components: [...module...]/scalaVer/sparkVer/testType
+        val testType   = pathSegments.last
+        val sparkVer   = pathSegments(pathSegments.length - 2)
+        val scalaVer   = pathSegments(pathSegments.length - 3)
+        val modulePath = pathSegments.dropRight(3)
+
+        // Build new path: {scalaVer-sparkVer}/{module}/{testType}
+        val versionPrefix = s"$scalaVer-$sparkVer"
+        val newPath       = Seq(versionPrefix) ++ modulePath ++ Seq(testType)
+        val destDir       = newPath.foldLeft(outputPath)((acc, seg) => acc / seg)
+
+        os.makeDir.all(destDir)
+        os.copy(reportDir, destDir, replaceExisting = true, createFolders = true)
+        println(s"Copied test reports: ${newPath.mkString("/")}")
+        reportCount += 1
+      }
+    }
+
+    if (reportCount == 0) {
+      println("No test reports found. Make sure tests have been run.")
+    } else {
+      println(s"Successfully collected $reportCount test report directories to $outputPath")
+    }
+  } else {
+    println(s"Warning: out directory does not exist at $outDir")
+  }
+}
+
+/** The build definition itself, exposed as sources so that the Scalafmt tasks reach `.mill` files.
+  *
+  * `mill.scalalib.scalafmt/checkFormatAll` defaults to `__.sources`, and its file filter already
+  * accepts Mill's build file extensions; only the sources task was missing.
+  */
+object buildSources extends Module {
+  def sources: T[Seq[PathRef]] = Task.Sources(
+    BuildCtx.workspaceRoot / "build.mill",
+    BuildCtx.workspaceRoot / "license-report.mill"
+  )
+}
+
+/** Check POM-derived licenses for every supported Scala and Spark combination. */
+def checkLicense() = Task.Command {
+  licenseReport.checkLicense()()
+}
+
+/** CI test runner providing test execution strategies for different CI scenarios.
+  *
+  * This module provides:
+  *   - Complete unit test execution (unitTest) for all modules
+  *   - Selective integration test execution for CI resource optimization
+  *   - Database version coverage strategies (latest only vs all versions)
+  *   - Separate Oracle version tasks (to avoid disk space issues)
+  *   - Separate tasks for cloud platform tests (Databricks, Snowflake)
+  *
+  * Usage examples: ./mill 'ciTest[2.12,3.4].unitTest' # Run all unit tests ./mill
+  * 'ciTest[2.12,3.4].integrationTestLatest' # Regular CI (latest, Oracle excluded) ./mill
+  * 'ciTest[2.12,3.4].integrationTestAll' # Weekly CI (all versions, Oracle excluded) ./mill
+  * 'ciTest[2.12,3.4].integrationTestOracle23' # Oracle 23c only ./mill
+  * 'ciTest[2.12,3.4].integrationTestOracle21' # Oracle 21c only ./mill
+  * 'ciTest[2.12,3.4].integrationTestOracle19' # Oracle 19c only ./mill
+  * 'ciTest[2.12,3.4].integrationTestDatabricks' # Databricks only ./mill
+  * 'ciTest[2.12,3.4].integrationTestSnowflake' # Snowflake only
+  *
+  * Note: When adding new modules, update the test lists in runUnitTest.
+  */
+object ciTest extends Cross[CiTestModule](crossMatrix)
+trait CiTestModule extends Cross.Module2[ScalaVersion, SparkVersion] {
+  val scalaVer: ScalaVersion = crossValue
+  val sparkVer: SparkVersion = crossValue2
+
+  /** Run all unit tests for this version combination */
+  def unitTest: Task.Simple[Unit] = Task {
+    runUnitTest()
+    ()
+  }
+
+  private val testModules: Seq[TestModule.ScalaTest] = Seq(
+    compat(scalaVer, sparkVer).test,
+    lib(scalaVer, sparkVer).test,
+    datasource.scalardb(scalaVer, sparkVer).test,
+    datasource.dynamodb(scalaVer, sparkVer).test,
+    spark(scalaVer, sparkVer).test
+  )
+  private def runUnitTest = Task.traverse(testModules)(_.testForked())
+
+  /** Run integration tests for latest database versions (for regular CI runs). Includes:
+    *   - CatalogTest (basic catalog tests)
+    *   - Latest versions: MySQL 8.4, PostgreSQL 18, SQL Server 2022, DynamoDB Local
+    *   - ScalarDB tests with latest versions (excluding Oracle)
+    *
+    * Excludes: Oracle (run separately due to disk space), Databricks, Snowflake (require
+    * environment setup)
+    */
+  def integrationTestLatest(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.CatalogTest",
+      "com.scalar.db.analytics.spark.mysql.CatalogWithMySql84Test",
+      "com.scalar.db.analytics.spark.postgresql.CatalogWithPostgreSql18Test",
+      "com.scalar.db.analytics.spark.sqlserver.CatalogWithSqlServer2022Test",
+      "com.scalar.db.analytics.spark.dynamodb.CatalogWithDynamoDbTest",
+      "com.scalar.db.analytics.spark.scalardb.mysql.ScalarDbWithMySqlTest",
+      "com.scalar.db.analytics.spark.scalardb.postgresql.ScalarDbWithPostgreSqlTest",
+      "com.scalar.db.analytics.spark.scalardb.sqlserver.ScalarDbWithSqlServerTest",
+      "com.scalar.db.analytics.spark.scalardb.dynamodb.ScalarDbWithDynamoDbTest"
+    )()
+  }
+
+  /** Run integration tests for all database versions (for weekly CI runs). Includes all version
+    * variations:
+    *   - MySQL 8.0, 8.4
+    *   - PostgreSQL 16, 17, 18
+    *   - SQL Server 2017, 2019, 2022
+    *   - DynamoDB Local
+    *   - ScalarDB tests with all supported databases (excluding Oracle)
+    *
+    * Excludes: Oracle (run separately due to disk space), Databricks, Snowflake (require
+    * environment setup)
+    */
+  def integrationTestAll(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.CatalogTest",
+      "com.scalar.db.analytics.spark.mysql.*",
+      "com.scalar.db.analytics.spark.postgresql.*",
+      "com.scalar.db.analytics.spark.sqlserver.*",
+      "com.scalar.db.analytics.spark.dynamodb.*",
+      "com.scalar.db.analytics.spark.scalardb.mysql.*",
+      "com.scalar.db.analytics.spark.scalardb.postgresql.*",
+      "com.scalar.db.analytics.spark.scalardb.sqlserver.*",
+      "com.scalar.db.analytics.spark.scalardb.dynamodb.*"
+    )()
+  }
+
+  /** Run Oracle 23c integration tests only. Oracle Docker images are very large (several GB) and
+    * require extended timeout. Run separately to avoid disk space issues when running with --jobs
+    * 2.
+    */
+  def integrationTestOracle23(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.oracle.CatalogWithOracle23Test",
+      "com.scalar.db.analytics.spark.scalardb.oracle.ScalarDbWithOracleTest"
+    )()
+  }
+
+  /** Run Oracle 21c integration tests only. Oracle Docker images are very large (several GB) and
+    * require extended timeout. Run separately to avoid disk space issues when running with --jobs
+    * 2.
+    */
+  def integrationTestOracle21(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.oracle.CatalogWithOracle21Test"
+    )()
+  }
+
+  /** Run Oracle 19c integration tests only. Oracle Docker images are very large (several GB) and
+    * require extended timeout. Run separately to avoid disk space issues when running with --jobs
+    * 2.
+    */
+  def integrationTestOracle19(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.oracle.CatalogWithOracle19Test"
+    )()
+  }
+
+  /** Run Databricks integration tests only (for separate CI runs with environment setup). Requires
+    * environment variables:
+    *   - ANALYTICS_INT_TEST_ENV=CI
+    *   - ANALYTICS_INT_TEST_ENV_DATABRICKS_HOST
+    *   - ANALYTICS_INT_TEST_ENV_DATABRICKS_HTTP_PATH
+    *   - ANALYTICS_INT_TEST_ENV_DATABRICKS_O_AUTH_CLIENT_ID
+    *   - ANALYTICS_INT_TEST_ENV_DATABRICKS_O_AUTH_SECRET
+    */
+  def integrationTestDatabricks(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.databricks.CatalogWithDatabricksTest"
+    )()
+  }
+
+  /** Run Snowflake integration tests only (for separate CI runs with environment setup). Requires
+    * environment variables:
+    *   - ANALYTICS_INT_TEST_ENV=CI
+    *   - ANALYTICS_INT_TEST_ENV_SNOWFLAKE_ACCOUNT
+    *   - ANALYTICS_INT_TEST_ENV_SNOWFLAKE_USERNAME
+    *   - ANALYTICS_INT_TEST_ENV_SNOWFLAKE_PASSWORD
+    */
+  def integrationTestSnowflake(args: String*) = Task.Command {
+    spark(scalaVer, sparkVer).integrationTest.testOnly(
+      "com.scalar.db.analytics.spark.snowflake.CatalogWithSnowflakeTest"
+    )()
+  }
+}

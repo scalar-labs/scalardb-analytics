@@ -1,0 +1,10 @@
+{
+  "scalardb_analytics.catalogs": {
+    "partition-key": ["catalog_id"],
+    "columns": {
+      "catalog_id": "TEXT",
+      "name": "TEXT",
+      "created_at": "TIMESTAMPTZ"
+    }
+  }
+}

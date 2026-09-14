@@ -1,0 +1,257 @@
+/*
+ * Copyright Scalar, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package build
+
+import coursier.core.{Dependency, Module as CoursierModuleId, Project}
+import coursier.version.VersionConstraint
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.jar.JarFile
+import java.util.regex.Pattern
+import mill.*
+import mill.api.{PathRef, TaskCtx}
+import mill.javalib.{BoundDep, CoursierModule}
+import scala.jdk.CollectionConverters.*
+import scala.util.Using
+
+object LicenseReportSupport {
+  private val OwnGroup = "com.scalar-labs"
+  // DEPENDENCIES is matched on the exact file name rather than as a substring: it is the
+  // attribution file the Maven remote-resources plugin generates, and a substring match also
+  // picks up unrelated metadata such as dependencies.properties.
+  private val EmbeddedFileNames =
+    "(?i)(?:META-INF/)?(?:[^/]*(?:LICENSE|NOTICE|COPYING)[^/]*|DEPENDENCIES)$".r
+
+  def collectInventory(
+      resolver: CoursierModule.Resolver,
+      rootDependency: BoundDep,
+      runtimeArtifacts: Seq[PathRef],
+      output: os.Path
+  )(using TaskCtx): PathRef = {
+    require(runtimeArtifacts.nonEmpty, "The assembly runtime classpath is empty")
+    val resolution = resolver.resolution(Seq(rootDependency))
+    val artifacts  = resolver.artifacts(Seq(rootDependency)).detailedArtifacts0
+
+    val projectCache = resolution.projectCache0
+    val modules = artifacts
+      .collect {
+        case (dependency, _, _, file)
+            if dependency.module.organization.value != OwnGroup && file.getName.endsWith(".jar") =>
+          val project = projectFor(projectCache, dependency)
+          val (projectUrl, licenses) =
+            project.map(inheritedPomInfo(projectCache, _, maxDepth = 6)).getOrElse("" -> Seq.empty)
+
+          ujson.Obj(
+            "group"      -> dependency.module.organization.value,
+            "name"       -> dependency.module.name.value,
+            "version"    -> dependency.versionConstraint.asString,
+            "projectUrl" -> projectUrl,
+            "licenses" -> ujson.Arr.from(licenses.map { case (name, url) =>
+              ujson.Obj("name" -> name, "url" -> url.getOrElse(""))
+            }),
+            "embeddedFiles" -> ujson.Arr.from(readEmbeddedFiles(os.Path(file.getAbsolutePath)))
+          )
+      }
+      .groupBy(moduleKey)
+      .values
+      .map(records => mergeModuleRecords(records.toSeq))
+      .toSeq
+      .sortBy(moduleKey)
+
+    os.write.over(output, ujson.write(ujson.Arr.from(modules), indent = 2))
+    PathRef(output)
+  }
+
+  private def projectFor(
+      cache: Map[(CoursierModuleId, VersionConstraint), (coursier.core.ArtifactSource, Project)],
+      dependency: Dependency
+  ): Option[Project] = cache.get(dependency.moduleVersionConstraint).map(_._2)
+
+  private def inheritedPomInfo(
+      cache: Map[(CoursierModuleId, VersionConstraint), (coursier.core.ArtifactSource, Project)],
+      project: Project,
+      maxDepth: Int
+  ): (String, Seq[(String, Option[String])]) = {
+    val licenses   = project.info.licenses.filter(_._1.trim.nonEmpty)
+    val projectUrl = project.info.homePage.trim
+    if (licenses.nonEmpty || maxDepth == 0) projectUrl -> licenses
+    else {
+      project.parent0
+        .flatMap { case (module, version) =>
+          cache.get(module -> VersionConstraint(version.asString))
+        }
+        .map(_._2)
+        .map(inheritedPomInfo(cache, _, maxDepth - 1))
+        .map { case (parentUrl, parentLicenses) =>
+          Option(projectUrl).filter(_.nonEmpty).getOrElse(parentUrl) -> parentLicenses
+        }
+        .getOrElse(projectUrl -> Seq.empty)
+    }
+  }
+
+  private def readEmbeddedFiles(jarPath: os.Path): Seq[ujson.Obj] =
+    Using.resource(new JarFile(jarPath.toIO)) { jar =>
+      jar
+        .entries()
+        .asScala
+        .filterNot(_.isDirectory)
+        .filter(entry => EmbeddedFileNames.matches(entry.getName))
+        .filterNot(_.getName.toLowerCase.endsWith(".class"))
+        .filter(_.getSize <= 4 * 1024 * 1024)
+        .flatMap { entry =>
+          Using.resource(jar.getInputStream(entry)) { input =>
+            val content = new String(input.readAllBytes(), StandardCharsets.UTF_8).trim
+            Option(content).filter(_.nonEmpty).map { text =>
+              ujson.Obj(
+                "path" -> entry.getName,
+                "kind" -> (if (entry.getName.split('/').last.toUpperCase.contains("NOTICE"))
+                             "notice"
+                           else "license"),
+                "sha256"  -> sha256(text),
+                "content" -> text
+              )
+            }
+          }
+        }
+        .toSeq
+        .sortBy(file => file("path").str)
+    }
+
+  private def sha256(value: String): String =
+    MessageDigest
+      .getInstance("SHA-256")
+      .digest(value.getBytes(StandardCharsets.UTF_8))
+      .map("%02x".format(_))
+      .mkString
+
+  private def moduleKey(module: ujson.Value): String =
+    Seq(module("group").str, module("name").str, module("version").str).mkString(":")
+
+  def mergeInventories(inventories: Seq[PathRef]): ujson.Value = {
+    val modules = inventories
+      .flatMap(path => ujson.read(os.read(path.path)).arr)
+      .groupBy(moduleKey)
+      .values
+      .map(records => mergeModuleRecords(records.toSeq))
+      .toSeq
+      .sortBy(module => (module("group").str, module("name").str, module("version").str))
+    ujson.Arr.from(modules)
+  }
+
+  private def mergeModuleRecords(records: Seq[ujson.Value]): ujson.Obj = {
+    val first = records.head
+    val licenses = records
+      .flatMap(_("licenses").arr)
+      .groupBy(license => license("name").str -> license("url").str)
+      .values
+      .map(_.head)
+      .toSeq
+      .sortBy(license => license("name").str -> license("url").str)
+    val embeddedFiles = records
+      .flatMap(_("embeddedFiles").arr)
+      .groupBy(file => file("path").str -> file("sha256").str)
+      .values
+      .map(_.head)
+      .toSeq
+      .sortBy(file => file("path").str -> file("sha256").str)
+    val projectUrl = records.iterator.map(_("projectUrl").str).find(_.nonEmpty).getOrElse("")
+    ujson.Obj(
+      "group"         -> first("group").str,
+      "name"          -> first("name").str,
+      "version"       -> first("version").str,
+      "projectUrl"    -> projectUrl,
+      "licenses"      -> ujson.Arr.from(licenses),
+      "embeddedFiles" -> ujson.Arr.from(embeddedFiles)
+    )
+  }
+
+  def normalizedLicenses(
+      name: String,
+      url: String,
+      bundle: ujson.Value
+  ): Seq[(String, String)] = {
+    val bundles = bundle("bundles").arr.map(entry => entry("bundleName").str -> entry).toMap
+    val exactMatches = bundle("bundles").arr.filter { entry =>
+      entry("licenseName").str.equalsIgnoreCase(name.trim) ||
+      Option(entry("licenseUrl").str).filter(_.nonEmpty).exists(_.equalsIgnoreCase(url.trim))
+    }
+    val transformedMatches = bundle("transformationRules").arr
+      .filter { rule =>
+        rule.obj
+          .get("licenseNamePattern")
+          .exists(pattern => normalizerMatches(name, pattern.str)) ||
+        rule.obj.get("licenseUrlPattern").exists(pattern => normalizerMatches(url, pattern.str))
+      }
+      .flatMap { rule =>
+        bundles.get(rule("bundleName").str).map { matchedBundle =>
+          val normalizedName =
+            if (rule.obj.get("transformName").forall(_.bool)) matchedBundle("licenseName").str
+            else name
+          val normalizedUrl =
+            if (rule.obj.get("transformUrl").forall(_.bool)) matchedBundle("licenseUrl").str
+            else url
+          normalizedName -> normalizedUrl
+        }
+      }
+    val exactNormalized = exactMatches.map { entry =>
+      entry("licenseName").str -> entry("licenseUrl").str
+    }
+    val normalized = (exactNormalized ++ transformedMatches).distinct
+    if (normalized.nonEmpty) normalized.toSeq else Seq(name -> url)
+  }
+
+  private def normalizerMatches(value: String, regex: String): Boolean =
+    Option(value)
+      .map(_.trim)
+      .filter(_.nonEmpty)
+      .exists(value =>
+        Pattern
+          .compile(regex, Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL)
+          .matcher(value)
+          .matches()
+      )
+
+  def renderReport(inventory: ujson.Value, bundle: ujson.Value, version: String): String = {
+    val separator = "-" * 80
+    val body = inventory.arr.zipWithIndex
+      .map { case (module, index) =>
+        val pomLicenses = module("licenses").arr.flatMap { license =>
+          normalizedLicenses(license("name").str, license("url").str, bundle).map {
+            case (name, url) =>
+              if (url.nonEmpty) s"$name - $url" else name
+          }
+        }.distinct
+        val pomSection =
+          if (pomLicenses.nonEmpty) pomLicenses.map(value => s"POM License: $value").mkString("\n")
+          else "POM License: <not declared>"
+        val projectUrl = Option(module("projectUrl").str)
+          .filter(_.nonEmpty)
+          .map(url => s"POM Project URL: $url\n\n")
+          .getOrElse("")
+        val embedded = module("embeddedFiles").arr.map { file =>
+          s"Embedded ${file("kind").str}: ${file("path").str}\n\n${file("content").str}"
+        }
+        val embeddedSection = if (embedded.nonEmpty) s"\n\n${embedded.mkString("\n\n")}" else ""
+        s"${index + 1}. Group: ${module("group").str}  Name: ${module("name").str}  Version: ${module("version").str}\n\n$projectUrl$pomSection$embeddedSection\n\n$separator"
+      }
+      .mkString("\n\n")
+    s"Dependency License Report for scalardb-analytics-spark $version\n\n$body\n"
+  }
+
+  def oracleFutc(inventory: ujson.Value): String = {
+    val candidates = inventory.arr
+      .filter(module =>
+        module("group").str == "com.oracle.database.jdbc" && module("name").str == "ojdbc8"
+      )
+      .flatMap(_("embeddedFiles").arr)
+      .filter(file => file("path").str.equalsIgnoreCase("META-INF/license.txt"))
+      .map(_("content").str)
+      .distinct
+    if (candidates.size != 1)
+      throw new RuntimeException(s"Expected one Oracle JDBC FUTC text, found ${candidates.size}")
+    candidates.head + "\n"
+  }
+}

@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package auth.v1;
+
+message Role {
+  string id = 1;
+  string name = 2;
+  bool built_in = 3;
+}
+
+message CreateRoleRequest {
+  string role_name = 1;
+}
+
+message CreateRoleResponse {
+  Role role = 1;
+}
+
+// DeleteRole by name (default).
+message DeleteRoleRequest {
+  string role_name = 1;
+}
+
+message DeleteRoleResponse {
+  bool deleted = 1;
+}
+
+// DeleteRoleById by ID.
+message DeleteRoleByIdRequest {
+  string role_id = 1;
+}
+
+message DeleteRoleByIdResponse {
+  bool deleted = 1;
+}
+
+message ListRolesRequest {}
+
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+// GrantRole by name (default).
+message GrantRoleRequest {
+  string role_name = 1;
+  string username = 2;
+}
+
+message GrantRoleResponse {}
+
+// GrantRoleById by ID.
+message GrantRoleByIdRequest {
+  string role_id = 1;
+  string user_id = 2;
+}
+
+message GrantRoleByIdResponse {}
+
+// RevokeRole by name (default).
+message RevokeRoleRequest {
+  string role_name = 1;
+  string username = 2;
+}
+
+message RevokeRoleResponse {}
+
+// RevokeRoleById by ID.
+message RevokeRoleByIdRequest {
+  string role_id = 1;
+  string user_id = 2;
+}
+
+message RevokeRoleByIdResponse {}
+
+service RoleService {
+  // CreateRole creates a new role. SUPERADMIN only.
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {}
+
+  // DeleteRole deletes a role by name. SUPERADMIN only. Built-in roles cannot be deleted.
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {}
+
+  // DeleteRoleById deletes a role by ID. SUPERADMIN only. Built-in roles cannot be deleted.
+  rpc DeleteRoleById(DeleteRoleByIdRequest) returns (DeleteRoleByIdResponse) {}
+
+  // ListRoles returns all roles. SUPERADMIN only.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {}
+
+  // GrantRole assigns a role to a user by name. SUPERADMIN only.
+  rpc GrantRole(GrantRoleRequest) returns (GrantRoleResponse) {}
+
+  // GrantRoleById assigns a role to a user by ID. SUPERADMIN only.
+  rpc GrantRoleById(GrantRoleByIdRequest) returns (GrantRoleByIdResponse) {}
+
+  // RevokeRole removes a role assignment from a user by name. SUPERADMIN only.
+  rpc RevokeRole(RevokeRoleRequest) returns (RevokeRoleResponse) {}
+
+  // RevokeRoleById removes a role assignment from a user by ID. SUPERADMIN only.
+  rpc RevokeRoleById(RevokeRoleByIdRequest) returns (RevokeRoleByIdResponse) {}
+}

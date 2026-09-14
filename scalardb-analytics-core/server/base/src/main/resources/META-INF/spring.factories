@@ -1,0 +1,3 @@
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  com.scalar.db.analytics.server.analyzer.DatabaseConnectionFailureAnalyzer,\
+  com.scalar.db.analytics.server.analyzer.DatabaseConfigurationFailureAnalyzer

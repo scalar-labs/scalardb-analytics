@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package datasource.v1;
+
+import "datasource/v1/data_source.proto";
+
+message FindDataSourceRequest {
+  string catalog_name = 1;
+  string data_source_name = 2;
+}
+
+message FindDataSourceResponse {
+  optional DataSource data_source = 1;
+}
+
+message ListDataSourcesRequest {
+  string catalog_name = 1;
+}
+
+message ListDataSourcesResponse {
+  repeated DataSource data_sources = 1;
+}
+
+message RegisterRequest {
+  string catalog_name = 1;
+  string data_source_name = 2;
+  string provider_payload_json = 3;
+  optional string schema_json = 4;
+}
+
+message RegisterResponse {
+  DataSource data_source = 1;
+}
+
+message FindDataSourceByIdRequest {
+  string data_source_id = 1;
+}
+
+message FindDataSourceByIdResponse {
+  optional DataSource data_source = 1;
+}
+
+message DeleteDataSourceRequest {
+  string catalog_name = 1;
+  string data_source_name = 2;
+  bool cascade = 3;
+}
+
+message DeleteDataSourceResponse {
+  bool deleted = 1;
+}
+
+message DeleteDataSourceByIdRequest {
+  string data_source_id = 1;
+  bool cascade = 2;
+}
+
+message DeleteDataSourceByIdResponse {
+  bool deleted = 1;
+}
+
+service DataSourceService {
+  // FindDataSource returns a data source.
+  rpc FindDataSource(FindDataSourceRequest) returns (FindDataSourceResponse) {}
+
+  // ListDataSources returns a list of data sources in the catalog.
+  rpc ListDataSources(ListDataSourcesRequest) returns (ListDataSourcesResponse) {}
+
+  // Register registers a new data source.
+  rpc Register(RegisterRequest) returns (RegisterResponse) {}
+
+  // FindDataSourceById returns a data source by ID.
+  rpc FindDataSourceById(FindDataSourceByIdRequest) returns (FindDataSourceByIdResponse) {}
+
+  // DeleteDataSource deletes a data source by name.
+  rpc DeleteDataSource(DeleteDataSourceRequest) returns (DeleteDataSourceResponse) {}
+
+  // DeleteDataSourceById deletes a data source by ID.
+  rpc DeleteDataSourceById(DeleteDataSourceByIdRequest) returns (DeleteDataSourceByIdResponse) {}
+}

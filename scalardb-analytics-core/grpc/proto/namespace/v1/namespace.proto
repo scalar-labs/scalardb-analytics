@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package namespace.v1;
+
+import "datasource/v1/data_source.proto";
+
+message Namespace {
+  string id = 1;
+  string data_source_id = 2;
+  repeated string names = 3;
+}
+
+message DataSourceNamespace {
+  datasource.v1.DataSource data_source = 1;
+  Namespace namespace = 2;
+}

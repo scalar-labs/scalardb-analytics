@@ -1,0 +1,11 @@
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - DEFAULT
+  ignore:
+    - proto/scalardb/cluster
+breaking:
+  use:
+    - FILE

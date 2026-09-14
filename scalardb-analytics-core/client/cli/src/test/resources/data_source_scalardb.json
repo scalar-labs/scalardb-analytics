@@ -1,0 +1,11 @@
+{
+  "catalog": "scalardb_catalog",
+  "name": "scalardb_source",
+  "provider": {
+    "type": "scalardb",
+    "configs": {
+      "scalar.db.storage": "cassandra",
+      "scalar.db.contact_points": "localhost"
+    }
+  }
+}

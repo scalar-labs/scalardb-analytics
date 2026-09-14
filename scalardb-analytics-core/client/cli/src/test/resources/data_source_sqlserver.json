@@ -1,0 +1,13 @@
+{
+  "catalog": "sqlserver_catalog",
+  "name": "sqlserver_source",
+  "provider": {
+    "type": "sqlserver",
+    "host": "sqlserver.example.com",
+    "port": 1433,
+    "username": "sa",
+    "password": "password",
+    "database": "master",
+    "secure": true
+  }
+}

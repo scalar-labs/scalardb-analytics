@@ -1,0 +1,12 @@
+{
+  "catalog": "mysql_catalog",
+  "name": "mysql_source",
+  "provider": {
+    "type": "mysql",
+    "host": "mysql.example.com",
+    "port": 3306,
+    "username": "root",
+    "password": "password",
+    "database": "mydb"
+  }
+}

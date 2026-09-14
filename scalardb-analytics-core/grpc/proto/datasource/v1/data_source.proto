@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package datasource.v1;
+
+message DataSource {
+  string id = 1;
+  string catalog_id = 2;
+  string name = 3;
+  string provider_payload_json = 4;
+}

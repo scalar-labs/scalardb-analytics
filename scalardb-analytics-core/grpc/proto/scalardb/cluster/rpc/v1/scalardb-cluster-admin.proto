@@ -1,0 +1,96 @@
+// Extracted from https://github.com/scalar-labs/scalardb-cluster
+// Source: rpc/src/main/proto/scalardb-cluster.proto
+//
+// Contains only the HasPrivilege RPC and its transitive dependencies.
+// The table_name field in HasPrivilegeRequest is changed to optional to support
+// namespace-level privilege checks (pending: scalar-labs/scalardb-cluster#1741).
+
+syntax = "proto3";
+
+package scalardb.cluster.rpc.v1;
+
+option java_multiple_files = true;
+option java_outer_classname = "ScalarDbClusterProto";
+option java_package = "com.scalar.db.cluster.rpc.v1";
+
+// The type of the auth token.
+enum AuthTokenType {
+  // The auth token is a password-based token issued by the ScalarDB Cluster login.
+  PASSWORD = 0;
+
+  // The auth token is an OIDC JWT access token.
+  OIDC_JWT = 1;
+}
+
+// Request header for all requests.
+message RequestHeader {
+  // The hop limit used to restrict the hop count within the cluster.
+  int32 hop_limit = 1;
+
+  // The auth token for authentication.
+  optional string auth_token = 2;
+
+  // The type of the auth token. If not set, defaults to PASSWORD.
+  optional AuthTokenType auth_token_type = 3;
+}
+
+// A privilege.
+enum Privilege {
+  // The default / unset value.
+  PRIVILEGE_UNSPECIFIED = 0;
+
+  // The privilege for read (Get and Scan) operations.
+  PRIVILEGE_READ = 1;
+
+  // The privilege for write (Put, Insert, Upsert, and Update) operations.
+  PRIVILEGE_WRITE = 2;
+
+  // The privilege for delete (Delete) operations.
+  PRIVILEGE_DELETE = 3;
+
+  // The privilege for creating tables and indexes.
+  PRIVILEGE_CREATE = 4;
+
+  // The privilege for dropping tables and indexes.
+  PRIVILEGE_DROP = 5;
+
+  // The privilege for truncating tables.
+  PRIVILEGE_TRUNCATE = 6;
+
+  // The privilege for altering tables.
+  PRIVILEGE_ALTER = 7;
+
+  // The privilege for granting and revoking privileges to other users.
+  PRIVILEGE_GRANT = 8;
+}
+
+// Subset of DistributedTransactionAdmin service for privilege checking.
+service DistributedTransactionAdmin {
+  // Checks if a user has a specific privilege.
+  rpc HasPrivilege(HasPrivilegeRequest) returns (HasPrivilegeResponse) {}
+}
+
+// Request message for DistributedTransactionAdmin.HasPrivilege.
+message HasPrivilegeRequest {
+  // Request header.
+  RequestHeader request_header = 1;
+
+  // The username to check the privilege for.
+  string username = 2;
+
+  // The namespace name to check the privilege.
+  string namespace_name = 3;
+
+  // The table name to check the privilege. If not set, it checks the privilege on the namespace
+  // level.
+  optional string table_name = 4;
+
+  // The privilege to check.
+  Privilege privilege = 5;
+}
+
+// Response message for DistributedTransactionAdmin.HasPrivilege.
+message HasPrivilegeResponse {
+  // Whether the user has the privilege.
+  bool has_privilege = 1;
+}

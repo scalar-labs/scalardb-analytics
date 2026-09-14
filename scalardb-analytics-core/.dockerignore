@@ -1,0 +1,31 @@
+# Git repository (large, not needed for build)
+.git
+
+# Build outputs (will be rebuilt in Docker)
+**/build/
+**/out/
+**/.gradle/
+
+# Development tools (IDE, Scala tooling, etc.)
+.idea/
+.vscode/
+.cursor/
+.zed/
+.settings/
+.bloop/
+.metals/
+**/*.iml
+
+# AI/Development tools
+.claude/
+.code-review/
+.work/
+
+# CI/CD
+.github/
+
+# Scala modules (not needed for Java-only server)
+scalardb-analytics-scala/
+
+# macOS
+.DS_Store

@@ -1,0 +1,18 @@
+<FindBugsFilter>
+  <Match>
+    <Source name="~.*\.scala"/>
+  </Match>
+  <Match>
+    <Package name="~.*\.grpc\.generated\..*"/>
+  </Match>
+  <Match>
+    <Bug pattern="NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+  </Match>
+  <Match>
+    <Annotation name="lombok.Generated"/>
+  </Match>
+  <!-- Exclude MapStruct generated implementation classes -->
+  <Match>
+    <Class name="~.*MapperImpl"/>
+  </Match>
+</FindBugsFilter>
