@@ -5,6 +5,7 @@
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
 }
 
 java {
@@ -26,4 +27,8 @@ testing.suites {
             implementation(libs.assertj.core)
         }
     }
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-domain"
 }

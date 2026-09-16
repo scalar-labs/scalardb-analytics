@@ -259,6 +259,12 @@ lazy val crossMatrix = for {
 // Define cross modules with new names (no spark- prefix)
 object compat      extends Cross[CompatModule](crossMatrix)
 trait CompatModule extends CrossBuildModule {
+  // Mill appends the Scala version, so the Spark version has to be carried here or the four
+  // cross-build variants collapse onto two coordinates.
+  def artifactName = Task {
+    s"scalardb-analytics-spark-compat-${crossValue2.short}"
+  }
+
   // Base source directory
   def baseSources = Task.Sources("src")
 
@@ -287,8 +293,14 @@ trait CompatModule extends CrossBuildModule {
   }
 }
 
-object lib extends Cross[LibModule](crossMatrix)
+object lib      extends Cross[LibModule](crossMatrix)
 trait LibModule extends CrossBuildModule {
+  // Mill appends the Scala version, so the Spark version has to be carried here or the four
+  // cross-build variants collapse onto two coordinates.
+  def artifactName = Task {
+    s"scalardb-analytics-spark-lib-${crossValue2.short}"
+  }
+
   def moduleDeps = Seq(
     compat(crossValue, crossValue2)
   )
@@ -304,8 +316,138 @@ trait LibModule extends CrossBuildModule {
   }
 }
 
+// The connector itself: the classes that implement the Spark catalog and its data sources.
+// Published thin, without the dependencies it needs at runtime bundled in, so that a build
+// layering on top of it can compile against these classes and assemble its own fat jar. The
+// public fat jar is assembled by `sparkAll`, which is what users get from Maven Central.
 object spark      extends Cross[SparkModule](crossMatrix)
-trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCentralPublishModule {
+trait SparkModule extends CrossBuildModule {
+  // Mill appends the Scala version, so the Spark version has to be carried here or the four
+  // cross-build variants collapse onto two coordinates.
+  def artifactName = Task {
+    s"scalardb-analytics-spark-${crossValue2.short}"
+  }
+
+  // Internal module dependencies
+  override def moduleDeps = Seq(
+    lib(crossValue, crossValue2),
+    datasource.scalardb(crossValue, crossValue2),
+    datasource.dynamodb(crossValue, crossValue2)
+  )
+
+  // What the connector needs at runtime. `sparkAll` bundles these into its fat jar and hides
+  // them behind a hand-written POM; on this module they stay ordinary POM dependencies, which
+  // is what makes the thin jar usable as a library.
+  def mvnDeps = super.mvnDeps() ++ Seq(
+    // ScalarDB Analytics client SDK
+    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}",
+    mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
+    mvn"com.scalar-labs:scalardb-analytics-grpc-common:${Versions.scalardbAnalytics}",
+    // Cassandra Driver 3.12.1 otherwise selects 2.2.10 only on Apple Silicon and 2.1.7 elsewhere.
+    mvn"com.github.jnr:jnr-ffi:${Versions.jnrFfi}",
+    // JDBC drivers
+    mvn"org.postgresql:postgresql:${Versions.postgresql}",
+    mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
+    mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
+    mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
+    mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
+    mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}"
+  )
+
+  object test extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.apache.spark::spark-sql:$sparkVersion",
+      mvn"org.apache.spark::spark-catalyst:$sparkVersion"
+    )
+  }
+
+  object integrationTest extends TestBaseModule {
+    def mvnDeps = super.mvnDeps() ++ Seq(
+      // Test framework
+      mvn"org.scalatest::scalatest:${Versions.scalatest}",
+      // ScalarDB Analytics Client SDK (use hardcoded version same as publishVersion)
+      mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
+      // Testcontainers
+      mvn"org.testcontainers:testcontainers-mysql:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-postgresql:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-oracle-free:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-mssqlserver:${Versions.testcontainers}",
+      mvn"org.testcontainers:testcontainers-localstack:${Versions.testcontainers}",
+      // JDBC drivers
+      mvn"org.postgresql:postgresql:${Versions.postgresql}",
+      mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
+      mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
+      mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
+      mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
+      mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}",
+      // HikariCP for connection pooling
+      mvn"com.zaxxer:HikariCP:${Versions.hikaricp}",
+      // ScalarDB
+      mvn"com.scalar-labs:scalardb:${Versions.scalardb}",
+      mvn"com.scalar-labs:scalardb-schema-loader:${Versions.scalardb}",
+      // AWS SDK for DynamoDB
+      mvn"software.amazon.awssdk:dynamodb:${Versions.awsDynamodb}",
+      // Spark dependencies
+      mvn"org.apache.spark::spark-core:$sparkVersion",
+      mvn"org.apache.spark::spark-sql:$sparkVersion",
+      mvn"org.apache.spark::spark-catalyst:$sparkVersion",
+      // Jackson - override Spark's bundled version to match client-sdk's jackson-bom
+      mvn"com.fasterxml.jackson.module::jackson-module-scala:${Versions.jacksonModuleScala}",
+      // SLF4J for logging
+      mvn"org.slf4j:slf4j-api:${Versions.slf4j}",
+      mvn"org.slf4j:slf4j-simple:${Versions.slf4j}"
+    )
+
+    override def scalacOptions =
+      super
+        .scalacOptions()
+        // Value discard warnings: Testcontainers' configure blocks return non-Unit values.
+        // Note: @nowarn annotation is not available in Scala 2.12 (only 2.13+).
+        .filterNot(_ == "-Ywarn-value-discard")
+        // Null checks: Integration tests commonly use Java APIs that accept null values
+        // (e.g., RegisterDataSourceRequest's null schema parameter).
+        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.Null"))
+        // AsInstanceOf checks: Integration tests require type casting for dynamic data access
+        // (e.g., row.get().asInstanceOf[Array[Byte]]).
+        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.AsInstanceOf"))
+
+    // JVM options for Spark on Java 17+
+    def forkArgs = Seq(
+      "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
+      "--add-exports=java.base/sun.util.calendar=ALL-UNNAMED",
+      "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+      // Apache Arrow (used by Databricks JDBC driver) requires access to java.nio
+      "--add-opens=java.base/java.nio=ALL-UNNAMED",
+      // Suppress SLF4J internal messages (initialization warnings, etc.) in SLF4J 2.x
+      // Set to ERROR to suppress WARN-level messages like "multiple SLF4J providers"
+      "-Dslf4j.internal.verbosity=ERROR",
+      // Configure java.util.logging (for SQL Server JDBC and other JUL-based loggers)
+      "-Djava.util.logging.config.file=spark/integrationTest/resources/logging.properties"
+    )
+
+    // Run tests sequentially (parallelism = 1)
+    // Set timeout to 15 minutes for Oracle tests (large image download + startup)
+    def testArgs = Seq("-P1", "-T900")
+  }
+}
+
+// Datasource modules
+
+// The published fat jar. It carries no sources of its own: everything in it comes from `spark`
+// and that module's dependency tree. Splitting it out of `spark` is what lets the connector
+// classes be consumed as an ordinary library while this coordinate keeps shipping the single
+// self-contained jar that users pass to `--packages`.
+object sparkAll      extends Cross[SparkAllModule](crossMatrix)
+trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule {
+  // The coordinate users name in `--packages`. It must not move.
+  def artifactName = Task {
+    val sparkMajorMinor = crossValue2.short
+    s"scalardb-analytics-spark-all-$sparkMajorMinor"
+  }
+
+  override def moduleDeps = Seq(
+    spark(crossValue, crossValue2)
+  )
 
   /** POM licenses and embedded license/NOTICE files for this assembly variant. */
   def dependencyLicenseInventory: T[PathRef] = Task {
@@ -322,13 +464,6 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
       Task.dest / "inventory.json"
     )
   }
-
-  // artifactName should not include Scala version as Mill adds it automatically
-  def artifactName = Task {
-    val sparkMajorMinor = crossValue2.short
-    s"scalardb-analytics-spark-all-$sparkMajorMinor"
-  }
-
   // Custom pom generation to exclude fat jar dependencies
   override def pom = Task {
     val pomXml = super.pom()
@@ -409,7 +544,6 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
 
     PathRef(outputPath)
   }
-
   // Override extraPublish to publish assembly jar
   override def extraPublish = Seq(
     PublishInfo(
@@ -419,7 +553,6 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
       ivyConfig = "compile"
     )
   )
-
   // Override docJar to create dummy javadoc jar with only README
   override def docJar = Task {
     val readmePath = Task.dest / "README"
@@ -428,7 +561,6 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
     os.proc("jar", "cf", jarPath, "-C", Task.dest, "README").call()
     PathRef(jarPath)
   }
-
   // Override sourceJar to create dummy sources jar with only README
   override def sourceJar = Task {
     val readmePath = Task.dest / "README"
@@ -437,31 +569,6 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
     os.proc("jar", "cf", jarPath, "-C", Task.dest, "README").call()
     PathRef(jarPath)
   }
-
-  // Internal module dependencies
-  override def moduleDeps = Seq(
-    lib(crossValue, crossValue2),
-    datasource.scalardb(crossValue, crossValue2),
-    datasource.dynamodb(crossValue, crossValue2)
-  )
-
-  // Dependencies that should be included in the fat jar (but not in pom)
-  def mvnDeps = super.mvnDeps() ++ Seq(
-    // ScalarDB Analytics client SDK
-    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}",
-    mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
-    mvn"com.scalar-labs:scalardb-analytics-grpc-common:${Versions.scalardbAnalytics}",
-    // Cassandra Driver 3.12.1 otherwise selects 2.2.10 only on Apple Silicon and 2.1.7 elsewhere.
-    mvn"com.github.jnr:jnr-ffi:${Versions.jnrFfi}",
-    // JDBC drivers
-    mvn"org.postgresql:postgresql:${Versions.postgresql}",
-    mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
-    mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
-    mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
-    mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
-    mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}"
-  )
-
   // Fat JAR assembly with proper exclusions and relocations
   import mill.scalalib.Assembly._
   override def assemblyRules = Seq(
@@ -540,90 +647,16 @@ trait SparkModule extends CrossBuildModule with PublishingConfig with SonatypeCe
       )
       .pathRef
   }
-
-  object test extends TestBaseModule {
-    def mvnDeps = super.mvnDeps() ++ Seq(
-      mvn"org.apache.spark::spark-sql:$sparkVersion",
-      mvn"org.apache.spark::spark-catalyst:$sparkVersion"
-    )
-  }
-
-  object integrationTest extends TestBaseModule {
-    def mvnDeps = super.mvnDeps() ++ Seq(
-      // Test framework
-      mvn"org.scalatest::scalatest:${Versions.scalatest}",
-      // ScalarDB Analytics Client SDK (use hardcoded version same as publishVersion)
-      mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
-      // Testcontainers
-      mvn"org.testcontainers:testcontainers-mysql:${Versions.testcontainers}",
-      mvn"org.testcontainers:testcontainers-postgresql:${Versions.testcontainers}",
-      mvn"org.testcontainers:testcontainers-oracle-free:${Versions.testcontainers}",
-      mvn"org.testcontainers:testcontainers-mssqlserver:${Versions.testcontainers}",
-      mvn"org.testcontainers:testcontainers-localstack:${Versions.testcontainers}",
-      // JDBC drivers
-      mvn"org.postgresql:postgresql:${Versions.postgresql}",
-      mvn"org.mariadb.jdbc:mariadb-java-client:${Versions.mariadb}",
-      mvn"com.microsoft.sqlserver:mssql-jdbc:${Versions.sqlserver}",
-      mvn"com.oracle.database.jdbc:ojdbc8:${Versions.oracle}",
-      mvn"com.databricks:databricks-jdbc:${Versions.databricks}",
-      mvn"net.snowflake:snowflake-jdbc:${Versions.snowflake}",
-      // HikariCP for connection pooling
-      mvn"com.zaxxer:HikariCP:${Versions.hikaricp}",
-      // ScalarDB
-      mvn"com.scalar-labs:scalardb:${Versions.scalardb}",
-      mvn"com.scalar-labs:scalardb-schema-loader:${Versions.scalardb}",
-      // AWS SDK for DynamoDB
-      mvn"software.amazon.awssdk:dynamodb:${Versions.awsDynamodb}",
-      // Spark dependencies
-      mvn"org.apache.spark::spark-core:$sparkVersion",
-      mvn"org.apache.spark::spark-sql:$sparkVersion",
-      mvn"org.apache.spark::spark-catalyst:$sparkVersion",
-      // Jackson - override Spark's bundled version to match client-sdk's jackson-bom
-      mvn"com.fasterxml.jackson.module::jackson-module-scala:${Versions.jacksonModuleScala}",
-      // SLF4J for logging
-      mvn"org.slf4j:slf4j-api:${Versions.slf4j}",
-      mvn"org.slf4j:slf4j-simple:${Versions.slf4j}"
-    )
-
-    override def scalacOptions =
-      super
-        .scalacOptions()
-        // Value discard warnings: Testcontainers' configure blocks return non-Unit values.
-        // Note: @nowarn annotation is not available in Scala 2.12 (only 2.13+).
-        .filterNot(_ == "-Ywarn-value-discard")
-        // Null checks: Integration tests commonly use Java APIs that accept null values
-        // (e.g., RegisterDataSourceRequest's null schema parameter).
-        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.Null"))
-        // AsInstanceOf checks: Integration tests require type casting for dynamic data access
-        // (e.g., row.get().asInstanceOf[Array[Byte]]).
-        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.AsInstanceOf"))
-
-    // JVM options for Spark on Java 17+
-    def forkArgs = Seq(
-      "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
-      "--add-exports=java.base/sun.util.calendar=ALL-UNNAMED",
-      "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
-      // Apache Arrow (used by Databricks JDBC driver) requires access to java.nio
-      "--add-opens=java.base/java.nio=ALL-UNNAMED",
-      // Suppress SLF4J internal messages (initialization warnings, etc.) in SLF4J 2.x
-      // Set to ERROR to suppress WARN-level messages like "multiple SLF4J providers"
-      "-Dslf4j.internal.verbosity=ERROR",
-      // Configure java.util.logging (for SQL Server JDBC and other JUL-based loggers)
-      "-Djava.util.logging.config.file=spark/integrationTest/resources/logging.properties"
-    )
-
-    // Run tests sequentially (parallelism = 1)
-    // Set timeout to 15 minutes for Oracle tests (large image download + startup)
-    def testArgs = Seq("-P1", "-T900")
-  }
 }
 
-// Datasource modules
 object datasource extends Module {
   object scalardb                extends Cross[ScalarDbDataSourceModule](crossMatrix)
   trait ScalarDbDataSourceModule extends CrossBuildModule {
-    // This module is not published independently; it's included in spark fat jar
-    def artifactName = "scalardb-analytics-spark-datasource-scalardb"
+    // Mill appends the Scala version, so the Spark version has to be carried here or the four
+    // cross-build variants collapse onto two coordinates.
+    def artifactName = Task {
+      s"scalardb-analytics-spark-datasource-scalardb-${crossValue2.short}"
+    }
 
     def moduleDeps = Seq(
       compat(crossValue, crossValue2),
@@ -643,8 +676,11 @@ object datasource extends Module {
 
   object dynamodb                extends Cross[DynamoDbDataSourceModule](crossMatrix)
   trait DynamoDbDataSourceModule extends CrossBuildModule {
-    // This module is not published independently; it's included in spark fat jar
-    def artifactName = "scalardb-analytics-spark-datasource-dynamodb"
+    // Mill appends the Scala version, so the Spark version has to be carried here or the four
+    // cross-build variants collapse onto two coordinates.
+    def artifactName = Task {
+      s"scalardb-analytics-spark-datasource-dynamodb-${crossValue2.short}"
+    }
 
     def moduleDeps = Seq(
       lib(crossValue, crossValue2),
@@ -713,7 +749,7 @@ object licenseReport extends Module {
 
   private def allInventories: T[Seq[PathRef]] = Task {
     Task.traverse(crossMatrix) { case (scalaVersion, sparkVersion) =>
-      spark(scalaVersion, sparkVersion).dependencyLicenseInventory
+      sparkAll(scalaVersion, sparkVersion).dependencyLicenseInventory
     }()
   }
 

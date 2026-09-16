@@ -5,6 +5,7 @@
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
     alias(libs.plugins.spring.dependency.management)
 }
 
@@ -118,4 +119,8 @@ tasks.named<Test>("integrationTest") {
     // AbstractScalarDbIntegrationTest), so we keep execution single-threaded
     // to avoid concurrent schema mutations.
     maxParallelForks = 1
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-repository-impl-spring-data-jdbc"
 }
