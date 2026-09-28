@@ -1,0 +1,56 @@
+name: Publish SNAPSHOT artifacts
+
+on:
+  push:
+    branches:
+      - main
+      - "[0-9]+"
+      - "[0-9]+.[0-9]+"
+
+env:
+  GPR_USERNAME: ${{ github.repository_owner }}
+  GPR_PASSWORD: ${{ secrets.CR_PAT }}
+
+jobs:
+  release-snapshot-to-maven-central:
+    name: Publish SNAPSHOT to Maven Central
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+        # The Mill build resolves the Gradle modules as coordinates, so they have to exist in this
+        # runner's Maven Local before it runs. They are not published to Maven Central themselves.
+      - name: Publish Gradle modules to Maven Local
+        working-directory: scalardb-analytics-core
+        run: ./gradlew publishToMavenLocal
+
+      - name: Set version
+        id: version
+        working-directory: scalardb-analytics-spark
+        run: |
+          VERSION=$(./mill show sparkAll[2.12,3.4].publishVersion | tail -1 | tr -d '"')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish scalardb-analytics-spark-all SNAPSHOT to Maven Central
+        if: contains(steps.version.outputs.version, '-SNAPSHOT')
+        working-directory: scalardb-analytics-spark
+        env:
+          JAVA_OPTS: "-Xmx4g"
+          MILL_SONATYPE_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MILL_SONATYPE_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MILL_PGP_PASSPHRASE: ${{ secrets.MAVEN_CENTRAL_GPG_PASSPHRASE }}
+          PGP_SECRET_KEY: ${{ secrets.MAVEN_CENTRAL_GPG_SECRET_KEY }}
+        run: |
+          export MILL_PGP_SECRET_BASE64=$(printf '%s' "$PGP_SECRET_KEY" | base64 -w0)
+          ./mill --jobs 1 sparkAll.__.publishSonatypeCentral
