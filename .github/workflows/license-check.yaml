@@ -1,0 +1,42 @@
+name: License Check
+
+on:
+  pull_request:
+    paths:
+      - "scalardb-analytics-core/**"
+      - "allowed-licenses.json"
+      - ".github/workflows/license-check.yaml"
+  workflow_dispatch:
+
+env:
+  GPR_USERNAME: ${{ github.repository_owner }}
+  GPR_PASSWORD: ${{ secrets.CR_PAT }}
+
+jobs:
+  license-check:
+    name: License Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # The root report covers every module, so it is a superset of the per-artifact reports
+      # that the distributions package. Qualifying the task keeps the per-artifact reports out
+      # of this invocation.
+      - name: Check dependency licenses
+        working-directory: scalardb-analytics-core
+        run: ./gradlew :checkLicense
+
+      - name: Show dependencies without an allowed license
+        if: failure()
+        run: cat scalardb-analytics-core/build/reports/dependency-license/dependencies-without-allowed-license.json

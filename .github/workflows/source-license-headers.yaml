@@ -1,0 +1,35 @@
+name: Source License Headers
+
+on:
+  pull_request:
+    paths:
+      - '**.java'
+      - '**.scala'
+      - '**.kt'
+      - '**.kts'
+      - '**.py'
+      - '**.mill'
+      - 'scripts/check-source-license-headers.sh'
+      - '.github/workflows/source-license-headers.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.java'
+      - '**.scala'
+      - '**.kt'
+      - '**.kts'
+      - '**.py'
+      - '**.mill'
+      - 'scripts/check-source-license-headers.sh'
+      - '.github/workflows/source-license-headers.yaml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Check source license headers
+        run: ./scripts/check-source-license-headers.sh

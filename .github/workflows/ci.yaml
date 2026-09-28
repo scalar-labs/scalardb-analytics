@@ -1,0 +1,96 @@
+name: CI for ScalarDB Analytics
+on:
+  pull_request:
+    paths:
+      - 'scalardb-analytics-core/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scalardb-analytics-core/**'
+
+env:
+  GPR_USERNAME: ${{ github.repository_owner }}
+  GPR_PASSWORD: ${{ secrets.CR_PAT }}
+
+jobs:
+  build-server-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build server Docker image
+        working-directory: scalardb-analytics-core/docker/server
+        env:
+          DOCKER_BUILDKIT: 1
+        run: make build
+
+      - name: Tag server Docker image with commit SHA
+        run: |
+          docker tag ghcr.io/scalar-labs/scalardb-analytics-server:latest \
+            ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
+
+      - name: Save Docker image as artifact
+        run: |
+          docker save ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }} \
+            -o /tmp/server-image.tar
+
+      - name: Upload server image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-docker-image
+          path: /tmp/server-image.tar
+          retention-days: 1
+
+  test:
+    needs: build-server-image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Download server Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: server-docker-image
+          path: /tmp
+
+      - name: Load server Docker image
+        run: docker load -i /tmp/server-image.tar && rm -f /tmp/server-image.tar
+
+      - name: Execute Gradle check
+        working-directory: scalardb-analytics-core
+        env:
+          SCALARDB_ANALYTICS_SERVER_IMAGE: ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
+        run: ./gradlew check
+
+      - name: Collect Gradle test and integration test reports
+        if: always()
+        run: |
+          mkdir -p reports/gradle
+          find scalardb-analytics-core -type d \( -name test -o -name integrationTest \) -path "*/build/reports/tests/*" | while IFS= read -r dir; do
+            module=$(echo "$dir" | cut -d'/' -f2)
+            mkdir -p "reports/gradle/$module-$(basename $dir)"
+            cp -R "$dir/"* "reports/gradle/$module-$(basename $dir)/"
+          done
+
+      - name: Upload Gradle test and integration test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: analytics-gradle-test-reports
+          path: reports/gradle
