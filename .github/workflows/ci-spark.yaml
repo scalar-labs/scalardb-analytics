@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'scalardb-analytics-spark/**'
+      # This workflow publishes the Core modules to Maven Local and the Spark build resolves them
+      # from there, so a Core-only change can break the Spark build with no Spark check running.
+      - 'scalardb-analytics-core/**'
       - 'allowed-licenses.json'
   push:
     branches:
