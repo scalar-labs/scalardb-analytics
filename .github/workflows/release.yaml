@@ -118,19 +118,29 @@ jobs:
 
       - name: Extract changelog for version
         run: |
+          set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          start=$(grep -nF "## [${version}]" CHANGELOG.md | head -1 | cut -d: -f1)
-          end=$(tail -n +"$((start + 1))" CHANGELOG.md | grep -nF "## [" | head -1 | cut -d: -f1)
+          start=$(grep -nF "## [${version}]" CHANGELOG.md | head -1 | cut -d: -f1 || true)
+          # Without this guard an absent heading leaves `start` empty, arithmetic reads it as 0,
+          # and the extraction returns the top of the file — release notes for the wrong version,
+          # non-empty enough to pass the check below.
+          if [ -z "$start" ]; then
+            echo "Error: CHANGELOG.md has no '## [${version}]' heading" >&2
+            exit 1
+          fi
+          end=$(tail -n +"$((start + 1))" CHANGELOG.md | grep -nF "## [" | head -1 | cut -d: -f1 || true)
           if [ -n "$end" ]; then
             tail -n +"$((start + 1))" CHANGELOG.md | head -n "$((end - 1))" > release_notes.txt
           else
             tail -n +"$((start + 1))" CHANGELOG.md > release_notes.txt
           fi
 
-      - name: Verify changelog entry exists
+      - name: Verify the changelog entry is not empty
         run: |
-          if [ ! -s release_notes.txt ]; then
-            echo "Error: No changelog entry found for version ${{ steps.version.outputs.version }} in CHANGELOG.md" >&2
+          # Not `[ -s ]`: a section holding only the blank line before the next heading is one
+          # byte long, which that test reports as non-empty.
+          if ! grep -q '[^[:space:]]' release_notes.txt; then
+            echo "Error: the '## [${{ steps.version.outputs.version }}]' section of CHANGELOG.md is empty" >&2
             exit 1
           fi
 
