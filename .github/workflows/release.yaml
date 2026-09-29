@@ -10,8 +10,28 @@ env:
   GPR_PASSWORD: ${{ secrets.CR_PAT }}
 
 jobs:
+  # Everything published is versioned from the VERSION file, so a tag that disagrees with it would
+  # ship artifacts under a different number than the release claims.
+  verify-version:
+    name: Verify the tag matches VERSION
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Require the tag to be v + VERSION
+        run: |
+          set -euo pipefail
+          expected="v$(tr -d '[:space:]' < VERSION)"
+          if [ "${GITHUB_REF_NAME}" != "${expected}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match VERSION (${expected})." >&2
+            exit 1
+          fi
+
   release-to-maven-central:
     name: Publish to Maven Central
+    needs: verify-version
     runs-on: ubuntu-latest
 
     steps:
@@ -47,6 +67,7 @@ jobs:
 
   release-to-ghcr:
     name: Publish Docker images to GHCR
+    needs: verify-version
     runs-on: ubuntu-latest
     permissions:
       contents: read

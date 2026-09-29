@@ -69,8 +69,6 @@ object SparkVersion {
 }
 
 object Versions {
-  // ScalarDB Analytics version (this project)
-  val scalardbAnalytics = "3.20.0-SNAPSHOT"
   // External ScalarDB dependencies
   val scalardb = "3.20.0-SNAPSHOT"
 
@@ -109,6 +107,13 @@ object Versions {
   // Joda Time (required by emr-dynamodb-hadoop in Spark 3.4)
   val jodaTime = "2.12.5"
 }
+
+// The ScalarDB Analytics version. Its single definition is the VERSION file at the repository root, which the Gradle build also reads.
+// It is read through Task.Source rather than into a plain `val`: a value read at module
+// initialisation is not a task input, so Mill would keep serving results cached under the old
+// version after the file changed.
+def analyticsVersionFile: T[PathRef] = Task.Source(BuildCtx.workspaceRoot / os.up / "VERSION")
+def analyticsVersion: T[String]      = Task(os.read(analyticsVersionFile().path).trim)
 
 // Base module with shared functionality
 // Extends PublishingConfig to make all modules publishable, which allows them to be used
@@ -225,7 +230,7 @@ trait CrossBuildModule extends Cross.Module2[ScalaVersion, SparkVersion] with Ba
 // Publishing configuration trait
 trait PublishingConfig extends PublishModule {
   // Publishing configuration
-  def publishVersion = Versions.scalardbAnalytics
+  def publishVersion: T[String] = Task(analyticsVersion())
 
   def pomSettings = PomSettings(
     description =
@@ -306,7 +311,7 @@ trait LibModule extends CrossBuildModule {
   )
 
   override def mvnDeps = super.mvnDeps() ++ Seq(
-    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}"
+    mvn"com.scalar-labs:scalardb-analytics-api:${analyticsVersion()}"
   )
 
   object test extends TestBaseModule {
@@ -340,9 +345,9 @@ trait SparkModule extends CrossBuildModule {
   // is what makes the thin jar usable as a library.
   def mvnDeps = super.mvnDeps() ++ Seq(
     // ScalarDB Analytics client SDK
-    mvn"com.scalar-labs:scalardb-analytics-api:${Versions.scalardbAnalytics}",
-    mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
-    mvn"com.scalar-labs:scalardb-analytics-grpc-common:${Versions.scalardbAnalytics}",
+    mvn"com.scalar-labs:scalardb-analytics-api:${analyticsVersion()}",
+    mvn"com.scalar-labs:scalardb-analytics-client-sdk:${analyticsVersion()}",
+    mvn"com.scalar-labs:scalardb-analytics-grpc-common:${analyticsVersion()}",
     // Cassandra Driver 3.12.1 otherwise selects 2.2.10 only on Apple Silicon and 2.1.7 elsewhere.
     mvn"com.github.jnr:jnr-ffi:${Versions.jnrFfi}",
     // JDBC drivers
@@ -366,7 +371,7 @@ trait SparkModule extends CrossBuildModule {
       // Test framework
       mvn"org.scalatest::scalatest:${Versions.scalatest}",
       // ScalarDB Analytics Client SDK (use hardcoded version same as publishVersion)
-      mvn"com.scalar-labs:scalardb-analytics-client-sdk:${Versions.scalardbAnalytics}",
+      mvn"com.scalar-labs:scalardb-analytics-client-sdk:${analyticsVersion()}",
       // Testcontainers
       mvn"org.testcontainers:testcontainers-mysql:${Versions.testcontainers}",
       mvn"org.testcontainers:testcontainers-postgresql:${Versions.testcontainers}",
@@ -618,7 +623,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
       LicenseReportSupport.renderReport(
         inventory,
         ujson.read(licenseReport.normalizerBundle()),
-        Versions.scalardbAnalytics
+        analyticsVersion()
       )
     )
     os.write.over(metaInf / "ORACLE-FUTC.txt", LicenseReportSupport.oracleFutc(inventory))
