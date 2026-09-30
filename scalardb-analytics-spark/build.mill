@@ -108,12 +108,13 @@ object Versions {
   val jodaTime = "2.12.5"
 }
 
-// The ScalarDB Analytics version. Its single definition is the VERSION file at the repository root, which the Gradle build also reads.
+// The ScalarDB Analytics version. Its single definition is the VERSION file of the Gradle build in scalardb-analytics-core, which reads it as well.
 // It is read through Task.Source rather than into a plain `val`: a value read at module
 // initialisation is not a task input, so Mill would keep serving results cached under the old
 // version after the file changed.
-def analyticsVersionFile: T[PathRef] = Task.Source(BuildCtx.workspaceRoot / os.up / "VERSION")
-def analyticsVersion: T[String]      = Task(os.read(analyticsVersionFile().path).trim)
+def analyticsVersionFile: T[PathRef] =
+  Task.Source(BuildCtx.workspaceRoot / os.up / "scalardb-analytics-core" / "VERSION")
+def analyticsVersion: T[String] = Task(os.read(analyticsVersionFile().path).trim)
 
 // Base module with shared functionality
 // Extends PublishingConfig to make all modules publishable, which allows them to be used

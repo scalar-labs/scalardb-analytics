@@ -10,7 +10,7 @@ Version locations referenced below:
 
 | File | Key |
 |------|-----|
-| `VERSION` | this project's version |
+| `scalardb-analytics-core/VERSION` | this project's version |
 | `scalardb-analytics-core/gradle/libs.versions.toml` | `scalardb` |
 | `scalardb-analytics-spark/build.mill` | `Versions.scalardb` |
 

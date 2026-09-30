@@ -27,14 +27,14 @@ gh issue create --title "Release X.Y.Z" --body-file "${TMPDIR:-/tmp}/release-iss
 
 | File | Holds |
 |------|-------|
-| `VERSION` | This project's version. Both the Gradle and the Mill build read it; nothing else defines it |
+| `scalardb-analytics-core/VERSION` | This project's version. Both the Gradle and the Mill build read it; nothing else defines it |
 | `scalardb-analytics-core/gradle/libs.versions.toml` | `scalardb`, the ScalarDB dependency |
 | `scalardb-analytics-spark/build.mill` | `Versions.scalardb`, the same ScalarDB dependency |
 
 The ScalarDB dependency tracks the same version number as this project. To see all three at once:
 
 ```bash
-cat VERSION
+cat scalardb-analytics-core/VERSION
 rg -n '^scalardb = "|val scalardb ' \
   scalardb-analytics-core/gradle/libs.versions.toml \
   scalardb-analytics-spark/build.mill
