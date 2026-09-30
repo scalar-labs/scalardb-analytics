@@ -21,6 +21,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | Server startup & Docker | [server/README.md](scalardb-analytics-core/server/README.md), [docker/server/README.md](scalardb-analytics-core/docker/server/README.md) |
 | CLI usage & commands | [client/cli/README.md](scalardb-analytics-core/client/cli/README.md) |
 | Third-party dependency licenses & notices | [licenses/DEPENDENCY-LICENSE-POLICY.md](licenses/DEPENDENCY-LICENSE-POLICY.md) |
+| Release process | [.claude/skills/release-process/SKILL.md](.claude/skills/release-process/SKILL.md) |
 
 ## Development Rules
 
