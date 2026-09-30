@@ -41,7 +41,7 @@ These tasks publish the artifacts to Maven Local, where the Spark build resolves
 cd ../scalardb-analytics-spark
 ./mill __.compile
 ./mill __.test
-./mill 'spark[2.13,3.5].assembly'
+./mill 'sparkAll[2.13,3.5].assembly'
 ```
 
 The last command builds the Spark 3.5 and Scala 2.13 assembly.

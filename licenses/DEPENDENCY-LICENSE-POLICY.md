@@ -105,8 +105,8 @@ runs on every pull request. Its report is an intermediate result and is never pu
 
 ### The Mill equivalents
 
-The Spark build splits the same two responsibilities. `spark[…].generateLicenseReport` produces one
-assembly variant's notice from that variant's own runtime classpath, and is an input of that
+The Spark build splits the same two responsibilities. `sparkAll[…].generateLicenseReport` produces
+one assembly variant's notice from that variant's own runtime classpath, and is an input of that
 variant's `assembly` only, so compiling and testing do not depend on the license machinery. The
 `licenseReport` module merges every variant's inventory and backs `./mill checkLicense`, the policy
 check that `.github/workflows/ci-spark.yaml` runs on every pull request; like the Gradle root
