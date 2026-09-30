@@ -40,8 +40,43 @@ jobs:
           path: ~/.m2/repository/com/scalar-labs/scalardb-analytics*
           retention-days: 1
 
+  # Testcontainers would otherwise pull the released `latest` image and test this branch's
+  # connector against an old server. Build the server from this branch once and hand it to every
+  # test job, as ci-spark.yaml does.
+  build-server-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build server Docker image
+        working-directory: scalardb-analytics-core/docker/server
+        env:
+          DOCKER_BUILDKIT: 1
+        run: make build
+
+      - name: Tag server Docker image with commit SHA
+        run: |
+          docker tag ghcr.io/scalar-labs/scalardb-analytics-server:latest \
+            ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
+
+      - name: Save Docker image as artifact
+        run: |
+          docker save ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }} \
+            -o /tmp/server-image.tar
+
+      - name: Upload server image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-docker-image
+          path: /tmp/server-image.tar
+          retention-days: 1
+
   integration-test:
-    needs: build-gradle-dependencies
+    needs: [build-gradle-dependencies, build-server-image]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -72,6 +107,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      - name: Download server Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: server-docker-image
+          path: /tmp
+
+      - name: Load server Docker image
+        run: docker load -i /tmp/server-image.tar && rm -f /tmp/server-image.tar
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -81,6 +125,8 @@ jobs:
 
       - name: Run integration tests (all DB versions, Oracle excluded)
         working-directory: scalardb-analytics-spark
+        env:
+          SCALARDB_ANALYTICS_SERVER_IMAGE: ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
         run: |
           ./mill --jobs 2 'ciTest[${{ matrix.scala-version }},${{ matrix.spark-version }}].integrationTestAll'
 
@@ -102,7 +148,7 @@ jobs:
   # each Oracle version gets a fresh runner with full disk space available.
   # We test all Oracle versions (19c, 21c, 23c) in weekly CI for comprehensive coverage.
   integration-test-oracle-23:
-    needs: build-gradle-dependencies
+    needs: [build-gradle-dependencies, build-server-image]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -136,6 +182,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      - name: Download server Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: server-docker-image
+          path: /tmp
+
+      - name: Load server Docker image
+        run: docker load -i /tmp/server-image.tar && rm -f /tmp/server-image.tar
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -145,6 +200,8 @@ jobs:
 
       - name: Run Oracle 23c integration tests
         working-directory: scalardb-analytics-spark
+        env:
+          SCALARDB_ANALYTICS_SERVER_IMAGE: ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
         run: |
           ./mill 'ciTest[${{ matrix.scala-version }},${{ matrix.spark-version }}].integrationTestOracle23'
 
@@ -161,7 +218,7 @@ jobs:
           path: scalardb-analytics-spark/out/collectTestReports.dest/${{ matrix.scala-version }}-${{ matrix.spark-version }}/
 
   integration-test-oracle-21:
-    needs: build-gradle-dependencies
+    needs: [build-gradle-dependencies, build-server-image]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -195,6 +252,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      - name: Download server Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: server-docker-image
+          path: /tmp
+
+      - name: Load server Docker image
+        run: docker load -i /tmp/server-image.tar && rm -f /tmp/server-image.tar
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -204,6 +270,8 @@ jobs:
 
       - name: Run Oracle 21c integration tests
         working-directory: scalardb-analytics-spark
+        env:
+          SCALARDB_ANALYTICS_SERVER_IMAGE: ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
         run: |
           ./mill 'ciTest[${{ matrix.scala-version }},${{ matrix.spark-version }}].integrationTestOracle21'
 
@@ -220,7 +288,7 @@ jobs:
           path: scalardb-analytics-spark/out/collectTestReports.dest/${{ matrix.scala-version }}-${{ matrix.spark-version }}/
 
   integration-test-oracle-19:
-    needs: build-gradle-dependencies
+    needs: [build-gradle-dependencies, build-server-image]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -254,6 +322,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      - name: Download server Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: server-docker-image
+          path: /tmp
+
+      - name: Load server Docker image
+        run: docker load -i /tmp/server-image.tar && rm -f /tmp/server-image.tar
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -263,6 +340,8 @@ jobs:
 
       - name: Run Oracle 19c integration tests
         working-directory: scalardb-analytics-spark
+        env:
+          SCALARDB_ANALYTICS_SERVER_IMAGE: ghcr.io/scalar-labs/scalardb-analytics-server:${{ github.sha }}
         run: |
           ./mill 'ciTest[${{ matrix.scala-version }},${{ matrix.spark-version }}].integrationTestOracle19'
 
