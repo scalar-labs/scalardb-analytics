@@ -371,7 +371,7 @@ trait SparkModule extends CrossBuildModule {
     def mvnDeps = super.mvnDeps() ++ Seq(
       // Test framework
       mvn"org.scalatest::scalatest:${Versions.scalatest}",
-      // ScalarDB Analytics Client SDK (use hardcoded version same as publishVersion)
+      // ScalarDB Analytics Client SDK, at the version this build publishes
       mvn"com.scalar-labs:scalardb-analytics-client-sdk:${analyticsVersion()}",
       // Testcontainers
       mvn"org.testcontainers:testcontainers-mysql:${Versions.testcontainers}",
@@ -436,8 +436,6 @@ trait SparkModule extends CrossBuildModule {
     def testArgs = Seq("-P1", "-T900")
   }
 }
-
-// Datasource modules
 
 // The published fat jar. It carries no sources of its own: everything in it comes from `spark`
 // and that module's dependency tree. Splitting it out of `spark` is what lets the connector
@@ -655,6 +653,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
   }
 }
 
+// Datasource modules
 object datasource extends Module {
   object scalardb                extends Cross[ScalarDbDataSourceModule](crossMatrix)
   trait ScalarDbDataSourceModule extends CrossBuildModule {
