@@ -7,7 +7,11 @@ package com.scalar.db.analytics.client.cli;
 import com.scalar.db.analytics.client.cli.CommandResult.CommandError;
 import com.scalar.db.analytics.client.cli.CommandResult.Failure;
 import com.scalar.db.analytics.client.cli.CommandResult.Success;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import picocli.CommandLine.Help.Ansi;
+import picocli.CommandLine.Help.Ansi.Style;
 
 /** Defines an interface for printing the results of a command execution. */
 public interface Printer {
@@ -16,6 +20,12 @@ public interface Printer {
   void printFailure(Failure error);
 
   void printError(CommandError error);
+
+  /**
+   * Prints a warning about a command that succeeded. Warnings are kept apart from the result, so
+   * that a caller that parses the result is not affected by them.
+   */
+  void printWarning(String message);
 
   /** A {@link Printer} that prints the results of a command execution to the console. */
   class ConsolePrinter implements Printer {
@@ -46,6 +56,17 @@ public interface Printer {
       System.err.println(msg);
       error.exception().printStackTrace(System.err);
     }
+
+    @Override
+    public void printWarning(String message) {
+      // The message can carry names read from a data source, so it is wrapped in style codes
+      // rather than passed through picocli markup, which would misread a name containing "|@".
+      if (Ansi.AUTO.enabled()) {
+        System.err.println(Style.fg_yellow.on() + message + Style.fg_yellow.off());
+      } else {
+        System.err.println(message);
+      }
+    }
   }
 
   /**
@@ -55,6 +76,7 @@ public interface Printer {
   class StringPrinter implements Printer {
     private final Formatter formatter;
     private final StringBuilder sb;
+    private final List<String> warnings = new ArrayList<>();
 
     public StringPrinter(Formatter formatter, StringBuilder sb) {
       this.formatter = formatter;
@@ -84,8 +106,18 @@ public interface Printer {
       throw new RuntimeException(error.exception());
     }
 
+    /** Records the warning apart from the output, as the console printer writes it to stderr. */
+    @Override
+    public void printWarning(String message) {
+      warnings.add(message);
+    }
+
     public String getOutput() {
       return sb.toString();
+    }
+
+    public List<String> getWarnings() {
+      return Collections.unmodifiableList(warnings);
     }
 
     @Override

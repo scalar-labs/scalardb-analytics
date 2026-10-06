@@ -11,6 +11,8 @@ import java.sql.JDBCType;
 public class UnsupportedJdbcTypeException extends SchemaResolverException {
   private static final long serialVersionUID = 3174320012206162888L;
 
+  private final String jdbcTypeDescription;
+
   public UnsupportedJdbcTypeException(JdbcColumnInfo column) {
     super(
         String.format(
@@ -21,6 +23,15 @@ public class UnsupportedJdbcTypeException extends SchemaResolverException {
             column.getTypeName(),
             column.getTableName(),
             column.getNamespaceInfo().getNamespaceString()));
+    this.jdbcTypeDescription = typeString(column);
+  }
+
+  /**
+   * Returns the unsupported JDBC type, with the size and digits for numeric types, for example
+   * {@code OTHER} or {@code NUMERIC(0, 0)}.
+   */
+  String getJdbcTypeDescription() {
+    return jdbcTypeDescription;
   }
 
   private static String typeString(JdbcColumnInfo column) {

@@ -4,7 +4,7 @@
  */
 package com.scalar.db.analytics.server.grpc;
 
-import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DataSourceServiceGrpc.DataSourceServiceImplBase;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DeleteDataSourceByIdRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DeleteDataSourceByIdResponse;
@@ -20,6 +20,7 @@ import com.scalar.db.analytics.grpc.generated.datasource.v1.RegisterRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.RegisterResponse;
 import com.scalar.db.analytics.grpc.mapper.RequestMapper;
 import com.scalar.db.analytics.grpc.mapper.datasource.DataSourceMapper;
+import com.scalar.db.analytics.grpc.mapper.datasource.SkippedColumnMapper;
 import com.scalar.db.analytics.usecase.DataSourceUseCase;
 import io.grpc.stub.StreamObserver;
 import java.util.Objects;
@@ -64,16 +65,19 @@ public class DataSourceServiceImpl extends DataSourceServiceImplBase {
   public void register(RegisterRequest request, StreamObserver<RegisterResponse> responseObserver) {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
     // The mapper returns null only for a null request, and gRPC never passes one.
-    DataSource register =
+    RegisterDataSourceResult result =
         useCase.register(
             userId,
             Objects.requireNonNull(
                 RequestMapper.INSTANCE.toDomainRegisterDataSourceRequest(request)));
 
-    RegisterResponse response =
+    RegisterResponse.Builder builder =
         RegisterResponse.newBuilder()
-            .setDataSource(DataSourceMapper.INSTANCE.toProto(register))
-            .build();
+            .setDataSource(DataSourceMapper.INSTANCE.toProto(result.getDataSource()));
+    result
+        .getSkippedColumns()
+        .forEach(c -> builder.addWarnings(SkippedColumnMapper.INSTANCE.toProto(c)));
+    RegisterResponse response = builder.build();
 
     responseObserver.onNext(response);
     responseObserver.onCompleted();
