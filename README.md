@@ -70,4 +70,4 @@ Everyone who participates in this project is expected to follow the [Code of Con
 ScalarDB Analytics is dual-licensed under both the Apache 2.0 License (found in
 the [LICENSE](LICENSE) file) and a commercial license. You may select, at your
 option, one of the licenses. For more information about the commercial license,
-please [contact us](https://www.scalar-labs.com/contact).
+please [contact us](https://www.scalar-labs.com/contact-us).
