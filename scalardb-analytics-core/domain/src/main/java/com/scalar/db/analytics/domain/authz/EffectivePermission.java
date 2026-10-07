@@ -16,10 +16,28 @@ import org.jspecify.annotations.Nullable;
  * @param source whether the permission is direct or via a role
  * @param viaRoleId the role ID if source is VIA_ROLE, null otherwise
  * @param viaRoleName the role name if source is VIA_ROLE, null otherwise
+ * @param resourceNames the names that identify the resource, or null if they were not resolved
  */
 public record EffectivePermission(
     Permission permission,
     UUID resourceId,
     PermissionSource source,
     @Nullable UUID viaRoleId,
-    @Nullable String viaRoleName) {}
+    @Nullable String viaRoleName,
+    @Nullable ResourceNames resourceNames) {
+
+  /** Creates an effective permission whose resource names are not resolved. */
+  public EffectivePermission(
+      Permission permission,
+      UUID resourceId,
+      PermissionSource source,
+      @Nullable UUID viaRoleId,
+      @Nullable String viaRoleName) {
+    this(permission, resourceId, source, viaRoleId, viaRoleName, null);
+  }
+
+  /** Returns a copy of this permission with the given resource names. */
+  public EffectivePermission withResourceNames(@Nullable ResourceNames names) {
+    return new EffectivePermission(permission, resourceId, source, viaRoleId, viaRoleName, names);
+  }
+}

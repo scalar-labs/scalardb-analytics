@@ -474,7 +474,18 @@ public class BlockingGrpcPermissionClient implements PermissionClient {
     }
     @Nullable String viaRoleId = proto.hasViaRoleId() ? proto.getViaRoleId() : null;
     @Nullable String viaRoleName = proto.hasViaRoleName() ? proto.getViaRoleName() : null;
+    @Nullable String catalogName = proto.hasCatalogName() ? proto.getCatalogName() : null;
+    @Nullable String dataSourceName = proto.hasDataSourceName() ? proto.getDataSourceName() : null;
+    @Nullable String tableName = proto.hasTableName() ? proto.getTableName() : null;
     return new EffectivePermission(
-        permissionName, proto.getResourceId(), sourceName, viaRoleId, viaRoleName);
+        permissionName,
+        proto.getResourceId(),
+        sourceName,
+        viaRoleId,
+        viaRoleName,
+        catalogName,
+        dataSourceName,
+        proto.getNamespaceNamesList(),
+        tableName);
   }
 }
