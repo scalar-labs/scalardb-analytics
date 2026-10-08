@@ -26,6 +26,7 @@ import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
 import com.scalar.db.analytics.service.DataSourceService;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.service.authz.PermissionRequirement;
+import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -141,6 +142,16 @@ public class DataSourceUseCaseImpl<T extends RepositoryTransactionContext>
             }
             return this.dataSourceService.registerDataSource(ctx, request);
           });
+    } catch (InvalidSchemaMetadataException e) {
+      throw new AnalyticsException(
+          AnalyticsErrorCode.INVALID_SCHEMA_METADATA,
+          Map.of(
+              "catalog_name", request.getCatalogName(),
+              "data_source_name", request.getName(),
+              "field", e.getField().label(),
+              "path", e.getPath(),
+              "value", e.getValue()),
+          e);
     } catch (SchemaResolverException e) {
       throw new AnalyticsException(AnalyticsErrorCode.DATA_SOURCE_UNREACHABLE, e);
     }

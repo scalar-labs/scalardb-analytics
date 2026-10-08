@@ -85,6 +85,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | Error Code | Name | gRPC Status | Category | Reauth | Description |
 |------------|------|-------------|----------|--------|-------------|
 | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | `INVALID_ARGUMENT` | USER_ERROR | No | Invalid argument or validation failure |
+| `DB-ANALYTICS-10401` | `INVALID_SCHEMA_METADATA` | `INVALID_ARGUMENT` | USER_ERROR | No | A namespace, table, column, or column type name in the data source schema contains a prohibited control or bidirectional formatting character |
 
 ### 300xx — Retryable Internal Errors
 
