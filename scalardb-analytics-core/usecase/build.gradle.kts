@@ -5,6 +5,7 @@
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
 }
 
 java {
@@ -19,4 +20,8 @@ dependencies {
     implementation(project(":domain"))
     implementation(libs.guava)
     implementation(libs.slf4j)
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-usecase"
 }

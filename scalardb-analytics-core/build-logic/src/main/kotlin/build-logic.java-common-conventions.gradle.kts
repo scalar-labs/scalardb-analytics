@@ -25,9 +25,22 @@ plugins {
 }
 
 group = "com.scalar-labs"
+// The single definition of the version is the VERSION file in this Gradle root, which the Spark
+// build reads as well. It lives here rather than at the repository root so that it is inside the
+// Docker build context of the images built from this directory. A build that consumes this one
+// through a submodule sets `analyticsVersionFile` to point at the same file, so it cannot drift
+// from the modules it resolves.
 // Note: Ideally, main branch should use 4.0.0-SNAPSHOT and v3 branch should use 3.x.0-SNAPSHOT.
 // However, since there are currently no v4-specific features, we use 3.x.0-SNAPSHOT on main branch.
-version = "3.20.0-SNAPSHOT"
+version =
+    providers
+        .fileContents(
+            rootProject.layout.projectDirectory.file(
+                providers.gradleProperty("analyticsVersionFile").getOrElse("VERSION"),
+            ),
+        ).asText
+        .get()
+        .trim()
 
 val libs = the<LibrariesForLibs>()
 

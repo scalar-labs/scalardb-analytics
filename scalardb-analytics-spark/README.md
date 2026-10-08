@@ -12,8 +12,12 @@ Follow the root [build instructions](../README.md#build-the-core-artifacts-used-
 ```bash
 ./mill __.compile
 ./mill __.test
-./mill 'spark[2.13,3.5].assembly'
+./mill 'sparkAll[2.13,3.5].assembly'
 ```
+
+Build the assembly from `sparkAll`, not `spark`. Mill can assemble any module, so
+`spark[…].assembly` also succeeds, but it produces a jar without the generated license texts
+that is not the published artifact.
 
 Use these commands to format or check Scala sources:
 
@@ -26,7 +30,7 @@ Use these commands to check dependency licenses and generate third-party notices
 
 ```bash
 ./mill checkLicense
-./mill 'spark[2.13,3.5].generateLicenseReport'
+./mill 'sparkAll[2.13,3.5].generateLicenseReport'
 ```
 
 The notices are generated into the assembly at packaging time and are not committed. See
@@ -47,7 +51,8 @@ The notices are generated into the assembly at packaging time and are not commit
 | --- | --- |
 | `compat/` | Compatibility code for supported Spark and Scala versions |
 | `lib/` | Shared connector implementation |
-| `spark/` | Published assembly |
+| `spark/` | Connector implementation. Published to Maven Local only, for builds that compile against it |
+| `sparkAll` | Published assembly, `scalardb-analytics-spark-all-<spark>_<scala>`. No sources of its own: it assembles `spark` and its dependencies |
 | `datasource/scalardb/` | ScalarDB data source |
 | `datasource/dynamodb/` | DynamoDB data source |
 

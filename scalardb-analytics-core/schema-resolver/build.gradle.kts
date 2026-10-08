@@ -7,6 +7,7 @@ import com.scalar.db.analytics.gradle.GradleUtil.sourceSetOutput
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
 }
 
 dependencies {
@@ -51,4 +52,8 @@ testing.suites {
 
 tasks.check {
     dependsOn(testing.suites.named("integrationTest"))
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-schema-resolver"
 }

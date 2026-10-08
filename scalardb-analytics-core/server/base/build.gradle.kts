@@ -5,6 +5,7 @@
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
@@ -66,6 +67,11 @@ tasks.bootJar {
 
 tasks.jar {
     enabled = true
+    // The Spring Boot plugin moves the ordinary jar to the "plain" classifier so the executable
+    // bootJar can take the main coordinate. bootJar is disabled here, so the main coordinate is
+    // free and the ordinary jar has to claim it: consumers resolving this module from a
+    // repository get no classes otherwise, and the POM is published with "pom" packaging.
+    archiveClassifier.set("")
 }
 
 @Suppress("UnstableApiUsage")
@@ -109,4 +115,8 @@ tasks.check {
 
 tasks.named<Test>("integrationTest") {
     maxParallelForks = 1
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-server-base"
 }

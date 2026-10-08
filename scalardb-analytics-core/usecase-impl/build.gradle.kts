@@ -5,6 +5,7 @@
 
 plugins {
     id("build-logic.java-common-conventions")
+    id("build-logic.publishing-maven-local")
     alias(libs.plugins.spring.dependency.management)
 }
 
@@ -46,4 +47,8 @@ testing.suites {
             implementation(libs.mockito.junit.jupiter)
         }
     }
+}
+
+publishing.publications.named<MavenPublication>("maven") {
+    artifactId = "scalardb-analytics-usecase-impl"
 }
