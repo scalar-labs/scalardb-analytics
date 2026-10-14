@@ -15,8 +15,20 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
+import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
+// A default catalog set in the environment would take precedence over the test configuration and
+// satisfy commands that the tests expect to fail without --catalog.
+@ExtendWith(SystemStubsExtension.class)
 public abstract class CliTestBase {
+  @SystemStub
+  @SuppressWarnings("unused")
+  private final EnvironmentVariables environment =
+      new EnvironmentVariables().set("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", null);
+
   @SuppressWarnings("NotNullFieldNotInitialized")
   protected Modules modules;
 

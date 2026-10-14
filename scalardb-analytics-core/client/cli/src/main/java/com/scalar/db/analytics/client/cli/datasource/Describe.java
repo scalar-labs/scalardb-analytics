@@ -78,11 +78,11 @@ public class Describe implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    Modules modules = parent.root().loadModules();
-
+    // Resolved first, so that a missing catalog is a usage error before anything is loaded.
     DescribeParameter param =
         DescribeParameter.fromOption(
             idOrName, catalog -> parent.root().resolveCatalog(catalog, spec));
+    Modules modules = parent.root().loadModules();
     try {
       Either<String, DataSource> dataSource;
       if (param instanceof DescribeParameter.ById) {

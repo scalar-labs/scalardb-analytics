@@ -45,11 +45,14 @@ import picocli.CommandLine.ScopeType;
       PermissionCommand.class
     })
 public class CliRoot implements Runnable {
-  /** The description of the {@code --catalog} option of the commands that operate in a catalog. */
-  public static final String CATALOG_OPTION_DESCRIPTION =
-      "Catalog name. Defaults to "
+  /** How the {@code --catalog} option of the commands that operate in a catalog defaults. */
+  public static final String CATALOG_OPTION_DEFAULT =
+      "Defaults to "
           + UnvalidatedConfig.DEFAULT_CATALOG_KEY
           + " in the configuration file or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG";
+
+  /** The description of the {@code --catalog} option of the commands that operate in a catalog. */
+  public static final String CATALOG_OPTION_DESCRIPTION = "Catalog name. " + CATALOG_OPTION_DEFAULT;
 
   @Option(
       names = {"-c", "--config"},
@@ -112,23 +115,31 @@ public class CliRoot implements Runnable {
     try {
       defaultCatalog = loadConfig().defaultCatalog();
     } catch (RuntimeException e) {
-      // A configuration that cannot be loaded has no default. The missing option is reported, as
-      // before the default existed; once it is given, loading fails again with its own error.
-      defaultCatalog = null;
+      // Still a usage error, as when --catalog was required, but with the reason the default could
+      // not be read, so that a configuration error is not mistaken for an unset default.
+      throw new ParameterException(
+          spec.commandLine(),
+          missingCatalogMessage(spec)
+              + " (the default catalog could not be read: "
+              + e.getMessage()
+              + ")",
+          e);
     }
     if (defaultCatalog != null) {
       return defaultCatalog;
     }
-    // The same messages picocli gives when a required --catalog is missing, as an option of the
-    // command or as a member of an argument group.
+    throw new ParameterException(spec.commandLine(), missingCatalogMessage(spec));
+  }
+
+  // The messages picocli gives when a required --catalog is missing, as an option of the command or
+  // as a member of an argument group.
+  private static String missingCatalogMessage(CommandSpec spec) {
     OptionSpec option = spec.findOption("--catalog");
     String name =
         option == null ? "--catalog=<catalog>" : option.longestName() + "=" + option.paramLabel();
-    String message =
-        option != null && option.group() != null
-            ? "Error: Missing required argument(s): " + name
-            : "Missing required option: '" + name + "'";
-    throw new ParameterException(spec.commandLine(), message);
+    return option != null && option.group() != null
+        ? "Error: Missing required argument(s): " + name
+        : "Missing required option: '" + name + "'";
   }
 
   private AppConfig loadConfig() {

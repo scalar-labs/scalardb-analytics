@@ -183,7 +183,24 @@ class DefaultCatalogTest extends CliTestBase {
           "scalar.db.analytics.client.server.host=localhost\n".getBytes(StandardCharsets.UTF_8));
 
       assertThat(execute("namespace", "list")).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr()).contains("Missing required option: '--catalog=<catalog>'");
+      assertThat(getStderr())
+          .contains("Missing required option: '--catalog=<catalog>'")
+          .contains("the default catalog could not be read")
+          .contains("scalar.db.analytics.client.server.catalog.port");
+      verifyNoInteractions(modules.client().namespace());
+    }
+
+    @Test
+    void namespaceList_withDefaultButInvalidConfig_shouldReportTheConfigError() throws IOException {
+      // A default is set, but the configuration is invalid (username without password).
+      writeConfig(
+          "scalar.db.analytics.client.default.catalog=default_catalog\n"
+              + "scalar.db.analytics.client.auth.username=alice\n");
+
+      assertThat(execute("namespace", "list")).isEqualTo(ExitCode.USAGE);
+      assertThat(getStderr())
+          .contains("the default catalog could not be read")
+          .contains("scalar.db.analytics.client.auth.password");
       verifyNoInteractions(modules.client().namespace());
     }
 

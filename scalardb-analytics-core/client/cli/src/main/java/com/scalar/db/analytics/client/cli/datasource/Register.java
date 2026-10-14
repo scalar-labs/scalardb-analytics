@@ -84,7 +84,7 @@ public class Register implements Callable<Integer> {
 
   @Option(
       names = {"--catalog"},
-      description = CliRoot.CATALOG_OPTION_DESCRIPTION)
+      description = "Catalog name that owns the data source. " + CliRoot.CATALOG_OPTION_DEFAULT)
   @Nullable
   private String catalog;
 
