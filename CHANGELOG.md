@@ -29,3 +29,7 @@ changes released from here, starting with the entries below.
 - Rewrote the repository READMEs around the public project scope, source builds, and links to the official documentation
 - [BREAKING] Renamed the `without-licensing` server distribution to `app` and its image from `ghcr.io/scalar-labs/scalardb-analytics-server-without-licensing` to `ghcr.io/scalar-labs/scalardb-analytics-server`
 - [BREAKING] `com.scalar.db.analytics.spark.ScalarDbAnalyticsCatalog` no longer requires a usage metering service or the metering Spark listener. The server image exposes port 11051 only
+
+### Bug fixes
+
+- Fixed an issue where data cached with `CACHE TABLE` or `cache()` for a DynamoDB table was not used by later queries that load the table again, so they read from DynamoDB instead. DynamoDB tables now report their catalog identifier (`<data source>.<namespace>.<table>`) as their Spark table name, as ScalarDB tables do

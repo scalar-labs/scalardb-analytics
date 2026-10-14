@@ -64,7 +64,7 @@ class CatalogTable(
         ScalarDbTableFactory.create(identifier, detail, scalarDb)
 
       case dynamoDb: DynamoDbProvider =>
-        DynamoDbTableFactory.create(detail, dynamoDb)
+        DynamoDbTableFactory.create(identifier, detail, dynamoDb)
 
       case databricks: Databricks =>
         JdbcTableFactory.create(identifier, detail, databricks)
