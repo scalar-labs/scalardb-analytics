@@ -80,6 +80,44 @@ class ConfigTest {
       }
 
       @Test
+      void givenDefaultCatalog_shouldLoad() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n"
+                + "scalar.db.analytics.client.default.catalog=my_catalog\n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isEqualTo("my_catalog");
+      }
+
+      @Test
+      void givenNoDefaultCatalog_shouldBeNull() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isNull();
+      }
+
+      @Test
+      void givenBlankDefaultCatalog_shouldBeNull() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n"
+                + "scalar.db.analytics.client.default.catalog= \n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isNull();
+      }
+
+      @Test
       void givenPropertiesMissingHost_shouldThrow() throws IOException {
         // Arrange
         String properties = "scalar.db.analytics.client.server.catalog.port=1234\n";
@@ -360,6 +398,19 @@ class ConfigTest {
                   assertThat(config.auth()).isNotNull();
                   assertThat(config.auth().username()).isEqualTo("user_from_env");
                   assertThat(config.auth().password()).isEqualTo("pass_from_env");
+                });
+      }
+
+      @Test
+      void shouldLoadDefaultCatalogFromEnvironmentVariable() throws Exception {
+        new EnvironmentVariables()
+            .set("SCALAR_DB_ANALYTICS_CLIENT_SERVER_HOST", "localhost")
+            .set("SCALAR_DB_ANALYTICS_CLIENT_SERVER_CATALOG_PORT", "1234")
+            .set("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", "catalog_from_env")
+            .execute(
+                () -> {
+                  AppConfig config = AppConfig.load();
+                  assertThat(config.defaultCatalog()).isEqualTo("catalog_from_env");
                 });
       }
 

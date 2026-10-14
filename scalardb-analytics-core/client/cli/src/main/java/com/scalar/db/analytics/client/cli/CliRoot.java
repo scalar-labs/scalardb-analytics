@@ -16,12 +16,16 @@ import com.scalar.db.analytics.client.cli.role.RoleCommand;
 import com.scalar.db.analytics.client.cli.table.TableCommand;
 import com.scalar.db.analytics.client.cli.user.UserCommand;
 import com.scalar.db.analytics.client.config.AppConfig;
+import com.scalar.db.analytics.client.config.UnvalidatedConfig;
 import com.scalar.db.analytics.client.module.Modules;
 import java.nio.file.Path;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Model.OptionSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.ScopeType;
 
 @Command(
@@ -41,6 +45,12 @@ import picocli.CommandLine.ScopeType;
       PermissionCommand.class
     })
 public class CliRoot implements Runnable {
+  /** The description of the {@code --catalog} option of the commands that operate in a catalog. */
+  public static final String CATALOG_OPTION_DESCRIPTION =
+      "Catalog name. Defaults to "
+          + UnvalidatedConfig.DEFAULT_CATALOG_KEY
+          + " in the configuration file or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG";
+
   @Option(
       names = {"-c", "--config"},
       description = {
@@ -54,6 +64,7 @@ public class CliRoot implements Runnable {
   private final Printer printer;
 
   @Nullable private Modules modules;
+  @Nullable private AppConfig config;
 
   public CliRoot() {
     Formatter formatter = new JsonFormatter();
@@ -77,20 +88,61 @@ public class CliRoot implements Runnable {
 
   public Modules loadModules() {
     if (modules == null) {
-      AppConfig config = loadConfig();
-      modules = Modules.initialize(config);
+      modules = Modules.initialize(loadConfig());
     }
     return modules;
   }
 
-  private AppConfig loadConfig() {
-    if (configPath == null) {
-      return AppConfig.load();
-    } else {
-      if (!configPath.toFile().exists()) {
-        throw new RuntimeException("Configuration file not found: " + configPath.toAbsolutePath());
-      }
-      return AppConfig.load(configPath);
+  /**
+   * Returns the catalog a command operates in: the {@code --catalog} option if given, otherwise the
+   * configured default catalog ({@value UnvalidatedConfig#DEFAULT_CATALOG_KEY}).
+   *
+   * @param catalog the value of the command's {@code --catalog} option, or {@code null} if not
+   *     given
+   * @param spec the spec of the command, used to report a missing catalog as a usage error
+   * @return the catalog name
+   * @throws ParameterException if neither the option nor a default catalog is set, with the message
+   *     picocli gives for a missing required option
+   */
+  public String resolveCatalog(@Nullable String catalog, CommandSpec spec) {
+    if (catalog != null) {
+      return catalog;
     }
+    String defaultCatalog;
+    try {
+      defaultCatalog = loadConfig().defaultCatalog();
+    } catch (RuntimeException e) {
+      // A configuration that cannot be loaded has no default. The missing option is reported, as
+      // before the default existed; once it is given, loading fails again with its own error.
+      defaultCatalog = null;
+    }
+    if (defaultCatalog != null) {
+      return defaultCatalog;
+    }
+    // The same messages picocli gives when a required --catalog is missing, as an option of the
+    // command or as a member of an argument group.
+    OptionSpec option = spec.findOption("--catalog");
+    String name =
+        option == null ? "--catalog=<catalog>" : option.longestName() + "=" + option.paramLabel();
+    String message =
+        option != null && option.group() != null
+            ? "Error: Missing required argument(s): " + name
+            : "Missing required option: '" + name + "'";
+    throw new ParameterException(spec.commandLine(), message);
+  }
+
+  private AppConfig loadConfig() {
+    if (config == null) {
+      if (configPath == null) {
+        config = AppConfig.load();
+      } else {
+        if (!configPath.toFile().exists()) {
+          throw new RuntimeException(
+              "Configuration file not found: " + configPath.toAbsolutePath());
+        }
+        config = AppConfig.load(configPath);
+      }
+    }
+    return config;
   }
 }

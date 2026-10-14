@@ -5,6 +5,7 @@
 package com.scalar.db.analytics.client.cli.datasource;
 
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.client.cli.CliRoot;
 import com.scalar.db.analytics.client.cli.CommandResult.CommandError;
 import com.scalar.db.analytics.client.cli.CommandResult.Failure;
 import com.scalar.db.analytics.client.cli.CommandResult.Success;
@@ -15,13 +16,16 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 @Command(
     name = "describe",
@@ -33,16 +37,14 @@ import picocli.CommandLine.ParentCommand;
     customSynopsis = {
       "Usage:",
       "  describe -i <data_source_id>",
-      "  describe -c <catalog> -d <dataSource>",
+      "  describe [-c <catalog>] -d <dataSource>",
     })
 public class Describe implements Callable<Integer> {
   static class NamesOption {
     @Option(
         names = {"-c", "--catalog"},
-        description = "Catalog name",
-        required = true)
-    @SuppressWarnings("NotNullFieldNotInitialized")
-    String catalog;
+        description = CliRoot.CATALOG_OPTION_DESCRIPTION)
+    @Nullable String catalog;
 
     @Option(
         names = {"-d", "--data-source"},
@@ -70,11 +72,17 @@ public class Describe implements Callable<Integer> {
   @SuppressWarnings("NotNullFieldNotInitialized")
   private DataSourceCommand parent;
 
+  @Spec
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private CommandSpec spec;
+
   @Override
   public Integer call() {
     Modules modules = parent.root().loadModules();
 
-    DescribeParameter param = DescribeParameter.fromOption(idOrName);
+    DescribeParameter param =
+        DescribeParameter.fromOption(
+            idOrName, catalog -> parent.root().resolveCatalog(catalog, spec));
     try {
       Either<String, DataSource> dataSource;
       if (param instanceof DescribeParameter.ById) {
@@ -117,12 +125,13 @@ public class Describe implements Callable<Integer> {
   private interface DescribeParameter {
     String name();
 
-    static DescribeParameter fromOption(IdOrNameOption option) {
+    static DescribeParameter fromOption(
+        IdOrNameOption option, Function<@Nullable String, String> resolveCatalog) {
       if (option.dataSourceId != null) {
         return new ById(option.dataSourceId);
       } else {
         Objects.requireNonNull(option.names);
-        return new ByNames(option.names.catalog, option.names.dataSource);
+        return new ByNames(resolveCatalog.apply(option.names.catalog), option.names.dataSource);
       }
     }
 

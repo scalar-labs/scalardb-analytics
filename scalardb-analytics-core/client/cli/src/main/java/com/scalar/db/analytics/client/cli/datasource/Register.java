@@ -15,6 +15,7 @@ import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.api.request.schema.DataSourceSchema;
+import com.scalar.db.analytics.client.cli.CliRoot;
 import com.scalar.db.analytics.client.cli.CommandResult.CommandError;
 import com.scalar.db.analytics.client.cli.CommandResult.Failure;
 import com.scalar.db.analytics.client.cli.CommandResult.Success;
@@ -37,8 +38,10 @@ import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 @Command(name = "register", description = "Register a new data source")
 public class Register implements Callable<Integer> {
@@ -81,9 +84,8 @@ public class Register implements Callable<Integer> {
 
   @Option(
       names = {"--catalog"},
-      description = "Catalog name that owns the data source",
-      required = true)
-  @SuppressWarnings("NotNullFieldNotInitialized")
+      description = CliRoot.CATALOG_OPTION_DESCRIPTION)
+  @Nullable
   private String catalog;
 
   @Option(
@@ -104,6 +106,10 @@ public class Register implements Callable<Integer> {
   @SuppressWarnings("NotNullFieldNotInitialized")
   private DataSourceCommand parent;
 
+  @Spec
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private CommandSpec spec;
+
   private final ObjectMapper objectMapper;
   private final DataSourceProviderCodec providerCodec;
   private final DataSourceSchemaCodec schemaCodec;
@@ -118,6 +124,7 @@ public class Register implements Callable<Integer> {
 
   @Override
   public Integer call() {
+    String catalogName = parent.root().resolveCatalog(catalog, spec);
     Modules modules = parent.root().loadModules();
 
     JsonNode providerNode;
@@ -146,7 +153,7 @@ public class Register implements Callable<Integer> {
     }
 
     RegisterDataSourceRequest request =
-        new RegisterDataSourceRequest(catalog, dataSource, provider, schema);
+        new RegisterDataSourceRequest(catalogName, dataSource, provider, schema);
 
     try {
       RegisterDataSourceResult result = modules.client().dataSource().register(request);

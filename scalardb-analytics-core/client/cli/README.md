@@ -192,7 +192,12 @@ scalar.db.analytics.client.server.catalog.port=11051
 scalar.db.analytics.client.server.tls.enabled=true
 scalar.db.analytics.client.server.tls.ca_root_cert_path=/path/to/ca.crt
 scalar.db.analytics.client.server.tls.override_authority=analytics.example.com
+
+# Catalog used when --catalog is omitted (optional)
+scalar.db.analytics.client.default.catalog=my_catalog
 ```
+
+The default catalog (also settable through `SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG`) applies to the commands that operate in a catalog: `data-source`, `namespace`, and `table` commands, and `permission grant`/`revoke` on a data source, namespace, or table. A `--catalog` option on the command line takes precedence. The `catalog` commands and `permission grant`/`revoke catalog` still require `--catalog`, since the catalog is their target. Commands with `--catalog` call `CliRoot.resolveCatalog()` to apply the default.
 
 Configuration can be overridden via:
 

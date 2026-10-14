@@ -12,10 +12,19 @@ import org.jspecify.annotations.Nullable;
 public class AppConfig {
   private final CatalogServerConfig catalogServer;
   @Nullable private final AuthConfig auth;
+  @Nullable private final String defaultCatalog;
 
   public AppConfig(CatalogServerConfig catalogServer, @Nullable AuthConfig auth) {
+    this(catalogServer, auth, null);
+  }
+
+  public AppConfig(
+      CatalogServerConfig catalogServer,
+      @Nullable AuthConfig auth,
+      @Nullable String defaultCatalog) {
     this.catalogServer = catalogServer;
     this.auth = auth;
+    this.defaultCatalog = defaultCatalog;
   }
 
   public CatalogServerConfig catalogServer() {
@@ -25,6 +34,15 @@ public class AppConfig {
   @Nullable
   public AuthConfig auth() {
     return auth;
+  }
+
+  /**
+   * Returns the catalog that commands use when {@code --catalog} is not given, or {@code null} if
+   * none is configured.
+   */
+  @Nullable
+  public String defaultCatalog() {
+    return defaultCatalog;
   }
 
   /**
