@@ -5,70 +5,68 @@
 
 package com.scalar.db.analytics.spark.lib.table.hadoop
 
+import com.scalar.db.analytics.spark.lib.catalog.{CatalogIdentifier, CatalogNamespace}
 import org.apache.hadoop.io.{LongWritable, Text}
-import org.apache.hadoop.mapred.{InputFormat, SequenceFileInputFormat, TextInputFormat}
+import org.apache.hadoop.mapred.TextInputFormat
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class InputFormatTableWrapperTest extends AnyFunSuite with Matchers {
 
-  private val schema1 = StructType(
+  private val schema = StructType(
     Seq(StructField("col1", StringType), StructField("col2", IntegerType))
   )
-  private val schema2 = StructType(
-    Seq(StructField("col1", StringType), StructField("col2", IntegerType))
-  )
-  private val differentSchema = StructType(
-    Seq(StructField("col1", StringType))
-  )
 
-  private val tableName = "ds.ns.tbl"
+  private val identifier = CatalogIdentifier(CatalogNamespace("ds", List("ns")), "tbl")
 
-  private val textInputFormat: Class[_ <: InputFormat[LongWritable, Text]] =
-    classOf[TextInputFormat]
-
-  private def createTable(
-      cls: Class[_ <: InputFormat[LongWritable, Text]],
-      schema: StructType,
-      name: String
-  ): InputFormatTableWrapper[LongWritable, Text] =
+  private def createTable(id: CatalogIdentifier): InputFormatTableWrapper[LongWritable, Text] =
     // A distinct convert function and configurator per instance, as each load creates them anew
-    new InputFormatTableWrapper(cls, schema, _ => Array.empty, _ => (), name)
+    new InputFormatTableWrapper(
+      classOf[TextInputFormat],
+      schema,
+      _ => Array.empty,
+      _ => (),
+      id.table,
+      id
+    )
 
-  test("equals should return true for tables with the same input format, schema, and name") {
-    createTable(textInputFormat, schema1, tableName) shouldEqual
-      createTable(textInputFormat, schema2, tableName)
+  test("equals should return true for independently created tables with the same identifier") {
+    createTable(identifier) shouldEqual
+      createTable(CatalogIdentifier(CatalogNamespace("ds", List("ns")), "tbl"))
   }
 
   test("hashCode should be the same for equal tables") {
-    createTable(textInputFormat, schema1, tableName).hashCode() shouldEqual
-      createTable(textInputFormat, schema2, tableName).hashCode()
+    createTable(identifier).hashCode() shouldEqual createTable(identifier).hashCode()
   }
 
-  test("equals should return false for tables with different names") {
-    createTable(textInputFormat, schema1, tableName) should not equal
-      createTable(textInputFormat, schema1, "ds.ns.other")
+  test("equals should return false for the same table name in another data source") {
+    createTable(identifier) should not equal
+      createTable(CatalogIdentifier(CatalogNamespace("other_ds", List("ns")), "tbl"))
   }
 
-  test("equals should return false for tables with different schemas") {
-    createTable(textInputFormat, schema1, tableName) should not equal
-      createTable(textInputFormat, differentSchema, tableName)
+  test("equals should return false for the same table name in another namespace") {
+    createTable(identifier) should not equal
+      createTable(CatalogIdentifier(CatalogNamespace("ds", List("other_ns")), "tbl"))
   }
 
-  test("equals should return false for tables with different input formats") {
-    createTable(textInputFormat, schema1, tableName) should not equal
-      createTable(classOf[SequenceFileInputFormat[LongWritable, Text]], schema1, tableName)
+  test("equals should not confuse identifiers whose joined names are the same") {
+    // "a.b" + "c" + "t" and "a" + "b.c" + "t" both read a.b.c.t
+    createTable(CatalogIdentifier(CatalogNamespace("a.b", List("c")), "t")) should not equal
+      createTable(CatalogIdentifier(CatalogNamespace("a", List("b.c")), "t"))
+  }
+
+  test("name should be the table name, not the identifier") {
+    createTable(identifier).name() shouldEqual "tbl"
   }
 
   test("equals should return false for null") {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
-    val result =
-      createTable(textInputFormat, schema1, tableName).equals(None.orNull) // scalastyle:ignore null
+    val result = createTable(identifier).equals(None.orNull) // scalastyle:ignore null
     result shouldBe false
   }
 
   test("equals should return false for a different type") {
-    createTable(textInputFormat, schema1, tableName) should not equal "not a table"
+    createTable(identifier) should not equal "not a table"
   }
 }

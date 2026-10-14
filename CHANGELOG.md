@@ -32,4 +32,4 @@ changes released from here, starting with the entries below.
 
 ### Bug fixes
 
-- Fixed an issue where data cached with `CACHE TABLE` or `cache()` for a DynamoDB table was not used by later queries that load the table again, so they read from DynamoDB instead. DynamoDB tables now report their catalog identifier (`<data source>.<namespace>.<table>`) as their Spark table name, as ScalarDB tables do
+- Fixed an issue where data cached with `CACHE TABLE` or `cache()` for a DynamoDB table was not used by later queries that load the table again,, so they read from DynamoDB instead

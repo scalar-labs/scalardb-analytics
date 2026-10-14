@@ -215,7 +215,7 @@ class CatalogWithDynamoDbTest extends BaseSpec with CatalogTestBase with BeforeA
     it("should load table") {
       val catalog = CatalogUtil.getCatalog(spark, CATALOG_NAME)
       val table   = catalog.loadTable(Identifier.of(Array("dynamodb", "sample_ns"), "sample_table"))
-      assert(table.name() == "dynamodb.sample_ns.sample_table")
+      assert(table.name() == "sample_table")
     }
 
     it("should have correct columns") {

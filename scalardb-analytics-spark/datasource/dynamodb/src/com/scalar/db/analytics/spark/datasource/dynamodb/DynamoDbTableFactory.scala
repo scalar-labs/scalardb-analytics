@@ -37,9 +37,8 @@ object DynamoDbTableFactory {
       schema,
       converter.convert,
       configurator,
-      // The catalog identifier rather than the DynamoDB table name, which is not unique across
-      // data sources and namespaces: the name is part of the table's identity for CACHE TABLE.
-      identifier.toString
+      table.getInfo.getName,
+      identifier
     )
   }
 }
