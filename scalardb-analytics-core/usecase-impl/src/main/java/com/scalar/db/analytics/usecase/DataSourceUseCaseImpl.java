@@ -143,15 +143,7 @@ public class DataSourceUseCaseImpl<T extends RepositoryTransactionContext>
             return this.dataSourceService.registerDataSource(ctx, request);
           });
     } catch (InvalidSchemaMetadataException e) {
-      throw new AnalyticsException(
-          AnalyticsErrorCode.INVALID_SCHEMA_METADATA,
-          Map.of(
-              "catalog_name", request.getCatalogName(),
-              "data_source_name", request.getName(),
-              "field", e.getField().label(),
-              "path", e.getPath(),
-              "value", e.getValue()),
-          e);
+      throw DataSourceRegistrationErrors.invalidSchemaMetadata(request, e);
     } catch (SchemaResolverException e) {
       throw new AnalyticsException(AnalyticsErrorCode.DATA_SOURCE_UNREACHABLE, e);
     }
