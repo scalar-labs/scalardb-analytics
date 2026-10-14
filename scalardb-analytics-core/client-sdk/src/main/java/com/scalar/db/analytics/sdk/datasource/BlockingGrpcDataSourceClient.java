@@ -7,6 +7,8 @@ package com.scalar.db.analytics.sdk.datasource;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DataSourceServiceGrpc;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DeleteDataSourceByIdRequest;
@@ -21,6 +23,7 @@ import com.scalar.db.analytics.grpc.generated.datasource.v1.ListDataSourcesReque
 import com.scalar.db.analytics.grpc.generated.datasource.v1.RegisterResponse;
 import com.scalar.db.analytics.grpc.mapper.RequestMapper;
 import com.scalar.db.analytics.grpc.mapper.datasource.DataSourceMapper;
+import com.scalar.db.analytics.grpc.mapper.datasource.SkippedColumnMapper;
 import com.scalar.db.analytics.sdk.exception.GrpcExceptionMapper;
 import io.grpc.Channel;
 import java.util.List;
@@ -80,11 +83,16 @@ public class BlockingGrpcDataSourceClient implements DataSourceClient {
   }
 
   @Override
-  public DataSource register(RegisterDataSourceRequest request) {
+  public RegisterDataSourceResult register(RegisterDataSourceRequest request) {
     try {
       RegisterResponse response =
           stub.register(RequestMapper.INSTANCE.toProtoRegisterRequest(request));
-      return DataSourceMapper.INSTANCE.toDomain(response.getDataSource());
+      List<SkippedColumn> skippedColumns =
+          response.getWarningsList().stream()
+              .map(SkippedColumnMapper.INSTANCE::toDomain)
+              .collect(Collectors.toList());
+      return new RegisterDataSourceResult(
+          DataSourceMapper.INSTANCE.toDomain(response.getDataSource()), skippedColumns);
     } catch (Exception e) {
       throw GrpcExceptionMapper.toAnalyticsException(e, "register");
     }

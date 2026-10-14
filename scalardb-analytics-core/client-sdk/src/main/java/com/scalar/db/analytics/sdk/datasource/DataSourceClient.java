@@ -6,6 +6,7 @@ package com.scalar.db.analytics.sdk.datasource;
 
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import java.util.List;
 import java.util.Optional;
@@ -43,13 +44,14 @@ public interface DataSourceClient {
   List<DataSource> listDataSourcesByCatalog(String catalogName);
 
   /**
-   * Registers a new data source.
+   * Registers a new data source and reports the source columns that were left out of the registered
+   * tables because their types are not supported.
    *
    * @param request the data source registration request
-   * @return the registered data source
+   * @return the registered data source and the skipped columns
    * @throws AnalyticsException if the operation fails
    */
-  DataSource register(RegisterDataSourceRequest request);
+  RegisterDataSourceResult register(RegisterDataSourceRequest request);
 
   /**
    * Deletes a data source by name.

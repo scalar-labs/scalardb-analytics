@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
@@ -22,9 +24,11 @@ import com.scalar.db.analytics.grpc.generated.datasource.v1.FindDataSourceRespon
 import com.scalar.db.analytics.grpc.generated.datasource.v1.ListDataSourcesRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.ListDataSourcesResponse;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.RegisterResponse;
+import com.scalar.db.analytics.grpc.generated.datasource.v1.SkippedColumnWarning;
 import com.scalar.db.analytics.grpc.mapper.datasource.DataSourceMapper;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -200,11 +204,47 @@ class BlockingGrpcDataSourceClientTest {
     when(stub.register(any())).thenReturn(response);
 
     // Act
-    DataSource result = dataSourceClient.register(request);
+    RegisterDataSourceResult result = dataSourceClient.register(request);
 
     // Assert
-    assertThat(result).isEqualTo(TEST_DATA_SOURCE);
+    assertThat(result.getDataSource()).isEqualTo(TEST_DATA_SOURCE);
+    assertThat(result.getSkippedColumns()).isEmpty();
     verify(stub).register(any());
+  }
+
+  @Test
+  void register_ShouldReturnSkippedColumns_WhenResponseHasWarnings() {
+    // Arrange
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(CATALOG_NAME, DATA_SOURCE_NAME, TEST_PROVIDER, null);
+
+    RegisterResponse response =
+        RegisterResponse.newBuilder()
+            .setDataSource(dataSourceMapper.toProto(TEST_DATA_SOURCE))
+            .addWarnings(
+                SkippedColumnWarning.newBuilder()
+                    .addNamespaceNames("public")
+                    .setTableName("events")
+                    .setColumnName("payload")
+                    .setSourceTypeName("json")
+                    .setReason("The JDBC type is not supported: OTHER")
+                    .build())
+            .build();
+    when(stub.register(any())).thenReturn(response);
+
+    // Act
+    RegisterDataSourceResult result = dataSourceClient.register(request);
+
+    // Assert
+    assertThat(result.getDataSource()).isEqualTo(TEST_DATA_SOURCE);
+    assertThat(result.getSkippedColumns())
+        .containsExactly(
+            new SkippedColumn(
+                Collections.singletonList("public"),
+                "events",
+                "payload",
+                "json",
+                "The JDBC type is not supported: OTHER"));
   }
 
   @Test

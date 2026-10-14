@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.client.cli.CliTestBase;
@@ -19,6 +21,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +41,12 @@ class RegisterTest extends CliTestBase {
           "test_data_source",
           new PostgreSql("localhost", 5432, "postgres", "password", "postgres"));
 
+  private final RegisterDataSourceResult fakeResult =
+      new RegisterDataSourceResult(fakeDataSource, Collections.emptyList());
+
+  private static final String POSTGRES_PROVIDER_JSON =
+      "{\"type\":\"postgresql\",\"host\":\"localhost\",\"port\":5432,\"username\":\"postgres\",\"password\":\"password\",\"database\":\"postgres\"}";
+
   // Set only by the tests that replace stdin, and reset back to null after each of them.
   @Nullable private InputStream originalIn;
 
@@ -50,7 +61,7 @@ class RegisterTest extends CliTestBase {
   @Test
   void whenProviderJsonInline_thenRegisterSuccess() throws Exception {
     DataSourceClient useCaseMock = modules.client().dataSource();
-    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeDataSource);
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeResult);
 
     int exitCode =
         new CommandLine(cliRoot)
@@ -70,6 +81,85 @@ class RegisterTest extends CliTestBase {
         ArgumentCaptor.forClass(RegisterDataSourceRequest.class);
     verify(useCaseMock).register(captor.capture());
     assertThat(captor.getValue().getSchema()).isNull();
+    assertThat(printer.getWarnings()).isEmpty();
+  }
+
+  @Test
+  void whenColumnsSkipped_thenPrintWarningsApartFromResult() {
+    DataSourceClient useCaseMock = modules.client().dataSource();
+    List<SkippedColumn> skippedColumns =
+        Arrays.asList(
+            new SkippedColumn(
+                Collections.singletonList("public"),
+                "events",
+                "payload",
+                "json",
+                "The JDBC type is not supported: OTHER"),
+            new SkippedColumn(
+                Collections.singletonList("public"),
+                "events",
+                "address",
+                "inet",
+                "The JDBC type is not supported: OTHER"));
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class)))
+        .thenReturn(new RegisterDataSourceResult(fakeDataSource, skippedColumns));
+
+    int exitCode =
+        new CommandLine(cliRoot)
+            .execute(
+                args(
+                    "data-source",
+                    "register",
+                    "--catalog",
+                    "test_catalog",
+                    "--data-source",
+                    "test_data_source",
+                    "--provider-json",
+                    POSTGRES_PROVIDER_JSON));
+
+    assertThat(exitCode).isEqualTo(ExitCode.OK);
+    // The result is printed as before, so a caller that parses it is not affected.
+    assertThat(printer.getOutput()).contains("Success").doesNotContain("payload");
+    assertThat(printer.getWarnings()).hasSize(1);
+    assertThat(printer.getWarnings().get(0))
+        .contains("2 columns were skipped")
+        .contains("public.events.payload (json): The JDBC type is not supported: OTHER")
+        .contains("public.events.address (inet): The JDBC type is not supported: OTHER");
+  }
+
+  @Test
+  void whenOneColumnSkipped_thenPrintSingularWarning() {
+    DataSourceClient useCaseMock = modules.client().dataSource();
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class)))
+        .thenReturn(
+            new RegisterDataSourceResult(
+                fakeDataSource,
+                Collections.singletonList(
+                    new SkippedColumn(
+                        Arrays.asList("db", "public"),
+                        "events",
+                        "payload",
+                        "json",
+                        "The JDBC type is not supported: OTHER"))));
+
+    int exitCode =
+        new CommandLine(cliRoot)
+            .execute(
+                args(
+                    "data-source",
+                    "register",
+                    "--catalog",
+                    "test_catalog",
+                    "--data-source",
+                    "test_data_source",
+                    "--provider-json",
+                    POSTGRES_PROVIDER_JSON));
+
+    assertThat(exitCode).isEqualTo(ExitCode.OK);
+    assertThat(printer.getWarnings()).hasSize(1);
+    assertThat(printer.getWarnings().get(0))
+        .contains("1 column was skipped because its source type is not supported")
+        .contains("db.public.events.payload (json)");
   }
 
   @Test
@@ -88,7 +178,7 @@ class RegisterTest extends CliTestBase {
             .getBytes(StandardCharsets.UTF_8));
 
     DataSourceClient useCaseMock = modules.client().dataSource();
-    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeDataSource);
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeResult);
 
     int exitCode =
         new CommandLine(cliRoot)
@@ -113,7 +203,7 @@ class RegisterTest extends CliTestBase {
   @Test
   void whenProviderReadFromStdin_thenRegisterSuccess() throws Exception {
     DataSourceClient useCaseMock = modules.client().dataSource();
-    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeDataSource);
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeResult);
 
     originalIn = System.in;
     System.setIn(
@@ -221,7 +311,7 @@ class RegisterTest extends CliTestBase {
   @Test
   void whenManualProviderWithSchema_thenRegisterSuccess() throws Exception {
     DataSourceClient useCaseMock = modules.client().dataSource();
-    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeDataSource);
+    when(useCaseMock.register(any(RegisterDataSourceRequest.class))).thenReturn(fakeResult);
 
     int exitCode =
         new CommandLine(cliRoot)

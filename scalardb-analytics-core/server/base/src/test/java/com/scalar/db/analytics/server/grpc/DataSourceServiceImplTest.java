@@ -10,6 +10,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.DataSourceServiceGrpc;
@@ -18,6 +20,7 @@ import com.scalar.db.analytics.grpc.generated.datasource.v1.FindDataSourceRespon
 import com.scalar.db.analytics.grpc.generated.datasource.v1.ListDataSourcesRequest;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.ListDataSourcesResponse;
 import com.scalar.db.analytics.grpc.generated.datasource.v1.RegisterResponse;
+import com.scalar.db.analytics.grpc.generated.datasource.v1.SkippedColumnWarning;
 import com.scalar.db.analytics.grpc.mapper.RequestMapper;
 import com.scalar.db.analytics.grpc.mapper.datasource.DataSourceMapper;
 import com.scalar.db.analytics.usecase.DataSourceUseCase;
@@ -32,6 +35,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,7 +125,8 @@ class DataSourceServiceImplTest {
     UUID catalogId = UUID.randomUUID();
     PostgreSql provider = new PostgreSql("localhost", 5432, "user", "password", "database");
     DataSource dataSource = DataSource.create(catalogId, dataSourceName, provider);
-    when(useCase.register(any(), any())).thenReturn(dataSource);
+    when(useCase.register(any(), any()))
+        .thenReturn(new RegisterDataSourceResult(dataSource, Collections.emptyList()));
 
     RegisterDataSourceRequest request =
         new RegisterDataSourceRequest(catalogName, dataSource.getName(), provider, null);
@@ -130,6 +135,38 @@ class DataSourceServiceImplTest {
 
     DataSource got = dataSourceMapper.toDomain(response.getDataSource());
     assertThat(got).isEqualTo(dataSource);
+    assertThat(response.getWarningsList()).isEmpty();
+  }
+
+  @Test
+  void register_withSkippedColumn_shouldReturnWarningForSkippedColumn() {
+    String catalogName = "testCatalog";
+    PostgreSql provider = new PostgreSql("localhost", 5432, "user", "password", "database");
+    DataSource dataSource = DataSource.create(UUID.randomUUID(), "testDataSource", provider);
+    SkippedColumn skippedColumn =
+        new SkippedColumn(
+            Collections.singletonList("public"),
+            "events",
+            "payload",
+            "json",
+            "The JDBC type is not supported: OTHER");
+    when(useCase.register(any(), any()))
+        .thenReturn(
+            new RegisterDataSourceResult(dataSource, Collections.singletonList(skippedColumn)));
+
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(catalogName, dataSource.getName(), provider, null);
+
+    RegisterResponse response = stub.register(requestMapper.toProtoRegisterRequest(request));
+
+    assertThat(dataSourceMapper.toDomain(response.getDataSource())).isEqualTo(dataSource);
+    assertThat(response.getWarningsList()).hasSize(1);
+    SkippedColumnWarning warning = response.getWarnings(0);
+    assertThat(warning.getNamespaceNamesList()).containsExactly("public");
+    assertThat(warning.getTableName()).isEqualTo("events");
+    assertThat(warning.getColumnName()).isEqualTo("payload");
+    assertThat(warning.getSourceTypeName()).isEqualTo("json");
+    assertThat(warning.getReason()).isEqualTo("The JDBC type is not supported: OTHER");
   }
 
   private static ServerInterceptor userIdInterceptor() {
