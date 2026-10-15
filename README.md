@@ -58,12 +58,16 @@ See the [Spark module README](scalardb-analytics-spark/README.md) for the comple
 
 ## Contributing
 
-This project is mainly maintained by the Scalar Engineering Team, but we appreciate any help.
-For filing bugs, suggesting improvements, or requesting new features, please open an issue.
+This project is maintained by the Scalar Engineering Team.
+To report a bug or request a feature, open an issue; to ask a question, use [GitHub Discussions](https://github.com/scalar-labs/scalardb-analytics/discussions).
+We do not accept pull requests from external contributors yet; see [CONTRIBUTING.md](CONTRIBUTING.md) for the reason and our plans.
+
+Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Everyone who participates in this project is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
 ScalarDB Analytics is dual-licensed under both the Apache 2.0 License (found in
 the [LICENSE](LICENSE) file) and a commercial license. You may select, at your
 option, one of the licenses. For more information about the commercial license,
-please [contact us](https://www.scalar-labs.com/contact).
+please [contact us](https://www.scalar-labs.com/contact-us).
