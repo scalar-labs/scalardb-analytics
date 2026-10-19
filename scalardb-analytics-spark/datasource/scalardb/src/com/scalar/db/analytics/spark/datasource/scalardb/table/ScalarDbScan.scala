@@ -13,7 +13,7 @@ import org.apache.spark.sql.connector.read.{Batch, Scan}
 import org.apache.spark.sql.types.StructType
 
 class ScalarDbScan(
-    private val identifier: CatalogIdentifier,
+    identifier: CatalogIdentifier,
     table: com.scalar.db.analytics.api.model.TableDetail,
     config: DatabaseConfig,
     pushedConditions: Option[PushDownConditions],
@@ -42,18 +42,6 @@ class ScalarDbScan(
     pushedLimit.foreach(l => parts += s"PushedLimit: ${l.toString}")
     parts.result().mkString(", ")
   }
-
-  // TODO: remove this equals/hashCode override — it is dead code. Spark's CacheManager matches
-  // the pre-optimization plan (DataSourceV2Relation, compared via ScalarDbTable) before this Scan
-  // is created, and physical reuse keys on BatchScanExec's Batch (ScalarDbBatch uses reference
-  // equality), so Scan.equals is never consulted. Tracked together with the InputFormatScan /
-  // InputFormatTableWrapper cleanup.
-  override def equals(obj: Any): Boolean = obj match {
-    case other: ScalarDbScan => identifier == other.identifier
-    case _                   => false
-  }
-
-  override def hashCode(): Int = identifier.hashCode()
 }
 
 object ScalarDbScan {

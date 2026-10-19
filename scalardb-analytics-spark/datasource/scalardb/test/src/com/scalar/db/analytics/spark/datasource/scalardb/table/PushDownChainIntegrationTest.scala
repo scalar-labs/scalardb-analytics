@@ -238,20 +238,4 @@ class PushDownChainIntegrationTest extends AnyFunSuite with Matchers {
     val deserialized = roundTrip(factory)
     deserialized shouldBe a[ScalarDbPartitionReaderFactory]
   }
-
-  // --- Scan equality with push down ---
-
-  test("ScalarDbScan equality should be based on identifier, not push down info") {
-    val builder1 = new ScalarDbScanBuilder(identifier, tableDetail, config)
-    builder1.pushLimit(10)
-    val scan1 = builder1.build()
-
-    val builder2 = new ScalarDbScanBuilder(identifier, tableDetail, config)
-    builder2.pushLimit(20)
-    val scan2 = builder2.build()
-
-    // Scans with same identifier should be equal (for caching)
-    scan1 shouldEqual scan2
-    scan1.hashCode() shouldEqual scan2.hashCode()
-  }
 }

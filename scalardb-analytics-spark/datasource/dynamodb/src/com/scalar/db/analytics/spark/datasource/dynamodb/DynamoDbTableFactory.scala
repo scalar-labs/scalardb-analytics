@@ -7,6 +7,7 @@ package com.scalar.db.analytics.spark.datasource.dynamodb
 
 import com.scalar.db.analytics.api.model.TableDetail
 import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider
+import com.scalar.db.analytics.spark.lib.catalog.CatalogIdentifier
 import com.scalar.db.analytics.spark.lib.table.SchemaConverter
 import com.scalar.db.analytics.spark.lib.table.hadoop.{
   InputFormatJobConfConfigurator,
@@ -21,6 +22,7 @@ import org.apache.spark.sql.types.StructType
 /** A factory class to create a [[Table]] instance for DynamoDB. */
 object DynamoDbTableFactory {
   def create(
+      identifier: CatalogIdentifier,
       table: TableDetail,
       provider: DynamoDbProvider
   ): Table = {
@@ -35,7 +37,8 @@ object DynamoDbTableFactory {
       schema,
       converter.convert,
       configurator,
-      table.getInfo.getName
+      table.getInfo.getName,
+      identifier
     )
   }
 }
