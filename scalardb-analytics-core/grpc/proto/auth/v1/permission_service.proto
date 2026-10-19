@@ -32,6 +32,13 @@ message EffectivePermission {
   // Set when source is VIA_ROLE.
   optional string via_role_id = 4;
   optional string via_role_name = 5;
+  // Names that identify the resource, from its catalog down to the resource itself. Names below
+  // the level of the resource are unset (or empty for namespace_names). All are unset if the
+  // resource could not be found.
+  optional string catalog_name = 6;
+  optional string data_source_name = 7;
+  repeated string namespace_names = 8;
+  optional string table_name = 9;
 }
 
 // --- Grant by name (per resource type) ---

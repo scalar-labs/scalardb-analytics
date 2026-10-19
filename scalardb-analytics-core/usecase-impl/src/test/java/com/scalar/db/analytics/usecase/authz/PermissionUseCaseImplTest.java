@@ -23,11 +23,13 @@ import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.api.model.Table;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.api.model.datasource.provider.ScalarDbProvider;
+import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.domain.authz.AccessControlEntry;
 import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
+import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.domain.authz.ResourceRef;
 import com.scalar.db.analytics.domain.authz.ResourceType;
 import com.scalar.db.analytics.domain.authz.Role;
@@ -366,6 +368,81 @@ class PermissionUseCaseImplTest {
         permissionUseCase.listPermissionsById(USER_ID, TARGET_USER_ID);
 
     assertThat(result).isEmpty();
+  }
+
+  @Test
+  void listPermissionsById_shouldResolveResourceNamesOncePerResource() throws Exception {
+    DataSource dataSource =
+        new DataSource(
+            UUID.randomUUID(),
+            CATALOG_ID,
+            "ds",
+            new PostgreSql("localhost", 5432, "user", "password", "db"));
+    Namespace namespace =
+        new Namespace(UUID.randomUUID(), dataSource.getId(), List.of("db", "public"));
+    Table table = new Table(new TableInfo(UUID.randomUUID(), namespace.getId(), "orders"));
+    when(catalogRepository.findById(txContext, CATALOG_ID))
+        .thenReturn(Optional.of(Catalog.of(CATALOG_ID, "cat")));
+    when(dataSourceRepository.findById(txContext, dataSource.getId()))
+        .thenReturn(Optional.of(dataSource));
+    when(namespaceRepository.findById(txContext, namespace.getId()))
+        .thenReturn(Optional.of(namespace));
+    when(tableRepository.findById(txContext, table.getInfo().getId()))
+        .thenReturn(Optional.of(table));
+
+    when(aceRepository.findByGrantee(txContext, GranteeType.USER, USER_ID))
+        .thenReturn(
+            List.of(
+                AccessControlEntry.create(
+                    GranteeType.USER, USER_ID, CATALOG_ID, Permission.CATALOG_READ),
+                AccessControlEntry.create(
+                    GranteeType.USER, USER_ID, namespace.getId(), Permission.NAMESPACE_READ),
+                AccessControlEntry.create(
+                    GranteeType.USER, USER_ID, table.getInfo().getId(), Permission.TABLE_READ)));
+    // The same table again through a role: its names must not be looked up a second time.
+    when(roleAssignmentRepository.findByUserId(txContext, USER_ID))
+        .thenReturn(List.of(new RoleAssignment(USER_ID, ROLE_ID)));
+    when(roleRepository.findById(txContext, ROLE_ID))
+        .thenReturn(Optional.of(new Role(ROLE_ID, "viewer", false)));
+    when(aceRepository.findByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
+        .thenReturn(
+            List.of(
+                AccessControlEntry.create(
+                    GranteeType.ROLE, ROLE_ID, table.getInfo().getId(), Permission.TABLE_READ)));
+
+    List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
+
+    assertThat(result)
+        .map(EffectivePermission::resourceNames)
+        .containsExactly(
+            new ResourceNames("cat", null, List.of(), null),
+            new ResourceNames("cat", "ds", List.of("db", "public"), null),
+            new ResourceNames("cat", "ds", List.of("db", "public"), "orders"),
+            new ResourceNames("cat", "ds", List.of("db", "public"), "orders"));
+    // Each resource, including the parents shared by the namespace and the table, is looked up
+    // once.
+    verify(tableRepository, times(1)).findById(txContext, table.getInfo().getId());
+    verify(namespaceRepository, times(1)).findById(txContext, namespace.getId());
+    verify(dataSourceRepository, times(1)).findById(txContext, dataSource.getId());
+    verify(catalogRepository, times(1)).findById(txContext, CATALOG_ID);
+  }
+
+  @Test
+  void listPermissionsById_whenResourceIsMissing_shouldLeaveNamesUnresolved() throws Exception {
+    UUID missingTableId = UUID.randomUUID();
+    when(aceRepository.findByGrantee(txContext, GranteeType.USER, USER_ID))
+        .thenReturn(
+            List.of(
+                AccessControlEntry.create(
+                    GranteeType.USER, USER_ID, missingTableId, Permission.TABLE_READ)));
+    when(roleAssignmentRepository.findByUserId(txContext, USER_ID)).thenReturn(List.of());
+    when(tableRepository.findById(txContext, missingTableId)).thenReturn(Optional.empty());
+
+    List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).resourceId()).isEqualTo(missingTableId);
+    assertThat(result.get(0).resourceNames()).isNull();
   }
 
   @Test
