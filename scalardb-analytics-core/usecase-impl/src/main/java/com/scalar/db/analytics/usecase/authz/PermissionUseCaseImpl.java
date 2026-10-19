@@ -6,11 +6,15 @@ package com.scalar.db.analytics.usecase.authz;
 
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.domain.authz.AccessControlEntry;
 import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
+import com.scalar.db.analytics.domain.authz.ResourceNames;
+import com.scalar.db.analytics.domain.authz.ResourceRef;
+import com.scalar.db.analytics.domain.authz.ResourceType;
 import com.scalar.db.analytics.domain.authz.Role;
 import com.scalar.db.analytics.domain.authz.RoleAssignment;
 import com.scalar.db.analytics.repository.CatalogRepository;
@@ -25,9 +29,12 @@ import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
     implements PermissionUseCase {
@@ -298,10 +305,24 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
       UUID granteeId,
       Permission permission,
       UUID resourceId) {
-    UUID catalogId = resolveCatalogId(ctx, permission, resourceId);
+    DataSource dataSource = resolveOwningDataSource(ctx, permission, resourceId);
+    UUID catalogId = dataSource != null ? dataSource.getCatalogId() : resourceId;
     if (!authorizationService.authorizePermissionManagement(userId, catalogId)) {
       throw new AnalyticsException(
           AnalyticsErrorCode.ACCESS_DENIED, Map.of("user_id", userId.toString()));
+    }
+    // An ACE on a resource under ACL delegation would be stored but never evaluated, so the
+    // grant would silently have no effect. Reject it instead.
+    if (dataSource != null
+        && authorizationService.isAclDelegated(
+            new ResourceRef(
+                permission.resourceType(), resourceId, dataSource.getProvider().getType()))) {
+      throw new AnalyticsException(
+          AnalyticsErrorCode.RESOURCE_UNDER_ACL_DELEGATION,
+          Map.of(
+              "permission", permission.name(),
+              "resource_id", resourceId.toString(),
+              "data_source_name", dataSource.getName()));
     }
     aceRepository.create(
         ctx, AccessControlEntry.create(granteeType, granteeId, resourceId, permission));
@@ -338,7 +359,7 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
           new EffectivePermission(
               ace.permission(), ace.resourceId(), PermissionSource.DIRECT, null, null));
     }
-    return result;
+    return withResourceNames(ctx, result);
   }
 
   /**
@@ -382,7 +403,84 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
                 role.name()));
       }
     }
+    return withResourceNames(ctx, result);
+  }
+
+  /**
+   * Returns the permissions with the names of their resources resolved, so that a caller can show a
+   * permission the way it is granted rather than by resource ID. Each resource, including the
+   * parents looked up on the way, is resolved once. A resource that can no longer be found is left
+   * without names instead of failing the listing.
+   */
+  private List<EffectivePermission> withResourceNames(
+      T ctx, List<EffectivePermission> permissions) {
+    Map<UUID, Optional<ResourceNames>> cache = new HashMap<>();
+    List<EffectivePermission> result = new ArrayList<>(permissions.size());
+    for (EffectivePermission permission : permissions) {
+      Optional<ResourceNames> names =
+          resolveResourceNames(
+              ctx, cache, permission.permission().resourceType(), permission.resourceId());
+      result.add(permission.withResourceNames(names.orElse(null)));
+    }
     return result;
+  }
+
+  // Not Map.computeIfAbsent: resolving a resource resolves its parents through the same cache, and
+  // HashMap rejects a modification from inside computeIfAbsent.
+  private Optional<ResourceNames> resolveResourceNames(
+      T ctx, Map<UUID, Optional<ResourceNames>> cache, ResourceType resourceType, UUID resourceId) {
+    Optional<ResourceNames> cached = cache.get(resourceId);
+    if (cached != null) {
+      return cached;
+    }
+    Optional<ResourceNames> names = lookUpResourceNames(ctx, cache, resourceType, resourceId);
+    cache.put(resourceId, names);
+    return names;
+  }
+
+  private Optional<ResourceNames> lookUpResourceNames(
+      T ctx, Map<UUID, Optional<ResourceNames>> cache, ResourceType resourceType, UUID resourceId) {
+    return switch (resourceType) {
+      case CATALOG ->
+          catalogRepository
+              .findById(ctx, resourceId)
+              .map(c -> new ResourceNames(c.getName(), null, List.of(), null));
+      case DATA_SOURCE ->
+          dataSourceRepository
+              .findById(ctx, resourceId)
+              .flatMap(
+                  ds ->
+                      resolveResourceNames(ctx, cache, ResourceType.CATALOG, ds.getCatalogId())
+                          .map(
+                              c ->
+                                  new ResourceNames(
+                                      c.catalogName(), ds.getName(), List.of(), null)));
+      case NAMESPACE ->
+          namespaceRepository
+              .findById(ctx, resourceId)
+              .flatMap(
+                  ns ->
+                      resolveResourceNames(
+                              ctx, cache, ResourceType.DATA_SOURCE, ns.getDataSourceId())
+                          .map(
+                              ds ->
+                                  new ResourceNames(
+                                      ds.catalogName(), ds.dataSourceName(), ns.getNames(), null)));
+      case TABLE ->
+          tableRepository
+              .findById(ctx, resourceId)
+              .flatMap(
+                  table ->
+                      resolveResourceNames(
+                              ctx, cache, ResourceType.NAMESPACE, table.getInfo().getNamespaceId())
+                          .map(
+                              ns ->
+                                  new ResourceNames(
+                                      ns.catalogName(),
+                                      ns.dataSourceName(),
+                                      ns.namespaceNames(),
+                                      table.getInfo().getName())));
+    };
   }
 
   // --- Name resolution helpers ---
@@ -465,14 +563,24 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
   }
 
   private UUID resolveCatalogId(T ctx, Permission permission, UUID resourceId) {
+    DataSource dataSource = resolveOwningDataSource(ctx, permission, resourceId);
+    return dataSource != null ? dataSource.getCatalogId() : resourceId;
+  }
+
+  /**
+   * Returns the data source that the resource of the permission belongs to, or the resource itself
+   * for a data source permission. Returns null for a catalog permission, whose resource belongs to
+   * no data source.
+   */
+  private @Nullable DataSource resolveOwningDataSource(
+      T ctx, Permission permission, UUID resourceId) {
     return switch (permission.resourceType()) {
-      case CATALOG -> resourceId;
+      case CATALOG -> null;
       case DATA_SOURCE ->
           dataSourceRepository
               .findById(ctx, resourceId)
               .orElseThrow(
-                  () -> new IllegalArgumentException("DataSource not found: " + resourceId))
-              .getCatalogId();
+                  () -> new IllegalArgumentException("DataSource not found: " + resourceId));
       case NAMESPACE -> {
         var namespace =
             namespaceRepository
@@ -484,8 +592,7 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        "DataSource not found: " + namespace.getDataSourceId()))
-            .getCatalogId();
+                        "DataSource not found: " + namespace.getDataSourceId()));
       }
       case TABLE -> {
         var table =
@@ -504,8 +611,7 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        "DataSource not found: " + namespace.getDataSourceId()))
-            .getCatalogId();
+                        "DataSource not found: " + namespace.getDataSourceId()));
       }
     };
   }

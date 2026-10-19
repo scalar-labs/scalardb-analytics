@@ -17,6 +17,7 @@ import com.scalar.db.analytics.api.model.DataSourceNamespace;
 import com.scalar.db.analytics.api.model.DataSourceNamespaceTable;
 import com.scalar.db.analytics.api.model.DataType;
 import com.scalar.db.analytics.api.model.Namespace;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.model.Table;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
@@ -98,10 +99,11 @@ class DataSourceServiceTest {
         .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
 
     // Act
-    DataSource dataSource = service.registerDataSource(ctx, request);
+    RegisterDataSourceResult result = service.registerDataSource(ctx, request);
 
     // Assert
-    assertThat(dataSource.getName()).isEqualTo(DATA_SOURCE_NAME);
+    assertThat(result.getDataSource().getName()).isEqualTo(DATA_SOURCE_NAME);
+    assertThat(result.getSkippedColumns()).isEmpty();
     ArgumentCaptor<DataSource> captor = ArgumentCaptor.forClass(DataSource.class);
     verify(dataSourceRepository).create(any(), captor.capture());
     assertThat(captor.getValue().getCatalogId()).isEqualTo(catalogId);

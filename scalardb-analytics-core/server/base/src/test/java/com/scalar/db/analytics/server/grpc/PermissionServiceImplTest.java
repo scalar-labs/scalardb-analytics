@@ -13,6 +13,7 @@ import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
+import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.grpc.generated.auth.v1.GrantCatalogPermissionRequest;
 import com.scalar.db.analytics.grpc.generated.auth.v1.GrantDataSourcePermissionRequest;
 import com.scalar.db.analytics.grpc.generated.auth.v1.ListPermissionsRequest;
@@ -110,6 +111,55 @@ class PermissionServiceImplTest {
     verify(useCase)
         .revokeCatalogPermission(
             USER_ID, GranteeType.ROLE, granteeName, Permission.DATA_SOURCE_ADMIN, "prod");
+  }
+
+  @Test
+  void listPermissions_shouldMapResourceNames() {
+    String username = "alice";
+    UUID tableId = UUID.randomUUID();
+    UUID catalogId = UUID.randomUUID();
+    when(useCase.listPermissions(USER_ID, username))
+        .thenReturn(
+            List.of(
+                new EffectivePermission(
+                    Permission.TABLE_READ,
+                    tableId,
+                    PermissionSource.DIRECT,
+                    null,
+                    null,
+                    new ResourceNames("cat", "ds", List.of("db", "public"), "orders")),
+                new EffectivePermission(
+                    Permission.CATALOG_READ,
+                    catalogId,
+                    PermissionSource.DIRECT,
+                    null,
+                    null,
+                    new ResourceNames("cat", null, List.of(), null)),
+                new EffectivePermission(
+                    Permission.TABLE_READ,
+                    UUID.randomUUID(),
+                    PermissionSource.DIRECT,
+                    null,
+                    null)));
+
+    ListPermissionsResponse response =
+        stub.listPermissions(ListPermissionsRequest.newBuilder().setUsername(username).build());
+
+    var table = response.getPermissions(0);
+    assertThat(table.getCatalogName()).isEqualTo("cat");
+    assertThat(table.getDataSourceName()).isEqualTo("ds");
+    assertThat(table.getNamespaceNamesList()).containsExactly("db", "public");
+    assertThat(table.getTableName()).isEqualTo("orders");
+
+    var catalog = response.getPermissions(1);
+    assertThat(catalog.getCatalogName()).isEqualTo("cat");
+    assertThat(catalog.hasDataSourceName()).isFalse();
+    assertThat(catalog.getNamespaceNamesList()).isEmpty();
+    assertThat(catalog.hasTableName()).isFalse();
+
+    var unresolved = response.getPermissions(2);
+    assertThat(unresolved.hasCatalogName()).isFalse();
+    assertThat(unresolved.hasTableName()).isFalse();
   }
 
   @Test

@@ -5,6 +5,7 @@
 package com.scalar.db.analytics.service.datasource;
 
 import com.scalar.db.analytics.api.model.Namespace;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.TableDetail;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,11 +14,27 @@ import lombok.Value;
 /**
  * ResolvedSchema is a container class that holds the result of the schema resolution process. It
  * contains a list of ResolvedSchemaEntry objects, each of which contains a Namespace and a list of
- * TableDetail that belong to the namespace.
+ * TableDetail that belong to the namespace, and the source columns that were left out of the
+ * resolved tables.
  */
 @Value
 public class ResolvedSchema {
   List<ResolvedSchemaEntry> entries;
+  List<SkippedColumn> skippedColumns;
+
+  public ResolvedSchema(List<ResolvedSchemaEntry> entries, List<SkippedColumn> skippedColumns) {
+    this.entries = entries;
+    this.skippedColumns = skippedColumns;
+  }
+
+  /**
+   * Creates a resolved schema in which no source column was skipped.
+   *
+   * @param entries the resolved namespaces and their tables
+   */
+  public ResolvedSchema(List<ResolvedSchemaEntry> entries) {
+    this(entries, List.of());
+  }
 
   /**
    * Returns the list of Namespace objects that are resolved.

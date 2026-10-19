@@ -9,6 +9,7 @@ import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.api.model.DataSourceNamespace;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.ResourceRef;
@@ -120,7 +121,7 @@ public class DataSourceUseCaseImpl<T extends RepositoryTransactionContext>
   }
 
   @Override
-  public DataSource register(UUID userId, RegisterDataSourceRequest request) {
+  public RegisterDataSourceResult register(UUID userId, RegisterDataSourceRequest request) {
     try {
       return txManager.withTransaction(
           (ctx) -> {

@@ -230,6 +230,48 @@ class BlockingGrpcPermissionClientTest {
     }
 
     @Test
+    void shouldMapResourceNames_WhenPresent() {
+      com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission withNames =
+          com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission.newBuilder()
+              .setPermission(PermissionType.PERMISSION_TYPE_TABLE_READ)
+              .setResourceId(UUID.randomUUID().toString())
+              .setSource(
+                  com.scalar.db.analytics.grpc.generated.auth.v1.PermissionSource
+                      .PERMISSION_SOURCE_DIRECT)
+              .setCatalogName("cat")
+              .setDataSourceName("ds")
+              .addNamespaceNames("db")
+              .addNamespaceNames("public")
+              .setTableName("orders")
+              .build();
+      com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission withoutNames =
+          com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission.newBuilder()
+              .setPermission(PermissionType.PERMISSION_TYPE_CATALOG_READ)
+              .setResourceId(UUID.randomUUID().toString())
+              .setSource(
+                  com.scalar.db.analytics.grpc.generated.auth.v1.PermissionSource
+                      .PERMISSION_SOURCE_DIRECT)
+              .build();
+      when(stub.listPermissions(ListPermissionsRequest.newBuilder().setUsername(USERNAME).build()))
+          .thenReturn(
+              ListPermissionsResponse.newBuilder()
+                  .addPermissions(withNames)
+                  .addPermissions(withoutNames)
+                  .build());
+
+      List<EffectivePermission> permissions = client.listPermissions(USERNAME);
+
+      assertThat(permissions.get(0).getCatalogName()).isEqualTo("cat");
+      assertThat(permissions.get(0).getDataSourceName()).isEqualTo("ds");
+      assertThat(permissions.get(0).getNamespaceNames()).containsExactly("db", "public");
+      assertThat(permissions.get(0).getTableName()).isEqualTo("orders");
+      assertThat(permissions.get(1).getCatalogName()).isNull();
+      assertThat(permissions.get(1).getDataSourceName()).isNull();
+      assertThat(permissions.get(1).getNamespaceNames()).isEmpty();
+      assertThat(permissions.get(1).getTableName()).isNull();
+    }
+
+    @Test
     void shouldReturnEmptyList_WhenNoPermissions() {
       ListPermissionsResponse response = ListPermissionsResponse.newBuilder().build();
       when(stub.listPermissions(any())).thenReturn(response);

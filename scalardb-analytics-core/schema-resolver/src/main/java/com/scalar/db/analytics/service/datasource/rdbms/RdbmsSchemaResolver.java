@@ -7,6 +7,7 @@ package com.scalar.db.analytics.service.datasource.rdbms;
 import com.scalar.db.analytics.api.model.Column;
 import com.scalar.db.analytics.api.model.DataType;
 import com.scalar.db.analytics.api.model.Namespace;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.TableDetail;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
@@ -75,6 +76,7 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
 
   @Override
   public ResolvedSchema resolveSchema() throws SchemaResolverException {
+    List<SkippedColumn> skippedColumns = new ArrayList<>();
     List<ResolvedSchemaEntry> result =
         strategy.resolveNamespaces(metaData).stream()
             .filter(
@@ -90,21 +92,24 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
 
                   List<TableDetail> tableDetails =
                       resolveTables(namespaceInfo).stream()
-                          .map(tableInfo -> getTableDetail(namespace.getId(), tableInfo))
+                          .map(
+                              tableInfo ->
+                                  getTableDetail(namespace.getId(), tableInfo, skippedColumns))
                           .collect(Collectors.toList());
                   return new ResolvedSchemaEntry(namespace, tableDetails);
                 })
             .collect(Collectors.toList());
-    return new ResolvedSchema(result);
+    return new ResolvedSchema(result, skippedColumns);
   }
 
-  private TableDetail getTableDetail(UUID namespaceId, JdbcTableInfo jdbcTableInfo)
+  private TableDetail getTableDetail(
+      UUID namespaceId, JdbcTableInfo jdbcTableInfo, List<SkippedColumn> skippedColumns)
       throws SchemaResolverException {
     TableInfo tableInfo = TableInfo.create(namespaceId, jdbcTableInfo.getName());
     List<Column> columns = new ArrayList<>();
     for (int j = 0; j < jdbcTableInfo.getColumns().size(); j++) {
       Optional<Column> column =
-          convertColumn(jdbcTableInfo.getColumns().get(j), tableInfo.getId(), j);
+          convertColumn(jdbcTableInfo.getColumns().get(j), tableInfo.getId(), j, skippedColumns);
       column.ifPresent(columns::add);
     }
     return new TableDetail(tableInfo, columns);
@@ -160,7 +165,8 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
     }
   }
 
-  private Optional<Column> convertColumn(JdbcColumnInfo column, UUID tableId, int ordinalPosition)
+  private Optional<Column> convertColumn(
+      JdbcColumnInfo column, UUID tableId, int ordinalPosition, List<SkippedColumn> skippedColumns)
       throws SchemaResolverException {
     DataType dataType;
     try {
@@ -170,6 +176,13 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
         throw e;
       } else {
         logger.warn("The column '{}' is ignored. {}", column.getName(), e.getMessage());
+        skippedColumns.add(
+            new SkippedColumn(
+                column.getNamespaceInfo().toNamespaceNames(),
+                column.getTableName(),
+                column.getName(),
+                column.getTypeName(),
+                "The JDBC type is not supported: " + e.getJdbcTypeDescription()));
         return Optional.empty();
       }
     }
