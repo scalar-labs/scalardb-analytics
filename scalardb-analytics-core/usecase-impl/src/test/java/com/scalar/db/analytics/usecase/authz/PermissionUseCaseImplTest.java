@@ -12,6 +12,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.scalar.db.analytics.api.auth.AuthUser;
@@ -23,7 +24,6 @@ import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.api.model.Table;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.api.model.datasource.provider.ScalarDbProvider;
-import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.domain.authz.AccessControlEntry;
 import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
@@ -33,16 +33,16 @@ import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.domain.authz.ResourceRef;
 import com.scalar.db.analytics.domain.authz.ResourceType;
 import com.scalar.db.analytics.domain.authz.Role;
-import com.scalar.db.analytics.domain.authz.RoleAssignment;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceRepository;
 import com.scalar.db.analytics.repository.NamespaceRepository;
+import com.scalar.db.analytics.repository.PermissionQueryService;
+import com.scalar.db.analytics.repository.PermissionQueryService.GrantedPermission;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.auth.AuthUserRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
-import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.Collections;
@@ -65,13 +65,13 @@ class PermissionUseCaseImplTest {
 
   @Mock private AccessControlEntryRepository<RepositoryTransactionContext> aceRepository;
   @Mock private RoleRepository<RepositoryTransactionContext> roleRepository;
-  @Mock private RoleAssignmentRepository<RepositoryTransactionContext> roleAssignmentRepository;
   @Mock private CatalogRepository<RepositoryTransactionContext> catalogRepository;
   @Mock private DataSourceRepository<RepositoryTransactionContext> dataSourceRepository;
   @Mock private NamespaceRepository<RepositoryTransactionContext> namespaceRepository;
   @Mock private TableRepository<RepositoryTransactionContext> tableRepository;
 
   @Mock private AuthUserRepository<RepositoryTransactionContext> authUserRepository;
+  @Mock private PermissionQueryService<RepositoryTransactionContext> permissionQueryService;
 
   @Mock private RepositoryTransactionManager<RepositoryTransactionContext> txManager;
   @Mock private RepositoryTransactionContext txContext;
@@ -85,12 +85,12 @@ class PermissionUseCaseImplTest {
         new PermissionUseCaseImpl<>(
             aceRepository,
             roleRepository,
-            roleAssignmentRepository,
             catalogRepository,
             dataSourceRepository,
             namespaceRepository,
             tableRepository,
             authUserRepository,
+            permissionQueryService,
             txManager,
             authorizationService);
 
@@ -314,39 +314,83 @@ class PermissionUseCaseImplTest {
 
   @Test
   void listPermissionsById_selfQuery_shouldReturnDirectAndRolePermissions() throws Exception {
-    // Direct ACEs
-    AccessControlEntry directAce =
-        AccessControlEntry.create(GranteeType.USER, USER_ID, CATALOG_ID, Permission.CATALOG_READ);
-    when(aceRepository.findByGrantee(txContext, GranteeType.USER, USER_ID))
-        .thenReturn(List.of(directAce));
-
-    // Role-based ACEs
-    Role role = new Role(ROLE_ID, "viewer", false);
-    when(roleAssignmentRepository.findByUserId(txContext, USER_ID))
-        .thenReturn(List.of(new RoleAssignment(USER_ID, ROLE_ID)));
-    when(roleRepository.findById(txContext, ROLE_ID)).thenReturn(Optional.of(role));
-
-    AccessControlEntry roleAce =
-        AccessControlEntry.create(
-            GranteeType.ROLE, ROLE_ID, CATALOG_ID, Permission.DATA_SOURCE_READ);
-    when(aceRepository.findByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
-        .thenReturn(List.of(roleAce));
+    ResourceNames catalogNames = new ResourceNames("cat", null, List.of(), null);
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.USER, USER_ID))
+        .thenReturn(
+            List.of(new GrantedPermission(Permission.CATALOG_READ, CATALOG_ID, catalogNames)));
+    when(permissionQueryService.listRolesByUserId(txContext, USER_ID))
+        .thenReturn(List.of(new Role(ROLE_ID, "viewer", false)));
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
+        .thenReturn(
+            List.of(new GrantedPermission(Permission.CATALOG_WRITE, CATALOG_ID, catalogNames)));
 
     List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
 
-    assertThat(result).hasSize(2);
-    assertThat(result.get(0))
-        .isEqualTo(
+    assertThat(result)
+        .containsExactly(
             new EffectivePermission(
-                Permission.CATALOG_READ, CATALOG_ID, PermissionSource.DIRECT, null, null));
-    assertThat(result.get(1))
-        .isEqualTo(
+                Permission.CATALOG_READ,
+                CATALOG_ID,
+                PermissionSource.DIRECT,
+                null,
+                null,
+                catalogNames),
             new EffectivePermission(
-                Permission.DATA_SOURCE_READ,
+                Permission.CATALOG_WRITE,
                 CATALOG_ID,
                 PermissionSource.VIA_ROLE,
                 ROLE_ID,
-                "viewer"));
+                "viewer",
+                catalogNames));
+  }
+
+  @Test
+  void listPermissionsById_withSeveralRoles_shouldListDirectPermissionsThenEachRoleInOrder()
+      throws Exception {
+    UUID otherRoleId = UUID.randomUUID();
+    UUID dataSourceId = UUID.randomUUID();
+    UUID namespaceId = UUID.randomUUID();
+    UUID tableId = UUID.randomUUID();
+    ResourceNames dataSourceNames = new ResourceNames("cat", "ds", List.of(), null);
+    ResourceNames namespaceNames = new ResourceNames("cat", "ds", List.of("db", "public"), null);
+    ResourceNames tableNames = new ResourceNames("cat", "ds", List.of("db", "public"), "orders");
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.USER, USER_ID))
+        .thenReturn(List.of(new GrantedPermission(Permission.TABLE_READ, tableId, tableNames)));
+    when(permissionQueryService.listRolesByUserId(txContext, USER_ID))
+        .thenReturn(
+            List.of(new Role(ROLE_ID, "viewer", false), new Role(otherRoleId, "admin", false)));
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
+        .thenReturn(
+            List.of(new GrantedPermission(Permission.NAMESPACE_READ, namespaceId, namespaceNames)));
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.ROLE, otherRoleId))
+        .thenReturn(
+            List.of(
+                new GrantedPermission(
+                    Permission.DATA_SOURCE_ADMIN, dataSourceId, dataSourceNames)));
+
+    List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
+
+    assertThat(result)
+        .containsExactly(
+            new EffectivePermission(
+                Permission.TABLE_READ, tableId, PermissionSource.DIRECT, null, null, tableNames),
+            new EffectivePermission(
+                Permission.NAMESPACE_READ,
+                namespaceId,
+                PermissionSource.VIA_ROLE,
+                ROLE_ID,
+                "viewer",
+                namespaceNames),
+            new EffectivePermission(
+                Permission.DATA_SOURCE_ADMIN,
+                dataSourceId,
+                PermissionSource.VIA_ROLE,
+                otherRoleId,
+                "admin",
+                dataSourceNames));
+    // The names come from the query service, not from a lookup of each resource.
+    verifyNoInteractions(
+        catalogRepository, dataSourceRepository, namespaceRepository, tableRepository);
   }
 
   @Test
@@ -355,14 +399,15 @@ class PermissionUseCaseImplTest {
 
     assertThatThrownBy(() -> permissionUseCase.listPermissionsById(USER_ID, TARGET_USER_ID))
         .isInstanceOf(AnalyticsException.class);
+    verifyNoInteractions(permissionQueryService);
   }
 
   @Test
   void listPermissionsById_otherUser_shouldSucceedForSuperAdmin() throws Exception {
     when(authorizationService.authorizeSuperAdmin(USER_ID)).thenReturn(true);
-    when(aceRepository.findByGrantee(txContext, GranteeType.USER, TARGET_USER_ID))
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.USER, TARGET_USER_ID))
         .thenReturn(List.of());
-    when(roleAssignmentRepository.findByUserId(txContext, TARGET_USER_ID)).thenReturn(List.of());
+    when(permissionQueryService.listRolesByUserId(txContext, TARGET_USER_ID)).thenReturn(List.of());
 
     List<EffectivePermission> result =
         permissionUseCase.listPermissionsById(USER_ID, TARGET_USER_ID);
@@ -371,78 +416,18 @@ class PermissionUseCaseImplTest {
   }
 
   @Test
-  void listPermissionsById_shouldResolveResourceNamesOncePerResource() throws Exception {
-    DataSource dataSource =
-        new DataSource(
-            UUID.randomUUID(),
-            CATALOG_ID,
-            "ds",
-            new PostgreSql("localhost", 5432, "user", "password", "db"));
-    Namespace namespace =
-        new Namespace(UUID.randomUUID(), dataSource.getId(), List.of("db", "public"));
-    Table table = new Table(new TableInfo(UUID.randomUUID(), namespace.getId(), "orders"));
-    when(catalogRepository.findById(txContext, CATALOG_ID))
-        .thenReturn(Optional.of(Catalog.of(CATALOG_ID, "cat")));
-    when(dataSourceRepository.findById(txContext, dataSource.getId()))
-        .thenReturn(Optional.of(dataSource));
-    when(namespaceRepository.findById(txContext, namespace.getId()))
-        .thenReturn(Optional.of(namespace));
-    when(tableRepository.findById(txContext, table.getInfo().getId()))
-        .thenReturn(Optional.of(table));
-
-    when(aceRepository.findByGrantee(txContext, GranteeType.USER, USER_ID))
-        .thenReturn(
-            List.of(
-                AccessControlEntry.create(
-                    GranteeType.USER, USER_ID, CATALOG_ID, Permission.CATALOG_READ),
-                AccessControlEntry.create(
-                    GranteeType.USER, USER_ID, namespace.getId(), Permission.NAMESPACE_READ),
-                AccessControlEntry.create(
-                    GranteeType.USER, USER_ID, table.getInfo().getId(), Permission.TABLE_READ)));
-    // The same table again through a role: its names must not be looked up a second time.
-    when(roleAssignmentRepository.findByUserId(txContext, USER_ID))
-        .thenReturn(List.of(new RoleAssignment(USER_ID, ROLE_ID)));
-    when(roleRepository.findById(txContext, ROLE_ID))
-        .thenReturn(Optional.of(new Role(ROLE_ID, "viewer", false)));
-    when(aceRepository.findByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
-        .thenReturn(
-            List.of(
-                AccessControlEntry.create(
-                    GranteeType.ROLE, ROLE_ID, table.getInfo().getId(), Permission.TABLE_READ)));
+  void listPermissionsById_whenResourceIsMissing_shouldLeaveNamesUnresolved() throws Exception {
+    UUID missingTableId = UUID.randomUUID();
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.USER, USER_ID))
+        .thenReturn(List.of(new GrantedPermission(Permission.TABLE_READ, missingTableId, null)));
+    when(permissionQueryService.listRolesByUserId(txContext, USER_ID)).thenReturn(List.of());
 
     List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
 
     assertThat(result)
-        .map(EffectivePermission::resourceNames)
         .containsExactly(
-            new ResourceNames("cat", null, List.of(), null),
-            new ResourceNames("cat", "ds", List.of("db", "public"), null),
-            new ResourceNames("cat", "ds", List.of("db", "public"), "orders"),
-            new ResourceNames("cat", "ds", List.of("db", "public"), "orders"));
-    // Each resource, including the parents shared by the namespace and the table, is looked up
-    // once.
-    verify(tableRepository, times(1)).findById(txContext, table.getInfo().getId());
-    verify(namespaceRepository, times(1)).findById(txContext, namespace.getId());
-    verify(dataSourceRepository, times(1)).findById(txContext, dataSource.getId());
-    verify(catalogRepository, times(1)).findById(txContext, CATALOG_ID);
-  }
-
-  @Test
-  void listPermissionsById_whenResourceIsMissing_shouldLeaveNamesUnresolved() throws Exception {
-    UUID missingTableId = UUID.randomUUID();
-    when(aceRepository.findByGrantee(txContext, GranteeType.USER, USER_ID))
-        .thenReturn(
-            List.of(
-                AccessControlEntry.create(
-                    GranteeType.USER, USER_ID, missingTableId, Permission.TABLE_READ)));
-    when(roleAssignmentRepository.findByUserId(txContext, USER_ID)).thenReturn(List.of());
-    when(tableRepository.findById(txContext, missingTableId)).thenReturn(Optional.empty());
-
-    List<EffectivePermission> result = permissionUseCase.listPermissionsById(USER_ID, USER_ID);
-
-    assertThat(result).hasSize(1);
-    assertThat(result.get(0).resourceId()).isEqualTo(missingTableId);
-    assertThat(result.get(0).resourceNames()).isNull();
+            new EffectivePermission(
+                Permission.TABLE_READ, missingTableId, PermissionSource.DIRECT, null, null, null));
   }
 
   @Test
@@ -453,9 +438,9 @@ class PermissionUseCaseImplTest {
     when(authUserRepository.findByUsername(txContext, username))
         .thenReturn(Optional.of(new AuthUser(TARGET_USER_ID, username)));
     when(authorizationService.authorizeSuperAdmin(USER_ID)).thenReturn(true);
-    when(aceRepository.findByGrantee(txContext, GranteeType.USER, TARGET_USER_ID))
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.USER, TARGET_USER_ID))
         .thenReturn(List.of());
-    when(roleAssignmentRepository.findByUserId(txContext, TARGET_USER_ID)).thenReturn(List.of());
+    when(permissionQueryService.listRolesByUserId(txContext, TARGET_USER_ID)).thenReturn(List.of());
 
     List<EffectivePermission> result = permissionUseCase.listPermissions(USER_ID, username);
 
@@ -464,16 +449,23 @@ class PermissionUseCaseImplTest {
   }
 
   @Test
-  void listPermissionsForRoleByName_shouldResolveAndFetchInSingleTransaction() throws Exception {
+  void listPermissionsForRoleByName_shouldReturnRolePermissionsAsDirect() throws Exception {
     String roleName = "viewer";
+    ResourceNames tableNames = new ResourceNames("cat", "ds", List.of("db", "public"), "orders");
+    UUID tableId = UUID.randomUUID();
     when(roleRepository.findByName(txContext, roleName))
         .thenReturn(Optional.of(new Role(ROLE_ID, roleName, false)));
     when(authorizationService.authorizeSuperAdmin(USER_ID)).thenReturn(true);
-    when(aceRepository.findByGrantee(txContext, GranteeType.ROLE, ROLE_ID)).thenReturn(List.of());
+    when(permissionQueryService.listByGrantee(txContext, GranteeType.ROLE, ROLE_ID))
+        .thenReturn(List.of(new GrantedPermission(Permission.TABLE_READ, tableId, tableNames)));
 
     List<EffectivePermission> result = permissionUseCase.listPermissionsForRole(USER_ID, roleName);
 
-    assertThat(result).isEmpty();
+    assertThat(result)
+        .containsExactly(
+            new EffectivePermission(
+                Permission.TABLE_READ, tableId, PermissionSource.DIRECT, null, null, tableNames));
+    // The name → id resolution and the fetch run in one transaction.
     verify(txManager, times(1)).withTransaction(any());
   }
 }

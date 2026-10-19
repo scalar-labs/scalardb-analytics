@@ -12,27 +12,23 @@ import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
-import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.domain.authz.ResourceRef;
-import com.scalar.db.analytics.domain.authz.ResourceType;
 import com.scalar.db.analytics.domain.authz.Role;
-import com.scalar.db.analytics.domain.authz.RoleAssignment;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceRepository;
 import com.scalar.db.analytics.repository.NamespaceRepository;
+import com.scalar.db.analytics.repository.PermissionQueryService;
+import com.scalar.db.analytics.repository.PermissionQueryService.GrantedPermission;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.auth.AuthUserRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
-import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -41,34 +37,34 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
 
   private final AccessControlEntryRepository<T> aceRepository;
   private final RoleRepository<T> roleRepository;
-  private final RoleAssignmentRepository<T> roleAssignmentRepository;
   private final CatalogRepository<T> catalogRepository;
   private final DataSourceRepository<T> dataSourceRepository;
   private final NamespaceRepository<T> namespaceRepository;
   private final TableRepository<T> tableRepository;
   private final AuthUserRepository<T> authUserRepository;
+  private final PermissionQueryService<T> permissionQueryService;
   private final RepositoryTransactionManager<T> txManager;
   private final AuthorizationService authorizationService;
 
   public PermissionUseCaseImpl(
       AccessControlEntryRepository<T> aceRepository,
       RoleRepository<T> roleRepository,
-      RoleAssignmentRepository<T> roleAssignmentRepository,
       CatalogRepository<T> catalogRepository,
       DataSourceRepository<T> dataSourceRepository,
       NamespaceRepository<T> namespaceRepository,
       TableRepository<T> tableRepository,
       AuthUserRepository<T> authUserRepository,
+      PermissionQueryService<T> permissionQueryService,
       RepositoryTransactionManager<T> txManager,
       AuthorizationService authorizationService) {
     this.aceRepository = aceRepository;
     this.roleRepository = roleRepository;
-    this.roleAssignmentRepository = roleAssignmentRepository;
     this.catalogRepository = catalogRepository;
     this.dataSourceRepository = dataSourceRepository;
     this.namespaceRepository = namespaceRepository;
     this.tableRepository = tableRepository;
     this.authUserRepository = authUserRepository;
+    this.permissionQueryService = permissionQueryService;
     this.txManager = txManager;
     this.authorizationService = authorizationService;
   }
@@ -344,28 +340,27 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
   }
 
   /**
-   * Returns a role's directly-granted ACEs as effective permissions. Authorization (SUPERADMIN) is
-   * verified before fetching. The caller owns the transaction context.
+   * Returns a role's directly-granted ACEs as effective permissions, each with the names of its
+   * resource. Authorization (SUPERADMIN) is verified before fetching. The caller owns the
+   * transaction context.
    */
   private List<EffectivePermission> collectPermissionsForRole(T ctx, UUID userId, UUID roleId) {
     if (!authorizationService.authorizeSuperAdmin(userId)) {
       throw new AnalyticsException(
           AnalyticsErrorCode.ACCESS_DENIED, Map.of("user_id", userId.toString()));
     }
-    List<AccessControlEntry> roleAces = aceRepository.findByGrantee(ctx, GranteeType.ROLE, roleId);
     List<EffectivePermission> result = new ArrayList<>();
-    for (AccessControlEntry ace : roleAces) {
-      result.add(
-          new EffectivePermission(
-              ace.permission(), ace.resourceId(), PermissionSource.DIRECT, null, null));
+    for (GrantedPermission granted :
+        permissionQueryService.listByGrantee(ctx, GranteeType.ROLE, roleId)) {
+      result.add(toEffectivePermission(granted, null));
     }
-    return withResourceNames(ctx, result);
+    return result;
   }
 
   /**
-   * Returns a user's effective permissions (direct ACEs + ACEs via role assignments). Authorization
-   * (self-query or SUPERADMIN) is verified before fetching. The caller owns the transaction
-   * context.
+   * Returns a user's effective permissions (direct ACEs + ACEs via role assignments), each with the
+   * names of its resource. Authorization (self-query or SUPERADMIN) is verified before fetching.
+   * The caller owns the transaction context.
    */
   private List<EffectivePermission> collectPermissionsForUser(
       T ctx, UUID userId, UUID targetUserId) {
@@ -375,112 +370,38 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
     }
     List<EffectivePermission> result = new ArrayList<>();
 
-    List<AccessControlEntry> directAces =
-        aceRepository.findByGrantee(ctx, GranteeType.USER, targetUserId);
-    for (AccessControlEntry ace : directAces) {
-      result.add(
-          new EffectivePermission(
-              ace.permission(), ace.resourceId(), PermissionSource.DIRECT, null, null));
+    for (GrantedPermission granted :
+        permissionQueryService.listByGrantee(ctx, GranteeType.USER, targetUserId)) {
+      result.add(toEffectivePermission(granted, null));
     }
 
-    // TODO: N+1 query problem — batch-fetch if this becomes a bottleneck.
-    List<RoleAssignment> assignments = roleAssignmentRepository.findByUserId(ctx, targetUserId);
-    for (RoleAssignment assignment : assignments) {
-      Role role =
-          roleRepository
-              .findById(ctx, assignment.roleId())
-              .orElseThrow(
-                  () -> new IllegalStateException("Role not found: " + assignment.roleId()));
-      List<AccessControlEntry> roleAces =
-          aceRepository.findByGrantee(ctx, GranteeType.ROLE, assignment.roleId());
-      for (AccessControlEntry ace : roleAces) {
-        result.add(
-            new EffectivePermission(
-                ace.permission(),
-                ace.resourceId(),
-                PermissionSource.VIA_ROLE,
-                role.id(),
-                role.name()));
+    // The permissions of each assigned role are read with separate queries per role. They cannot
+    // be joined to the role assignments: ScalarDB SQL requires a join predicate to cover all the
+    // primary-key columns or a secondary-index column of the right table, and the primary key of
+    // the access control entries is (grantee_id, permission_id, resource_id, grantee_type), with no
+    // index on grantee_id.
+    for (Role role : permissionQueryService.listRolesByUserId(ctx, targetUserId)) {
+      for (GrantedPermission granted :
+          permissionQueryService.listByGrantee(ctx, GranteeType.ROLE, role.id())) {
+        result.add(toEffectivePermission(granted, role));
       }
-    }
-    return withResourceNames(ctx, result);
-  }
-
-  /**
-   * Returns the permissions with the names of their resources resolved, so that a caller can show a
-   * permission the way it is granted rather than by resource ID. Each resource, including the
-   * parents looked up on the way, is resolved once. A resource that can no longer be found is left
-   * without names instead of failing the listing.
-   */
-  private List<EffectivePermission> withResourceNames(
-      T ctx, List<EffectivePermission> permissions) {
-    Map<UUID, Optional<ResourceNames>> cache = new HashMap<>();
-    List<EffectivePermission> result = new ArrayList<>(permissions.size());
-    for (EffectivePermission permission : permissions) {
-      Optional<ResourceNames> names =
-          resolveResourceNames(
-              ctx, cache, permission.permission().resourceType(), permission.resourceId());
-      result.add(permission.withResourceNames(names.orElse(null)));
     }
     return result;
   }
 
-  // Not Map.computeIfAbsent: resolving a resource resolves its parents through the same cache, and
-  // HashMap rejects a modification from inside computeIfAbsent.
-  private Optional<ResourceNames> resolveResourceNames(
-      T ctx, Map<UUID, Optional<ResourceNames>> cache, ResourceType resourceType, UUID resourceId) {
-    Optional<ResourceNames> cached = cache.get(resourceId);
-    if (cached != null) {
-      return cached;
-    }
-    Optional<ResourceNames> names = lookUpResourceNames(ctx, cache, resourceType, resourceId);
-    cache.put(resourceId, names);
-    return names;
-  }
-
-  private Optional<ResourceNames> lookUpResourceNames(
-      T ctx, Map<UUID, Optional<ResourceNames>> cache, ResourceType resourceType, UUID resourceId) {
-    return switch (resourceType) {
-      case CATALOG ->
-          catalogRepository
-              .findById(ctx, resourceId)
-              .map(c -> new ResourceNames(c.getName(), null, List.of(), null));
-      case DATA_SOURCE ->
-          dataSourceRepository
-              .findById(ctx, resourceId)
-              .flatMap(
-                  ds ->
-                      resolveResourceNames(ctx, cache, ResourceType.CATALOG, ds.getCatalogId())
-                          .map(
-                              c ->
-                                  new ResourceNames(
-                                      c.catalogName(), ds.getName(), List.of(), null)));
-      case NAMESPACE ->
-          namespaceRepository
-              .findById(ctx, resourceId)
-              .flatMap(
-                  ns ->
-                      resolveResourceNames(
-                              ctx, cache, ResourceType.DATA_SOURCE, ns.getDataSourceId())
-                          .map(
-                              ds ->
-                                  new ResourceNames(
-                                      ds.catalogName(), ds.dataSourceName(), ns.getNames(), null)));
-      case TABLE ->
-          tableRepository
-              .findById(ctx, resourceId)
-              .flatMap(
-                  table ->
-                      resolveResourceNames(
-                              ctx, cache, ResourceType.NAMESPACE, table.getInfo().getNamespaceId())
-                          .map(
-                              ns ->
-                                  new ResourceNames(
-                                      ns.catalogName(),
-                                      ns.dataSourceName(),
-                                      ns.namespaceNames(),
-                                      table.getInfo().getName())));
-    };
+  /**
+   * Returns a granted permission as an effective permission: granted via the role if one is given,
+   * and directly otherwise.
+   */
+  private static EffectivePermission toEffectivePermission(
+      GrantedPermission granted, @Nullable Role viaRole) {
+    return new EffectivePermission(
+        granted.permission(),
+        granted.resourceId(),
+        viaRole == null ? PermissionSource.DIRECT : PermissionSource.VIA_ROLE,
+        viaRole == null ? null : viaRole.id(),
+        viaRole == null ? null : viaRole.name(),
+        granted.resourceNames());
   }
 
   // --- Name resolution helpers ---

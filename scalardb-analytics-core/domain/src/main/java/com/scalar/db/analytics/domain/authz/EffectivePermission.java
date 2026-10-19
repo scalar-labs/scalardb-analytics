@@ -35,9 +35,4 @@ public record EffectivePermission(
       @Nullable String viaRoleName) {
     this(permission, resourceId, source, viaRoleId, viaRoleName, null);
   }
-
-  /** Returns a copy of this permission with the given resource names. */
-  public EffectivePermission withResourceNames(@Nullable ResourceNames names) {
-    return new EffectivePermission(permission, resourceId, source, viaRoleId, viaRoleName, names);
-  }
 }

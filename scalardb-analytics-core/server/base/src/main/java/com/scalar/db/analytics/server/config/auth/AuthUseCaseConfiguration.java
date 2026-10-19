@@ -7,6 +7,7 @@ package com.scalar.db.analytics.server.config.auth;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceRepository;
 import com.scalar.db.analytics.repository.NamespaceRepository;
+import com.scalar.db.analytics.repository.PermissionQueryService;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.auth.AccessTokenRepository;
@@ -80,23 +81,23 @@ public class AuthUseCaseConfiguration {
   public PermissionUseCase permissionUseCase(
       AccessControlEntryRepository<SpringDataJdbcTransactionContext> aceRepository,
       RoleRepository<SpringDataJdbcTransactionContext> roleRepository,
-      RoleAssignmentRepository<SpringDataJdbcTransactionContext> roleAssignmentRepository,
       CatalogRepository<SpringDataJdbcTransactionContext> catalogRepository,
       DataSourceRepository<SpringDataJdbcTransactionContext> dataSourceRepository,
       NamespaceRepository<SpringDataJdbcTransactionContext> namespaceRepository,
       TableRepository<SpringDataJdbcTransactionContext> tableRepository,
       AuthUserRepository<SpringDataJdbcTransactionContext> authUserRepository,
+      PermissionQueryService<SpringDataJdbcTransactionContext> permissionQueryService,
       RepositoryTransactionManager<SpringDataJdbcTransactionContext> repositoryTransactionManager,
       AuthorizationService authorizationService) {
     return new PermissionUseCaseImpl<>(
         aceRepository,
         roleRepository,
-        roleAssignmentRepository,
         catalogRepository,
         dataSourceRepository,
         namespaceRepository,
         tableRepository,
         authUserRepository,
+        permissionQueryService,
         repositoryTransactionManager,
         authorizationService);
   }
