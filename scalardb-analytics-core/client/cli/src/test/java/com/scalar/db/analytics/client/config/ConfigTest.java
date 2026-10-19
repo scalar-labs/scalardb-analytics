@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
 @ExtendWith(SystemStubsExtension.class)
@@ -29,6 +30,12 @@ class ConfigTest {
   class Load {
     @Nested
     class ConfigFromFile {
+      // A default catalog set in the environment would take precedence over the file.
+      @SystemStub
+      @SuppressWarnings("unused")
+      private final EnvironmentVariables environment =
+          new EnvironmentVariables().set("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", null);
+
       Path configFile;
 
       @BeforeEach
