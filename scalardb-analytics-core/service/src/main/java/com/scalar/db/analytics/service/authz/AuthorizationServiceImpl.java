@@ -227,6 +227,11 @@ public class AuthorizationServiceImpl<T extends RepositoryTransactionContext>
     return allAces;
   }
 
+  @Override
+  public boolean isAclDelegated(ResourceRef resource) {
+    return isScalarDbDelegationTarget(resource);
+  }
+
   private boolean isScalarDbDelegationTarget(ResourceRef ref) {
     if (scalarDbDelegate == null) {
       return false;
