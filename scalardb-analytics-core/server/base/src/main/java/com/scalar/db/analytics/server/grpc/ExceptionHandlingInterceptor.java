@@ -166,7 +166,8 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
       case CATALOG_NOT_EMPTY,
               DATA_SOURCE_NOT_EMPTY,
               USER_NOT_EMPTY,
-              BUILT_IN_ENTITY_NOT_MODIFIABLE ->
+              BUILT_IN_ENTITY_NOT_MODIFIABLE,
+              RESOURCE_UNDER_ACL_DELEGATION ->
           Status.FAILED_PRECONDITION;
       case DATA_SOURCE_AUTHENTICATION_FAILED, DATA_SOURCE_UNREACHABLE, INVALID_ARGUMENT ->
           Status.INVALID_ARGUMENT;

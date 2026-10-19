@@ -8,13 +8,16 @@ import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
+import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.grpc.generated.auth.v1.PermissionType;
 import com.scalar.db.analytics.grpc.mapper.UuidMapper;
 import com.scalar.db.analytics.grpc.mapper.annotation.IgnoreProtobufBuilderDefaults;
 import com.scalar.db.analytics.grpc.mapper.config.MapStructConfig;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ValueMapping;
 import org.mapstruct.factory.Mappers;
 
@@ -78,6 +81,35 @@ public interface PermissionMapper {
   // TODO(#521): once the authz models are consolidated into the api module and this mapper moves to
   // the grpc module (protobuf-java 3.x), remove this clearExtension ignore.
   @Mapping(target = "clearExtension", ignore = true)
+  // The resource names are set by setResourceNames below.
+  @Mapping(target = "catalogName", ignore = true)
+  @Mapping(target = "catalogNameBytes", ignore = true)
+  @Mapping(target = "dataSourceName", ignore = true)
+  @Mapping(target = "dataSourceNameBytes", ignore = true)
+  @Mapping(target = "namespaceNamesList", ignore = true)
+  @Mapping(target = "tableName", ignore = true)
+  @Mapping(target = "tableNameBytes", ignore = true)
   com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission toProto(
       EffectivePermission domain);
+
+  @AfterMapping
+  default void setResourceNames(
+      @MappingTarget
+          com.scalar.db.analytics.grpc.generated.auth.v1.EffectivePermission.Builder builder,
+      EffectivePermission domain) {
+    ResourceNames names = domain.resourceNames();
+    if (names == null) {
+      return;
+    }
+    builder.setCatalogName(names.catalogName());
+    String dataSourceName = names.dataSourceName();
+    if (dataSourceName != null) {
+      builder.setDataSourceName(dataSourceName);
+    }
+    builder.addAllNamespaceNames(names.namespaceNames());
+    String tableName = names.tableName();
+    if (tableName != null) {
+      builder.setTableName(tableName);
+    }
+  }
 }
