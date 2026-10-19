@@ -10,7 +10,8 @@ import com.scalar.db.analytics.api.codec.CodecObjectMapperFactory;
 import com.scalar.db.analytics.api.codec.provider.DataSourceProviderCodec;
 import com.scalar.db.analytics.api.codec.provider.ProviderCodecRegistry;
 import com.scalar.db.analytics.api.codec.schema.DataSourceSchemaCodec;
-import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.api.request.schema.DataSourceSchema;
@@ -28,6 +29,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
@@ -146,8 +149,9 @@ public class Register implements Callable<Integer> {
         new RegisterDataSourceRequest(catalog, dataSource, provider, schema);
 
     try {
-      DataSource dataSource = modules.client().dataSource().register(request);
-      printer().printSuccess(new Success(dataSource));
+      RegisterDataSourceResult result = modules.client().dataSource().register(request);
+      printer().printSuccess(new Success(result.getDataSource()));
+      printSkippedColumns(result.getSkippedColumns());
       return ExitCode.OK;
     } catch (Exception e) {
       printer().printError(new CommandError("Failed to register a data source", e));
@@ -157,6 +161,32 @@ public class Register implements Callable<Integer> {
 
   private Printer printer() {
     return parent.root().printer();
+  }
+
+  private void printSkippedColumns(List<SkippedColumn> skippedColumns) {
+    if (skippedColumns.isEmpty()) {
+      return;
+    }
+    StringBuilder message =
+        new StringBuilder(
+            skippedColumns.size() == 1
+                ? "Warning: 1 column was skipped because its source type is not supported:"
+                : String.format(
+                    "Warning: %d columns were skipped because their source types are not"
+                        + " supported:",
+                    skippedColumns.size()));
+    for (SkippedColumn column : skippedColumns) {
+      List<String> nameParts = new ArrayList<>(column.getNamespaceNames());
+      nameParts.add(column.getTableName());
+      nameParts.add(column.getColumnName());
+      message
+          .append(System.lineSeparator())
+          .append(
+              String.format(
+                  "  %s (%s): %s",
+                  String.join(".", nameParts), column.getSourceTypeName(), column.getReason()));
+    }
+    printer().printWarning(message.toString());
   }
 
   private String readProviderPayload() {

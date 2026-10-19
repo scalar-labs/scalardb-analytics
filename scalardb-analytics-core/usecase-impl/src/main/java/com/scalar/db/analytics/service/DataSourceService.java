@@ -8,6 +8,7 @@ import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.api.model.DataSourceNamespace;
 import com.scalar.db.analytics.api.model.DataSourceNamespaceTable;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProviderVisitor;
 import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
@@ -73,7 +74,7 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
     this.aceRepository = aceRepository;
   }
 
-  public DataSource registerDataSource(T ctx, RegisterDataSourceRequest request)
+  public RegisterDataSourceResult registerDataSource(T ctx, RegisterDataSourceRequest request)
       throws SchemaResolverException {
     Catalog catalog =
         catalogRepository
@@ -98,7 +99,7 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
         .getTables()
         .forEach(Throwables.sneakyThrowableConsumer(t -> tableRepository.create(ctx, t)));
 
-    return dataSource;
+    return new RegisterDataSourceResult(dataSource, resolvedSchema.getSkippedColumns());
   }
 
   private ResolvedSchema resolveSchema(

@@ -4,6 +4,7 @@
  */
 package com.scalar.db.analytics.service.authz;
 
+import com.scalar.db.analytics.domain.authz.ResourceRef;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
@@ -42,6 +43,15 @@ public interface AuthorizationService {
    * @return true if authorized, false otherwise
    */
   boolean authorizePermissionManagement(UUID userId, UUID catalogId);
+
+  /**
+   * Checks if authorization for the resource is delegated to an external privilege system, in which
+   * case Analytics ACL entries on the resource are not evaluated.
+   *
+   * @param resource the resource to check, with the provider type of its data source
+   * @return true if the resource is under ACL delegation, false otherwise
+   */
+  boolean isAclDelegated(ResourceRef resource);
 
   /**
    * Filters items, returning only those the user is authorized to access.

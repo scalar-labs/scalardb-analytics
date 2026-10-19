@@ -5,6 +5,7 @@
 package com.scalar.db.analytics.usecase;
 
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +18,7 @@ public interface DataSourceUseCase {
 
   List<DataSource> listDataSources(UUID userId, String catalogName);
 
-  DataSource register(UUID userId, RegisterDataSourceRequest request);
+  RegisterDataSourceResult register(UUID userId, RegisterDataSourceRequest request);
 
   /**
    * Deletes a data source by name.

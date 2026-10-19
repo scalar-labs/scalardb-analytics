@@ -28,8 +28,21 @@ message RegisterRequest {
   optional string schema_json = 4;
 }
 
+// A source column that was left out of a registered table because its source type is not
+// supported.
+message SkippedColumnWarning {
+  repeated string namespace_names = 1;
+  string table_name = 2;
+  string column_name = 3;
+  // The type name reported by the source, for example "json".
+  string source_type_name = 4;
+  string reason = 5;
+}
+
 message RegisterResponse {
   DataSource data_source = 1;
+  // One entry per source column that was left out of the registered tables.
+  repeated SkippedColumnWarning warnings = 2;
 }
 
 message FindDataSourceByIdRequest {

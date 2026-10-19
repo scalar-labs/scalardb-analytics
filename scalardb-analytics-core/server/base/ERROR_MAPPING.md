@@ -72,6 +72,8 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10200` | `CATALOG_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | Catalog is not empty |
 | `DB-ANALYTICS-10201` | `DATA_SOURCE_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | Data source is not empty |
 | `DB-ANALYTICS-10202` | `BUILT_IN_ENTITY_NOT_MODIFIABLE` | `FAILED_PRECONDITION` | USER_ERROR | No | Cannot modify built-in entity |
+| `DB-ANALYTICS-10203` | `USER_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | User is not empty |
+| `DB-ANALYTICS-10204` | `RESOURCE_UNDER_ACL_DELEGATION` | `FAILED_PRECONDITION` | USER_ERROR | No | Analytics permission granted on a resource under ACL delegation |
 
 ### 103xx — Data Source Connection
 

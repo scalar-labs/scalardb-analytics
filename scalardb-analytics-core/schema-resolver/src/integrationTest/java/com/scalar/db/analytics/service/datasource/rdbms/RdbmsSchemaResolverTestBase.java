@@ -12,6 +12,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.scalar.db.analytics.api.model.Column;
 import com.scalar.db.analytics.api.model.Namespace;
+import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.TableDetail;
 import com.scalar.db.analytics.api.testing.TestTable;
 import com.scalar.db.analytics.service.datasource.NullabilityMapping;
@@ -93,6 +94,15 @@ abstract class RdbmsSchemaResolverTestBase {
 
   protected abstract List<TestTable> getUnsupportedTypesTables();
 
+  private List<SkippedColumn> getSkippedColumns(TestTable table) {
+    return resolvedSchema.getSkippedColumns().stream()
+        .filter(
+            c ->
+                c.getNamespaceNames().equals(table.getNamespace())
+                    && c.getTableName().equals(table.getTableName()))
+        .collect(Collectors.toList());
+  }
+
   @SuppressWarnings("unused") // This method is used to provide arguments for parameterized tests.
   private Stream<Arguments> getTestTargetTablesArgs() {
     Preconditions.checkArgument(
@@ -172,6 +182,12 @@ abstract class RdbmsSchemaResolverTestBase {
           assertThat(table.getInfo().getNamespaceId()).isEqualTo(namespaceId);
         }
 
+        @Test
+        @DisplayName("should not report any skipped column")
+        void shouldNotReportSkippedColumns() {
+          assertThat(getSkippedColumns(supportedTypesTable)).isEmpty();
+        }
+
         @TestFactory
         @DisplayName("should map supported JDBC types to data types correctly")
         Stream<DynamicNode> shouldMapSupportedJdbcTypeToDataTypeCorrectly() {
@@ -225,6 +241,25 @@ abstract class RdbmsSchemaResolverTestBase {
                   .filter(e -> !e.getKey().equalsIgnoreCase("ignored_col"))
                   .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
           assertThat(columnsToCheck).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should report each ignored column as skipped")
+        void shouldReportIgnoredColumnsAsSkipped() {
+          List<SkippedColumn> skippedColumns = getSkippedColumns(unsupportedTypesTable);
+
+          assertThat(skippedColumns).isNotEmpty();
+          // A column is either kept in the table or reported as skipped, never both.
+          assertThat(skippedColumns)
+              .map(SkippedColumn::getColumnName)
+              .doesNotHaveDuplicates()
+              .noneMatch(columns::containsKey);
+          assertThat(skippedColumns)
+              .allSatisfy(
+                  c -> {
+                    assertThat(c.getSourceTypeName()).isNotBlank();
+                    assertThat(c.getReason()).startsWith("The JDBC type is not supported: ");
+                  });
         }
       }
     }
