@@ -22,8 +22,15 @@ The following licenses permit redistribution of unmodified binaries:
 - The BSD License
 - BSD licence
 - Unicode/ICU License
+- Unicode-3.0
 - Go License
 - Bouncy Castle Licence
+
+`Unicode-3.0` is the SPDX identifier of the Unicode License v3, under which ICU has been released
+since ICU 74. It is OSI-approved and grants the same permissions as the Unicode/ICU License above,
+requiring only that the copyright and permission notice accompany redistributed copies, which the
+generated notices provide. ICU4J declares it from 77.1, which ScalarDB pulls in for its collation
+support.
 
 ## Weak copyleft licenses
 
