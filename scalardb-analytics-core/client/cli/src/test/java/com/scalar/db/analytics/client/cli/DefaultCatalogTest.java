@@ -22,11 +22,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 import picocli.CommandLine.ExitCode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 class DefaultCatalogTest extends CliTestBase {
   private static final String SERVER_PROPERTIES =
       "scalar.db.analytics.client.server.host=localhost\n"
           + "scalar.db.analytics.client.server.catalog.port=3456\n";
+  private static final String MISSING_CATALOG_MESSAGE =
+      "Missing --catalog, and no default catalog is set"
+          + " (scalar.db.analytics.client.default.catalog"
+          + " or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG)";
 
   @TempDir
   @SuppressWarnings("NotNullFieldNotInitialized")
@@ -148,6 +153,36 @@ class DefaultCatalogTest extends CliTestBase {
     }
 
     @Test
+    void namespaceList_withInvalidConfig_shouldReportTheConfigErrorAsIs() throws IOException {
+      // Username without password.
+      writeConfig(
+          "scalar.db.analytics.client.default.catalog=default_catalog\n"
+              + "scalar.db.analytics.client.auth.username=alice\n");
+
+      assertThat(execute("namespace", "list")).isEqualTo(ExitCode.SOFTWARE);
+      assertThat(getStderr())
+          .contains("scalar.db.analytics.client.auth.password")
+          .doesNotContain("--catalog");
+      verifyNoInteractions(modules.client().namespace());
+    }
+
+    @Test
+    void namespaceList_withDefaultFromEnvironmentAndInvalidConfig_shouldReportTheConfigErrorAsIs()
+        throws Exception {
+      writeConfig("scalar.db.analytics.client.auth.username=alice\n");
+
+      int exitCode =
+          new EnvironmentVariables("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", "env_catalog")
+              .execute(() -> execute("namespace", "list"));
+
+      assertThat(exitCode).isEqualTo(ExitCode.SOFTWARE);
+      assertThat(getStderr())
+          .contains("scalar.db.analytics.client.auth.password")
+          .doesNotContain("--catalog");
+      verifyNoInteractions(modules.client().namespace());
+    }
+
+    @Test
     void catalogDescribe_withoutCatalog_shouldStillRequireIt() {
       assertThat(execute("catalog", "describe")).isEqualTo(ExitCode.USAGE);
       verifyNoInteractions(modules.client().catalog());
@@ -161,7 +196,7 @@ class DefaultCatalogTest extends CliTestBase {
       writeConfig("");
 
       assertThat(execute("namespace", "list")).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr()).contains("Missing required option: '--catalog=<catalog>'");
+      assertThat(getStderr()).contains(MISSING_CATALOG_MESSAGE);
       verifyNoInteractions(modules.client().namespace());
     }
 
@@ -170,13 +205,13 @@ class DefaultCatalogTest extends CliTestBase {
       writeConfig("");
 
       assertThat(execute("data-source", "unregister", "-d", "ds")).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr())
-          .contains("Error: Missing required argument(s): --catalog=<catalogName>");
+      assertThat(getStderr()).contains(MISSING_CATALOG_MESSAGE);
       verifyNoInteractions(modules.client().dataSource());
     }
 
     @Test
-    void namespaceList_withInvalidConfig_shouldReportMissingCatalog() throws IOException {
+    void namespaceList_withInvalidConfig_shouldReportMissingCatalogAndTheConfigError()
+        throws IOException {
       configFile = tempDir.resolve("client.properties");
       Files.write(
           configFile,
@@ -184,23 +219,9 @@ class DefaultCatalogTest extends CliTestBase {
 
       assertThat(execute("namespace", "list")).isEqualTo(ExitCode.USAGE);
       assertThat(getStderr())
-          .contains("Missing required option: '--catalog=<catalog>'")
-          .contains("the default catalog could not be read")
+          .contains(MISSING_CATALOG_MESSAGE)
+          .contains("The configuration is also invalid")
           .contains("scalar.db.analytics.client.server.catalog.port");
-      verifyNoInteractions(modules.client().namespace());
-    }
-
-    @Test
-    void namespaceList_withDefaultButInvalidConfig_shouldReportTheConfigError() throws IOException {
-      // A default is set, but the configuration is invalid (username without password).
-      writeConfig(
-          "scalar.db.analytics.client.default.catalog=default_catalog\n"
-              + "scalar.db.analytics.client.auth.username=alice\n");
-
-      assertThat(execute("namespace", "list")).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr())
-          .contains("the default catalog could not be read")
-          .contains("scalar.db.analytics.client.auth.password");
       verifyNoInteractions(modules.client().namespace());
     }
 

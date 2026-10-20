@@ -23,7 +23,6 @@ import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
-import picocli.CommandLine.Model.OptionSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.ScopeType;
@@ -53,6 +52,11 @@ public class CliRoot implements Runnable {
 
   /** The description of the {@code --catalog} option of the commands that operate in a catalog. */
   public static final String CATALOG_OPTION_DESCRIPTION = "Catalog name. " + CATALOG_OPTION_DEFAULT;
+
+  private static final String MISSING_CATALOG_MESSAGE =
+      "Missing --catalog, and no default catalog is set ("
+          + UnvalidatedConfig.DEFAULT_CATALOG_KEY
+          + " or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG)";
 
   @Option(
       names = {"-c", "--config"},
@@ -104,8 +108,9 @@ public class CliRoot implements Runnable {
    *     given
    * @param spec the spec of the command, used to report a missing catalog as a usage error
    * @return the catalog name
-   * @throws ParameterException if neither the option nor a default catalog is set, with the message
-   *     picocli gives for a missing required option
+   * @throws ParameterException if neither the option nor a default catalog is set
+   * @throws RuntimeException if a default catalog is set but the configuration is invalid, as when
+   *     the command loads the configuration itself
    */
   public String resolveCatalog(@Nullable String catalog, CommandSpec spec) {
     if (catalog != null) {
@@ -115,31 +120,32 @@ public class CliRoot implements Runnable {
     try {
       defaultCatalog = loadConfig().defaultCatalog();
     } catch (RuntimeException e) {
-      // Still a usage error, as when --catalog was required, but with the reason the default could
-      // not be read, so that a configuration error is not mistaken for an unset default.
+      if (isDefaultCatalogSet()) {
+        // The configuration, not --catalog, is what the user needs to fix.
+        throw e;
+      }
+      // Still a usage error, but with the configuration problem the user would hit next.
       throw new ParameterException(
           spec.commandLine(),
-          missingCatalogMessage(spec)
-              + " (the default catalog could not be read: "
-              + e.getMessage()
-              + ")",
+          MISSING_CATALOG_MESSAGE + ". The configuration is also invalid: " + e.getMessage(),
           e);
     }
     if (defaultCatalog != null) {
       return defaultCatalog;
     }
-    throw new ParameterException(spec.commandLine(), missingCatalogMessage(spec));
+    throw new ParameterException(spec.commandLine(), MISSING_CATALOG_MESSAGE);
   }
 
-  // The messages picocli gives when a required --catalog is missing, as an option of the command or
-  // as a member of an argument group.
-  private static String missingCatalogMessage(CommandSpec spec) {
-    OptionSpec option = spec.findOption("--catalog");
-    String name =
-        option == null ? "--catalog=<catalog>" : option.longestName() + "=" + option.paramLabel();
-    return option != null && option.group() != null
-        ? "Error: Missing required argument(s): " + name
-        : "Missing required option: '" + name + "'";
+  // Whether a default catalog is set, read without validating the rest of the configuration.
+  private boolean isDefaultCatalogSet() {
+    try {
+      return (configPath == null
+              ? AppConfig.loadDefaultCatalog()
+              : AppConfig.loadDefaultCatalog(configPath))
+          != null;
+    } catch (RuntimeException e) {
+      return false;
+    }
   }
 
   private AppConfig loadConfig() {

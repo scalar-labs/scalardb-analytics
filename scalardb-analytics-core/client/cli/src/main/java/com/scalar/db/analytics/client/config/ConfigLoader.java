@@ -97,14 +97,28 @@ class ConfigLoader {
    * @throws ClientException if there is an error loading or validating the configuration
    */
   static AppConfig load(Path configPath) {
-    try {
-      UnvalidatedConfig unvalidatedConfig =
-          ConfigFactory.create(
-              UnvalidatedConfig.class,
-              loadPropertiesFromEnvironment(),
-              loadPropertiesFromFile(configPath));
+    return validateConfig(loadUnvalidated(configPath));
+  }
 
-      return validateConfig(unvalidatedConfig);
+  /**
+   * Loads only the default catalog from the specified path and the environment, without validating
+   * the rest of the configuration.
+   *
+   * @param configPath the path to the configuration file
+   * @return the default catalog, or {@code null} if none is set
+   * @throws ClientException if there is an error loading the configuration
+   */
+  @Nullable
+  static String loadDefaultCatalog(Path configPath) {
+    return normalizeBlank(loadUnvalidated(configPath).defaultCatalog());
+  }
+
+  private static UnvalidatedConfig loadUnvalidated(Path configPath) {
+    try {
+      return ConfigFactory.create(
+          UnvalidatedConfig.class,
+          loadPropertiesFromEnvironment(),
+          loadPropertiesFromFile(configPath));
     } catch (IOException e) {
       throw new ClientException(new ConfigLoadError(e));
     }

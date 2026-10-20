@@ -199,6 +199,14 @@ scalar.db.analytics.client.default.catalog=my_catalog
 
 The default catalog (also settable through `SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG`) applies to the commands that operate in a catalog: `data-source`, `namespace`, and `table` commands, and `permission grant`/`revoke` on a data source, namespace, or table. A `--catalog` option on the command line takes precedence. The `catalog` commands and `permission grant`/`revoke catalog` still require `--catalog`, since the catalog is their target. Commands with `--catalog` call `CliRoot.resolveCatalog()` to apply the default.
 
+When neither `--catalog` nor a default is set, the command fails with a usage error (exit code 2) that names both ways to set the default:
+
+```text
+Missing --catalog, and no default catalog is set (scalar.db.analytics.client.default.catalog or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG)
+```
+
+If a default is set but the rest of the configuration is invalid (for example, a username without a password), the command reports the configuration error, as it would with `--catalog`.
+
 Configuration can be overridden via:
 
 - Environment variable: `SCALAR_DB_ANALYTICS_CONFIG_PATH=/path/to/config.properties`
