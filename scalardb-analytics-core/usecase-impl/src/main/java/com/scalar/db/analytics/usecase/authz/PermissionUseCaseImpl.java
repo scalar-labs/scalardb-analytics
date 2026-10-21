@@ -383,12 +383,13 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
               ace.permission(), ace.resourceId(), PermissionSource.DIRECT, null, null));
     }
 
-    // One read per role is deliberate, not an N+1 to batch away. ScalarDB SQL does not push joins
-    // down: it runs a join as one Get/Scan per outer row, and WHERE can only filter the FROM table,
-    // so joins issue more backend statements than these reads (10 roles on PostgreSQL: 98 here,
-    // 186 with joins, 288 with an index on grantee_id). Indexing grantee_id is not an option
-    // anyway: as the table's only partition-key column, it would turn every partition-key read
-    // into an index read and break the grant duplicate check (DB-CORE-10003). See #64 and #65.
+    // One read per role is deliberate, not an N+1 to batch away: together with the resource cache
+    // in withResourceNames, it was the fastest option measured. ScalarDB SQL's WHERE can only
+    // filter the FROM table, so a join version needs one query per resource type, each re-reading
+    // the grantee's ACE partition. That sends about twice the backend statements (10 roles on
+    // PostgreSQL: 98 here, 186 with joins) and was slower. Indexing grantee_id is not an option:
+    // as the table's only partition-key column, it would turn every partition-key read into an
+    // index read and break the grant duplicate check (DB-CORE-10003). See #64 and #65.
     List<RoleAssignment> assignments = roleAssignmentRepository.findByUserId(ctx, targetUserId);
     for (RoleAssignment assignment : assignments) {
       Role role =
@@ -417,10 +418,11 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
    * parents looked up on the way, is resolved once. A resource that can no longer be found is left
    * without names instead of failing the listing.
    *
-   * <p>Resources are looked up one by one on purpose rather than joined: ScalarDB SQL runs a join
-   * as one lookup per outer row, so a join would not save backend statements, while the cache reads
-   * each distinct resource only once. See the comment in {@link #collectPermissionsForUser} and
-   * #64.
+   * <p>Resources are looked up one by one on purpose rather than joined; with the cache, this was
+   * the fastest option measured. The cache does not save backend statements, since the transaction
+   * snapshot already serves repeated Gets of the same key. It saves the app-side cost of each
+   * ScalarDB SQL statement (about 0.2-0.4 ms), which made uncached lookups twice as slow. See the
+   * comment in {@link #collectPermissionsForUser} and #64.
    */
   private List<EffectivePermission> withResourceNames(
       T ctx, List<EffectivePermission> permissions) {
