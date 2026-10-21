@@ -40,6 +40,7 @@ pre-commit:
       stage_fixed: true
       priority: 2
     spotless:
+      root: "scalardb-analytics-core/"
       run: ./gradlew spotlessApply
       glob: "*.{java,kts}"
       stage_fixed: true
