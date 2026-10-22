@@ -6,6 +6,7 @@ package com.scalar.db.analytics.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -16,8 +17,15 @@ import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.DataType;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
+import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
+import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
+import com.scalar.db.analytics.api.request.schema.ColumnSchema;
+import com.scalar.db.analytics.api.request.schema.DataSourceSchema;
+import com.scalar.db.analytics.api.request.schema.NamespaceSchema;
+import com.scalar.db.analytics.api.request.schema.TableSchema;
 import com.scalar.db.analytics.lib.functional.ThrowableFunction;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceNamespaceQueryService;
@@ -43,6 +51,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CatalogUseCaseImplTest {
   private static final String CATALOG_NAME = "test-catalog";
+  private static final String DATA_SOURCE_NAME = "test-data-source";
   private static final UUID CATALOG_ID = UUID.randomUUID();
   private static final UUID USER_ID = UUID.randomUUID();
 
@@ -241,6 +250,89 @@ class CatalogUseCaseImplTest {
 
     assertThat(result).isEmpty();
     verify(catalogRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void initializeCatalog_shouldRegisterDataSources() throws Throwable {
+    stubTransaction();
+    when(catalogRepository.findByName(transactionContext, CATALOG_NAME))
+        .thenReturn(Optional.empty(), Optional.of(testCatalog));
+
+    Optional<Catalog> result =
+        catalogUseCase.initializeCatalog(
+            USER_ID, CATALOG_NAME, List.of(registerRequest("orders", "id")));
+
+    assertThat(result).isPresent();
+    verify(dataSourceRepository).create(eq(transactionContext), any());
+    verify(namespaceRepository).create(eq(transactionContext), any());
+    verify(tableRepository).create(eq(transactionContext), any());
+  }
+
+  @Test
+  void initializeCatalog_whenSchemaHasProhibitedCharacter_shouldThrowInvalidSchemaMetadata()
+      throws Throwable {
+    stubTransaction();
+    when(catalogRepository.findByName(transactionContext, CATALOG_NAME))
+        .thenReturn(Optional.empty(), Optional.of(testCatalog));
+
+    assertThatThrownBy(
+            () ->
+                catalogUseCase.initializeCatalog(
+                    USER_ID, CATALOG_NAME, List.of(registerRequest("orders", "id\u001b[31m"))))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_SCHEMA_METADATA);
+              assertThat(e.getMetadata())
+                  .containsOnly(
+                      entry("catalog_name", CATALOG_NAME),
+                      entry("data_source_name", DATA_SOURCE_NAME),
+                      entry("field", "column"),
+                      entry("path", "\"ns\".\"orders\".\"id\\u001b[31m\""),
+                      entry("value", "id\\u001b[31m"));
+              assertThat(e.getMessage()).doesNotContain("\u001b");
+            });
+    verify(dataSourceRepository, never()).create(any(), any());
+    verify(namespaceRepository, never()).create(any(), any());
+    verify(tableRepository, never()).create(any(), any());
+  }
+
+  private void stubTransaction() throws Throwable {
+    when(transactionManager.withTransaction(any()))
+        .thenAnswer(
+            invocation -> {
+              ThrowableFunction<RepositoryTransactionContext, Optional<Catalog>, Exception>
+                  function = invocation.getArgument(0);
+              return function.apply(transactionContext);
+            });
+  }
+
+  private static RegisterDataSourceRequest registerRequest(String tableName, String columnName) {
+    DataSourceSchema schema =
+        DataSourceSchema.builder()
+            .namespaces(
+                List.of(
+                    NamespaceSchema.builder()
+                        .names(List.of("ns"))
+                        .tables(
+                            List.of(
+                                TableSchema.builder()
+                                    .name(tableName)
+                                    .columns(
+                                        List.of(
+                                            ColumnSchema.builder()
+                                                .name(columnName)
+                                                .type(DataType.Int.INSTANCE)
+                                                .nullable(false)
+                                                .build()))
+                                    .build()))
+                        .build()))
+            .build();
+    return new RegisterDataSourceRequest(
+        CATALOG_NAME,
+        DATA_SOURCE_NAME,
+        DynamoDbProvider.builder().region("us-east-1").build(),
+        schema);
   }
 
   // deleteCatalog

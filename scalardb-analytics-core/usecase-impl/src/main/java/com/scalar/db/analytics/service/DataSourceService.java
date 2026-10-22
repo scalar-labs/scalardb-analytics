@@ -33,6 +33,7 @@ import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
 import com.scalar.db.analytics.service.datasource.NoOpSchemaResolver;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
+import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
 import com.scalar.db.analytics.service.datasource.rdbms.RdbmsSchemaResolver;
 import com.scalar.db.analytics.service.datasource.rdbms.RdbmsSchemaResolverOption;
@@ -90,6 +91,8 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
     DataSourceSchema schema = request.getSchema();
     DataSourceProvider provider = request.getProvider();
     ResolvedSchema resolvedSchema = resolveSchema(dataSource.getId(), provider, schema);
+    // Every schema, resolved or given manually, is checked before anything is persisted.
+    SchemaMetadataValidator.validate(resolvedSchema);
 
     dataSourceRepository.create(ctx, dataSource);
     resolvedSchema

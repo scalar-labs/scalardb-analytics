@@ -439,6 +439,14 @@ class ExceptionHandlingInterceptorTest {
   }
 
   @Test
+  void mapToGrpcStatus_ShouldMapInvalidSchemaMetadataToInvalidArgument() {
+    assertThat(
+            ExceptionHandlingInterceptor.mapToGrpcStatus(AnalyticsErrorCode.INVALID_SCHEMA_METADATA)
+                .getCode())
+        .isEqualTo(Status.INVALID_ARGUMENT.getCode());
+  }
+
+  @Test
   void mapToGrpcStatus_ShouldRejectClientErrorCodes() {
     // CLIENT_ERROR codes are produced only by the SDK; the server must never map them to a status.
     for (AnalyticsErrorCode code : AnalyticsErrorCode.values()) {
