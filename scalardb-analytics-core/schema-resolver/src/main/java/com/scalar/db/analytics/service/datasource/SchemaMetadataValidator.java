@@ -47,16 +47,15 @@ public final class SchemaMetadataValidator {
   private SchemaMetadataValidator() {}
 
   /**
-   * Returns whether a code point is prohibited in a name: a Unicode {@code Cc} control character
-   * (C0 controls including TAB, LF, CR, and ESC; DEL; C1 controls) or a bidirectional embedding,
-   * override, or isolate control.
+   * Returns whether a code point is prohibited in a name: a Unicode {@code Cc} control character as
+   * defined by {@link Character#isISOControl(int)} (C0 controls including TAB, LF, CR, and ESC;
+   * DEL; C1 controls) or a bidirectional embedding, override, or isolate control.
    *
    * @param codePoint the code point to check
    * @return {@code true} if the code point is prohibited
    */
   public static boolean isProhibited(int codePoint) {
-    return codePoint <= 0x1F // C0 controls
-        || (codePoint >= 0x7F && codePoint <= 0x9F) // DEL and C1 controls
+    return Character.isISOControl(codePoint) // C0 controls, DEL, and C1 controls
         || (codePoint >= 0x202A && codePoint <= 0x202E) // LRE, RLE, PDF, LRO, RLO
         || (codePoint >= 0x2066 && codePoint <= 0x2069); // LRI, RLI, FSI, PDI
   }
