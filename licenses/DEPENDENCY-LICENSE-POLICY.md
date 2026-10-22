@@ -28,9 +28,8 @@ The following licenses permit redistribution of unmodified binaries:
 
 `Unicode-3.0` is the SPDX identifier of the Unicode License v3, under which ICU has been released
 since ICU 74. It is OSI-approved and grants the same permissions as the Unicode/ICU License above,
-requiring only that the copyright and permission notice accompany redistributed copies, which the
-generated notices provide. ICU4J declares it from 77.1, which ScalarDB pulls in for its collation
-support.
+requiring only that the copyright and permission notice accompany redistributed copies. ScalarDB
+pulls in ICU4J 77.1, whose POM declares it, for its collation support.
 
 ## Weak copyleft licenses
 
