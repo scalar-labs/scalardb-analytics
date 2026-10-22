@@ -31,7 +31,8 @@ import picocli.CommandLine.Spec;
     name = "describe",
     description = {
       "Describe a data source",
-      "Either --data-source-id or --catalog and --data-source must be specified"
+      "Either --data-source-id or --data-source must be specified"
+          + " (--catalog can be omitted when a default catalog is set)"
     },
     synopsisHeading = "",
     customSynopsis = {

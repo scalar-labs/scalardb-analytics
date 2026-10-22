@@ -32,7 +32,8 @@ import picocli.CommandLine.Spec;
     name = "describe",
     description = {
       "Describe a namespace",
-      "Either --namespace-id or --catalog, --data-source and --namespace must be specified"
+      "Either --namespace-id or --data-source and --namespace must be specified"
+          + " (--catalog can be omitted when a default catalog is set)"
     },
     synopsisHeading = "",
     customSynopsis = {

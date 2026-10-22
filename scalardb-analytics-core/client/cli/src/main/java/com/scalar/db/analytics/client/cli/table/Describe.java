@@ -31,7 +31,8 @@ import picocli.CommandLine.Spec;
     name = "describe",
     description = {
       "Describe a table detail",
-      "Either --table-id or --catalog, --data-source, --namespace and --table must be specified"
+      "Either --table-id or --data-source, --namespace and --table must be specified"
+          + " (--catalog can be omitted when a default catalog is set)"
     },
     synopsisHeading = "",
     customSynopsis = {
