@@ -5,6 +5,7 @@
 package com.scalar.db.analytics.client.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -179,6 +181,43 @@ class DefaultCatalogTest extends CliTestBase {
       assertThat(getStderr())
           .contains("scalar.db.analytics.client.auth.password")
           .doesNotContain("--catalog");
+      verifyNoInteractions(modules.client().namespace());
+    }
+
+    @Test
+    void
+        namespaceList_withDefaultFromEnvironmentAndUnreadableConfig_shouldReportTheConfigErrorAsIs()
+            throws Exception {
+      writeConfig("");
+      Path file = Objects.requireNonNull(configFile);
+      Files.setPosixFilePermissions(file, Collections.emptySet());
+      try {
+        // Root can read the file anyway.
+        assumeFalse(Files.isReadable(file));
+
+        int exitCode =
+            new EnvironmentVariables("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", "env_catalog")
+                .execute(() -> execute("namespace", "list"));
+
+        assertThat(exitCode).isEqualTo(ExitCode.SOFTWARE);
+        assertThat(getStderr()).contains("Permission denied").doesNotContain("--catalog");
+        verifyNoInteractions(modules.client().namespace());
+      } finally {
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+      }
+    }
+
+    @Test
+    void namespaceList_withDefaultFromEnvironmentAndMalformedConfig_shouldReportTheConfigErrorAsIs()
+        throws Exception {
+      writeConfig("scalar.db.analytics.client.auth.username=\\uZZZZ\n");
+
+      int exitCode =
+          new EnvironmentVariables("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", "env_catalog")
+              .execute(() -> execute("namespace", "list"));
+
+      assertThat(exitCode).isEqualTo(ExitCode.SOFTWARE);
+      assertThat(getStderr()).contains("Malformed \\uxxxx encoding").doesNotContain("--catalog");
       verifyNoInteractions(modules.client().namespace());
     }
 

@@ -205,7 +205,7 @@ When neither `--catalog` nor a default is set, the command fails with a usage er
 Missing --catalog, and no default catalog is set (scalar.db.analytics.client.default.catalog or SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG)
 ```
 
-If a default is set but the rest of the configuration is invalid (for example, a username without a password), the command reports the configuration error, as it would with `--catalog`.
+If a default is set but the rest of the configuration is invalid (for example, a username without a password), the command reports the configuration error, as it would with `--catalog`. The same goes for a configuration file that can't be read, whether or not a default is set.
 
 Configuration can be overridden via:
 

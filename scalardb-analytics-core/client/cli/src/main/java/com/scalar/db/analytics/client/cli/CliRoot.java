@@ -109,8 +109,8 @@ public class CliRoot implements Runnable {
    * @param spec the spec of the command, used to report a missing catalog as a usage error
    * @return the catalog name
    * @throws ParameterException if neither the option nor a default catalog is set
-   * @throws RuntimeException if a default catalog is set but the configuration is invalid, as when
-   *     the command loads the configuration itself
+   * @throws RuntimeException if a default catalog is set but the configuration is invalid, or if
+   *     the configuration file can't be read, as when the command loads the configuration itself
    */
   public String resolveCatalog(@Nullable String catalog, CommandSpec spec) {
     if (catalog != null) {
@@ -136,7 +136,9 @@ public class CliRoot implements Runnable {
     throw new ParameterException(spec.commandLine(), MISSING_CATALOG_MESSAGE);
   }
 
-  // Whether a default catalog is set, read without validating the rest of the configuration.
+  // Whether a default catalog is set, read without validating the rest of the configuration. A
+  // configuration file that can't be read counts as set, so that its error is reported as is, also
+  // when the default comes from the environment.
   private boolean isDefaultCatalogSet() {
     try {
       return (configPath == null
@@ -144,7 +146,7 @@ public class CliRoot implements Runnable {
               : AppConfig.loadDefaultCatalog(configPath))
           != null;
     } catch (RuntimeException e) {
-      return false;
+      return true;
     }
   }
 
