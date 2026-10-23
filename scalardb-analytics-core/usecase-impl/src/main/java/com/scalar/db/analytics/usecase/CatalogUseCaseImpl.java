@@ -12,7 +12,6 @@ import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.ResourceRef;
 import com.scalar.db.analytics.domain.authz.ResourceType;
-import com.scalar.db.analytics.lib.functional.Throwables;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceNamespaceQueryService;
 import com.scalar.db.analytics.repository.DataSourceNamespaceTableQueryService;
@@ -26,6 +25,7 @@ import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
 import com.scalar.db.analytics.service.DataSourceService;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.service.authz.PermissionRequirement;
+import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -132,9 +132,13 @@ public class CatalogUseCaseImpl<T extends RepositoryTransactionContext> implemen
           Catalog catalog = Catalog.create(catalogName);
           catalogRepository.create(ctx, catalog);
 
-          dataSources.forEach(
-              Throwables.sneakyThrowableConsumer(
-                  ds -> dataSourceService.registerDataSource(ctx, ds)));
+          for (RegisterDataSourceRequest ds : dataSources) {
+            try {
+              dataSourceService.registerDataSource(ctx, ds);
+            } catch (InvalidSchemaMetadataException e) {
+              throw DataSourceRegistrationErrors.invalidSchemaMetadata(ds, e);
+            }
+          }
 
           return Optional.of(catalog);
         });

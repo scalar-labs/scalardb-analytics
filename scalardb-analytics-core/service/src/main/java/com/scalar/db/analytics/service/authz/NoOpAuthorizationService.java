@@ -4,6 +4,7 @@
  */
 package com.scalar.db.analytics.service.authz;
 
+import com.scalar.db.analytics.domain.authz.ResourceRef;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
@@ -31,6 +32,12 @@ public class NoOpAuthorizationService implements AuthorizationService {
   public boolean authorizePermissionManagement(UUID userId, UUID catalogId) {
     // No-op: always allowed
     return true;
+  }
+
+  @Override
+  public boolean isAclDelegated(ResourceRef resource) {
+    // No-op: no resource is delegated
+    return false;
   }
 
   @Override

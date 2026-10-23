@@ -1,1 +1,11 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussions
+    url: https://github.com/scalar-labs/scalardb-analytics/discussions
+    about: Ask usage questions and discuss ideas with the community.
+  - name: Documentation
+    url: https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/design/
+    about: Read the ScalarDB Analytics documentation.
+  - name: Commercial license and support
+    url: https://www.scalar-labs.com/contact-us
+    about: Contact Scalar about the commercial license and support.

@@ -326,6 +326,19 @@ abstract class ScalarDbTestBase extends BaseSpec with CatalogTestBase with Befor
       } finally
         spark.sql(s"UNCACHE TABLE IF EXISTS $tableFqn"): Unit
     }
+
+    it("should find the cached data from an independently loaded table") {
+      val tableFqn = s"$CATALOG_NAME.$DATA_SOURCE_NAME.sample_db.sample_table"
+
+      val cached = spark.table(tableFqn).cache()
+      try {
+        // spark.table loads a new Table instance from the catalog, so this matches only if equal
+        // tables compare equal.
+        val reloaded = spark.table(tableFqn)
+        assert(spark.sharedState.cacheManager.lookupCachedData(reloaded).isDefined)
+      } finally
+        cached.unpersist(): Unit
+    }
   }
 
   describe("PushDown") {

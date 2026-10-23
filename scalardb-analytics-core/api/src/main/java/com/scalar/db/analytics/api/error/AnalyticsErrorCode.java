@@ -258,6 +258,19 @@ public enum AnalyticsErrorCode {
           "The user still has linked backend users, role assignments, or direct permission grants.",
           "Remove the linked backend users, role assignments, and permission grants before deleting the user, or use a cascading delete.")),
 
+  /**
+   * Analytics permission granted on a resource under ACL delegation.
+   *
+   * <p>Expected metadata keys: {@code permission}, {@code resource_id}, {@code data_source_name}.
+   */
+  RESOURCE_UNDER_ACL_DELEGATION(
+      "DB-ANALYTICS-10204",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Resource is under ACL delegation",
+          "Authorization for the resource is delegated to ScalarDB Cluster, so Analytics permissions granted on it would be ignored.",
+          "Grant the corresponding privilege in ScalarDB Cluster instead.")),
+
   // 103xx - Data Source Connection
 
   /**
@@ -300,6 +313,22 @@ public enum AnalyticsErrorCode {
           "Invalid argument",
           "One or more arguments do not satisfy the validation rules (format, range, or required field).",
           "Inspect the metadata for the offending field and provide a valid value, then retry.")),
+
+  /**
+   * A name in the data source schema contains a prohibited control or bidirectional formatting
+   * character.
+   *
+   * <p>Expected metadata keys: {@code catalog_name}, {@code data_source_name}, {@code field}
+   * ({@code namespace}, {@code table}, {@code column}, or {@code column_type}), {@code path} (the
+   * escaped, double-quoted path of the object), {@code value} (the escaped name).
+   */
+  INVALID_SCHEMA_METADATA(
+      "DB-ANALYTICS-10401",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Data source schema contains a prohibited character",
+          "A namespace, table, column, or column type name in the data source schema contains a control character (such as a line break or ESC) or a bidirectional formatting character, which could alter logs or terminal output.",
+          "Rename the object identified by the field and path in the metadata, or correct the name in the manual schema, then retry. The value in the metadata shows the prohibited characters escaped.")),
 
   // 300xx - Retryable Internal Errors
 

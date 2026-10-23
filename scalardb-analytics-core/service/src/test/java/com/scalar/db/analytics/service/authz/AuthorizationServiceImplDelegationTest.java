@@ -302,4 +302,45 @@ class AuthorizationServiceImplDelegationTest {
 
     assertThat(service.authorize(USER_ID, requirements)).isTrue();
   }
+
+  // --- isAclDelegated ---
+
+  @Test
+  void isAclDelegated_scalarDbNamespaceAndTable_shouldReturnTrue() {
+    assertThat(
+            service.isAclDelegated(
+                new ResourceRef(ResourceType.NAMESPACE, UUID.randomUUID(), SCALARDB_PROVIDER)))
+        .isTrue();
+    assertThat(
+            service.isAclDelegated(
+                new ResourceRef(ResourceType.TABLE, TABLE_ID, SCALARDB_PROVIDER)))
+        .isTrue();
+  }
+
+  @Test
+  void isAclDelegated_nonScalarDbProvider_shouldReturnFalse() {
+    assertThat(service.isAclDelegated(new ResourceRef(ResourceType.TABLE, TABLE_ID, "postgresql")))
+        .isFalse();
+  }
+
+  @Test
+  void isAclDelegated_catalogAndDataSource_shouldReturnFalse() {
+    assertThat(service.isAclDelegated(new ResourceRef(ResourceType.CATALOG, CATALOG_ID))).isFalse();
+    assertThat(
+            service.isAclDelegated(
+                new ResourceRef(ResourceType.DATA_SOURCE, UUID.randomUUID(), SCALARDB_PROVIDER)))
+        .isFalse();
+  }
+
+  @Test
+  void isAclDelegated_withNullDelegate_shouldReturnFalse() {
+    service =
+        new AuthorizationServiceImpl<>(
+            roleRepository, roleAssignmentRepository, aceRepository, txManager);
+
+    assertThat(
+            service.isAclDelegated(
+                new ResourceRef(ResourceType.TABLE, TABLE_ID, SCALARDB_PROVIDER)))
+        .isFalse();
+  }
 }

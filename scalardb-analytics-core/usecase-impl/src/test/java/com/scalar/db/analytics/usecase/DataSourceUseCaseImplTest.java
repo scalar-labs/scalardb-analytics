@@ -14,11 +14,19 @@ import static org.mockito.Mockito.when;
 
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.api.model.DataSourceNamespace;
+import com.scalar.db.analytics.api.model.DataType;
 import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
+import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
+import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
+import com.scalar.db.analytics.api.request.schema.ColumnSchema;
+import com.scalar.db.analytics.api.request.schema.DataSourceSchema;
+import com.scalar.db.analytics.api.request.schema.NamespaceSchema;
+import com.scalar.db.analytics.api.request.schema.TableSchema;
 import com.scalar.db.analytics.lib.functional.ThrowableFunction;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceNamespaceQueryService;
@@ -324,5 +332,62 @@ class DataSourceUseCaseImplTest {
             () ->
                 dataSourceUseCase.deleteDataSource(USER_ID, CATALOG_NAME, DATA_SOURCE_NAME, false))
         .isInstanceOf(AnalyticsException.class);
+  }
+
+  @Test
+  void register_whenSchemaHasProhibitedCharacter_shouldThrowInvalidSchemaMetadata()
+      throws Throwable {
+    when(transactionManager.withTransaction(any()))
+        .thenAnswer(
+            invocation -> {
+              ThrowableFunction<RepositoryTransactionContext, DataSource, Exception> function =
+                  invocation.getArgument(0);
+              return function.apply(transactionContext);
+            });
+    when(catalogRepository.findByName(transactionContext, CATALOG_NAME))
+        .thenReturn(Optional.of(Catalog.of(CATALOG_ID, CATALOG_NAME)));
+    DataSourceSchema schema =
+        DataSourceSchema.builder()
+            .namespaces(
+                List.of(
+                    NamespaceSchema.builder()
+                        .names(List.of("ns"))
+                        .tables(
+                            List.of(
+                                TableSchema.builder()
+                                    .name("orders\nINFO forged log line")
+                                    .columns(
+                                        List.of(
+                                            ColumnSchema.builder()
+                                                .name("id")
+                                                .type(DataType.Int.INSTANCE)
+                                                .nullable(false)
+                                                .build()))
+                                    .build()))
+                        .build()))
+            .build();
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            schema);
+
+    assertThatThrownBy(() -> dataSourceUseCase.register(USER_ID, request))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_SCHEMA_METADATA);
+              assertThat(e.getMetadata())
+                  .containsEntry("catalog_name", CATALOG_NAME)
+                  .containsEntry("data_source_name", DATA_SOURCE_NAME)
+                  .containsEntry("field", "table")
+                  .containsEntry("path", "\"ns\".\"orders\\nINFO forged log line\"")
+                  .containsEntry("value", "orders\\nINFO forged log line");
+              assertThat(e.getMessage()).doesNotContain("\n");
+            });
+    verify(dataSourceRepository, never()).create(any(), any());
+    verify(namespaceRepository, never()).create(any(), any());
+    verify(tableRepository, never()).create(any(), any());
   }
 }

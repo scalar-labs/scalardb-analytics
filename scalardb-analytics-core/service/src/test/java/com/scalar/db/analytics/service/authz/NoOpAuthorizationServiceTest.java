@@ -32,6 +32,14 @@ class NoOpAuthorizationServiceTest {
   }
 
   @Test
+  void isAclDelegated_shouldAlwaysReturnFalse() {
+    assertThat(
+            service.isAclDelegated(
+                new ResourceRef(ResourceType.TABLE, UUID.randomUUID(), "scalardb")))
+        .isFalse();
+  }
+
+  @Test
   void authorize_shouldAlwaysPass() {
     List<PermissionRequirement> requirements =
         List.of(

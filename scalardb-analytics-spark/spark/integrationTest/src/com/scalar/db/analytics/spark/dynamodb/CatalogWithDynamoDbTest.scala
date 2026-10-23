@@ -265,4 +265,36 @@ class CatalogWithDynamoDbTest extends BaseSpec with CatalogTestBase with BeforeA
       )
     }
   }
+
+  describe("CacheTable") {
+    val tableFqn = s"$CATALOG_NAME.$DATA_SOURCE_NAME.sample_ns.$TABLE_NAME"
+
+    it("should use InMemoryTableScan after caching") {
+      spark.sql(s"CACHE TABLE $tableFqn")
+      try {
+        val df = spark.sql(s"SELECT * FROM $tableFqn")
+        // Execute to finalize the plan (needed when AQE is enabled)
+        df.collect()
+        val planText = df.queryExecution.explainString(
+          org.apache.spark.sql.execution.ExplainMode.fromString("extended")
+        )
+        assert(
+          planText.contains("InMemoryTableScan") || planText.contains("InMemoryRelation"),
+          "Expected InMemoryTableScan/InMemoryRelation in plan: " + planText
+        )
+      } finally
+        spark.sql(s"UNCACHE TABLE IF EXISTS $tableFqn"): Unit
+    }
+
+    it("should find the cached data from an independently loaded table") {
+      val cached = spark.table(tableFqn).cache()
+      try {
+        // spark.table loads a new Table instance from the catalog, so this matches only if equal
+        // tables compare equal.
+        val reloaded = spark.table(tableFqn)
+        assert(spark.sharedState.cacheManager.lookupCachedData(reloaded).isDefined)
+      } finally
+        cached.unpersist(): Unit
+    }
+  }
 }

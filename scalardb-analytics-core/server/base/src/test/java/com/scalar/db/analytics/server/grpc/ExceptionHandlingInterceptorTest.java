@@ -328,6 +328,26 @@ class ExceptionHandlingInterceptorTest {
   }
 
   @Test
+  void testResourceUnderAclDelegation_mapsToFailedPrecondition() {
+    assertThatThrownBy(
+            () ->
+                stub.createCatalog(
+                    CreateCatalogRequest.newBuilder()
+                        .setCatalogName("resource-under-acl-delegation")
+                        .build()))
+        .isInstanceOf(StatusRuntimeException.class)
+        .satisfies(
+            e -> {
+              StatusRuntimeException sre = (StatusRuntimeException) e;
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.FAILED_PRECONDITION.getCode());
+              assertThat(sre.getStatus().getDescription())
+                  .contains("Resource is under ACL delegation");
+              assertThat(errorCodeOf(sre))
+                  .isEqualTo(AnalyticsErrorCode.RESOURCE_UNDER_ACL_DELEGATION.getCode());
+            });
+  }
+
+  @Test
   void testDataInconsistency_mapsToDataLoss() {
     assertThatThrownBy(
             () ->
@@ -419,6 +439,14 @@ class ExceptionHandlingInterceptorTest {
   }
 
   @Test
+  void mapToGrpcStatus_ShouldMapInvalidSchemaMetadataToInvalidArgument() {
+    assertThat(
+            ExceptionHandlingInterceptor.mapToGrpcStatus(AnalyticsErrorCode.INVALID_SCHEMA_METADATA)
+                .getCode())
+        .isEqualTo(Status.INVALID_ARGUMENT.getCode());
+  }
+
+  @Test
   void mapToGrpcStatus_ShouldRejectClientErrorCodes() {
     // CLIENT_ERROR codes are produced only by the SDK; the server must never map them to a status.
     for (AnalyticsErrorCode code : AnalyticsErrorCode.values()) {
@@ -475,6 +503,9 @@ class ExceptionHandlingInterceptorTest {
 
         case "built-in-role-deletion":
           throw new AnalyticsException(AnalyticsErrorCode.BUILT_IN_ENTITY_NOT_MODIFIABLE);
+
+        case "resource-under-acl-delegation":
+          throw new AnalyticsException(AnalyticsErrorCode.RESOURCE_UNDER_ACL_DELEGATION);
 
         case "data-inconsistency":
           throw new AnalyticsException(AnalyticsErrorCode.DATA_INCONSISTENCY);

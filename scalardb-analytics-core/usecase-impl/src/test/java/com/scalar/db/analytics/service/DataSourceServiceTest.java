@@ -35,6 +35,8 @@ import com.scalar.db.analytics.repository.NamespaceRepository;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
+import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
+import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
 import java.util.List;
 import java.util.Optional;
@@ -105,6 +107,52 @@ class DataSourceServiceTest {
     ArgumentCaptor<DataSource> captor = ArgumentCaptor.forClass(DataSource.class);
     verify(dataSourceRepository).create(any(), captor.capture());
     assertThat(captor.getValue().getCatalogId()).isEqualTo(catalogId);
+    verify(namespaceRepository).create(any(), any());
+    verify(tableRepository).create(any(), any());
+  }
+
+  @Test
+  void registerDataSource_withManualSchemaContainingControlCharacter_shouldPersistNothing() {
+    DataSourceSchema schema = createSchema("ns", "tbl", "id\u001b[2J");
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            schema);
+
+    when(catalogRepository.findByName(ctx, CATALOG_NAME))
+        .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
+
+    assertThatThrownBy(() -> service.registerDataSource(ctx, request))
+        .isInstanceOfSatisfying(
+            InvalidSchemaMetadataException.class,
+            e -> {
+              assertThat(e.getField()).isEqualTo(SchemaMetadataValidator.Field.COLUMN);
+              assertThat(e.getPath()).isEqualTo("\"ns\".\"tbl\".\"id\\u001b[2J\"");
+            });
+
+    verify(dataSourceRepository, never()).create(any(), any());
+    verify(namespaceRepository, never()).create(any(), any());
+    verify(tableRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void registerDataSource_withManualSchemaInJapanese_shouldPersistEntities() {
+    DataSourceSchema schema = createSchema("販売", "注文", "顧客名");
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            schema);
+
+    when(catalogRepository.findByName(ctx, CATALOG_NAME))
+        .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
+
+    service.registerDataSource(ctx, request);
+
+    verify(dataSourceRepository).create(any(), any());
     verify(namespaceRepository).create(any(), any());
     verify(tableRepository).create(any(), any());
   }

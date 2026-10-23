@@ -11,6 +11,7 @@ import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
 import com.scalar.db.analytics.domain.authz.Permission;
 import com.scalar.db.analytics.domain.authz.PermissionSource;
+import com.scalar.db.analytics.domain.authz.ResourceNames;
 import com.scalar.db.analytics.server.support.UseCaseIntegrationTestBase;
 import com.scalar.db.analytics.usecase.CatalogUseCase;
 import com.scalar.db.analytics.usecase.auth.UserUseCase;
@@ -75,7 +76,10 @@ class PermissionUseCaseIntegrationTest extends UseCaseIntegrationTestBase {
     assertThat(perms)
         .anyMatch(
             p ->
-                p.permission() == Permission.CATALOG_READ && p.source() == PermissionSource.DIRECT);
+                p.permission() == Permission.CATALOG_READ
+                    && p.source() == PermissionSource.DIRECT
+                    && new ResourceNames("perm-test-catalog", null, List.of(), null)
+                        .equals(p.resourceNames()));
 
     permissionUseCase.revokeCatalogPermission(
         adminId, GranteeType.USER, "alice-perm", Permission.CATALOG_READ, "perm-test-catalog");

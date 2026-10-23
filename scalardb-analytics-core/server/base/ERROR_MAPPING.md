@@ -72,6 +72,8 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10200` | `CATALOG_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | Catalog is not empty |
 | `DB-ANALYTICS-10201` | `DATA_SOURCE_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | Data source is not empty |
 | `DB-ANALYTICS-10202` | `BUILT_IN_ENTITY_NOT_MODIFIABLE` | `FAILED_PRECONDITION` | USER_ERROR | No | Cannot modify built-in entity |
+| `DB-ANALYTICS-10203` | `USER_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | User is not empty |
+| `DB-ANALYTICS-10204` | `RESOURCE_UNDER_ACL_DELEGATION` | `FAILED_PRECONDITION` | USER_ERROR | No | Analytics permission granted on a resource under ACL delegation |
 
 ### 103xx — Data Source Connection
 
@@ -85,6 +87,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | Error Code | Name | gRPC Status | Category | Reauth | Description |
 |------------|------|-------------|----------|--------|-------------|
 | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | `INVALID_ARGUMENT` | USER_ERROR | No | Invalid argument or validation failure |
+| `DB-ANALYTICS-10401` | `INVALID_SCHEMA_METADATA` | `INVALID_ARGUMENT` | USER_ERROR | No | A namespace, table, column, or column type name in the data source schema contains a prohibited control or bidirectional formatting character |
 
 ### 300xx — Retryable Internal Errors
 

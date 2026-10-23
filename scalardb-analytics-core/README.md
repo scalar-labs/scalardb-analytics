@@ -63,4 +63,4 @@ For authentication and authorization settings, see the [official guide](https://
 ScalarDB Analytics Core is dual-licensed under both the Apache 2.0 License
 (found in the [LICENSE](../LICENSE) file) and a commercial license. You may
 select, at your option, one of the licenses. For more information about the
-commercial license, please [contact us](https://www.scalar-labs.com/contact).
+commercial license, please [contact us](https://www.scalar-labs.com/contact-us).
