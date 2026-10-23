@@ -12,6 +12,8 @@ import com.scalar.db.analytics.api.model.TableDetail;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
 import com.scalar.db.analytics.service.datasource.ResolvedSchemaEntry;
+import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
+import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator.Field;
 import com.scalar.db.analytics.service.datasource.SchemaResolver;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
 import java.sql.Connection;
@@ -84,6 +86,7 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
                 })
             .map(
                 namespaceInfo -> {
+                  SchemaMetadataValidator.validateNamespace(namespaceInfo.toNamespaceNames());
                   Namespace namespace =
                       Namespace.create(dataSourceId, namespaceInfo.toNamespaceNames());
 
@@ -122,6 +125,7 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
                 && !option.getTablesToResolve().contains(tableName)) {
               return null;
             }
+            SchemaMetadataValidator.validateName(Field.TABLE, info.toNamespaceNames(), tableName);
             List<JdbcColumnInfo> columns = getColumnsForTable(info, tableName);
             return new JdbcTableInfo(tableName, columns);
           });
@@ -132,6 +136,8 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
 
   private List<JdbcColumnInfo> getColumnsForTable(JdbcNamespaceInfo info, String tableName)
       throws SchemaResolverException {
+    List<String> tablePath = new ArrayList<>(info.toNamespaceNames());
+    tablePath.add(tableName);
     try (ResultSet columns = metaData.getColumns(info, tableName)) {
       return JdbcUtil.iterateOverResultSet(
           columns,
@@ -139,6 +145,11 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
             String columnName = metaData.getColumnsColumnName(rs);
             JDBCType jdbcType = JdbcUtil.getJdbcType(metaData.getColumnsDataType(rs));
             String columnTypeName = metaData.getColumnsTypeName(rs);
+            // Validated here, before the names can reach the unsupported-type warning.
+            SchemaMetadataValidator.validateName(Field.COLUMN, tablePath, columnName);
+            List<String> columnPath = new ArrayList<>(tablePath);
+            columnPath.add(columnName);
+            SchemaMetadataValidator.validateName(Field.COLUMN_TYPE, columnPath, columnTypeName);
             return new JdbcColumnInfo(
                 info,
                 tableName,
