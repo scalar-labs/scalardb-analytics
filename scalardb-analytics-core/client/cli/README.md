@@ -41,7 +41,7 @@ scalardb-analytics
 │   ├── describe         # Show table details with columns (supports --by-id)
 │   └── list             # List tables in a namespace
 ├── user                 # Analytics users (principals)
-│   ├── create           # Create a user; with --backend-user, also create+link an internal-backend user atomically
+│   ├── create           # Create a user; with --backend-user, also create+link an internal-backend user atomically (internal password backend only)
 │   ├── delete           # Delete a user (supports --cascade)
 │   ├── describe         # Show user details (roles, linked backend user)
 │   ├── list             # List all users

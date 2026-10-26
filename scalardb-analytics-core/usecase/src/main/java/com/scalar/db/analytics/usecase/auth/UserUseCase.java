@@ -56,13 +56,16 @@ public interface UserUseCase {
 
   /**
    * Convenience composite: atomically creates a principal, creates an internal-backend user, and
-   * links them.
+   * links them. Available only with the internal password backend; with other backends, create the
+   * user in that backend and link it with {@link #linkBackendUser}.
    *
    * @param userId the authenticated user ID (SUPERADMIN required)
    * @param username the name of the principal to create
    * @param backendUsername the name of the internal-backend user to create and link
    * @param password the plaintext password for the backend user
    * @return the created principal
+   * @throws com.scalar.db.analytics.api.error.AnalyticsException with {@code INVALID_ARGUMENT} if
+   *     the server does not use the internal password backend
    */
   AuthUser createUserWithBackendUser(
       UUID userId, String username, String backendUsername, String password);

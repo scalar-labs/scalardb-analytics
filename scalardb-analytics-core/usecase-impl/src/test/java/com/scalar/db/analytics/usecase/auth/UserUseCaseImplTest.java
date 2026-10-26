@@ -72,18 +72,7 @@ class UserUseCaseImplTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    useCase =
-        new UserUseCaseImpl<>(
-            passwordIdentityRepository,
-            authUserRepository,
-            roleAssignmentRepository,
-            roleRepository,
-            internalCredentialRepository,
-            aceRepository,
-            accessTokenRepository,
-            txManager,
-            authorizationService,
-            passwordEncoder);
+    useCase = newUseCase(Optional.of(passwordEncoder));
 
     lenient().when(authorizationService.authorizeSuperAdmin(any())).thenReturn(true);
     lenient()
@@ -94,6 +83,21 @@ class UserUseCaseImplTest {
                   invocation.getArgument(0);
               return function.apply(txContext);
             });
+  }
+
+  private UserUseCaseImpl<RepositoryTransactionContext> newUseCase(
+      Optional<PasswordEncoder> passwordEncoder) {
+    return new UserUseCaseImpl<>(
+        passwordIdentityRepository,
+        authUserRepository,
+        roleAssignmentRepository,
+        roleRepository,
+        internalCredentialRepository,
+        aceRepository,
+        accessTokenRepository,
+        txManager,
+        authorizationService,
+        passwordEncoder);
   }
 
   @Test
@@ -202,6 +206,43 @@ class UserUseCaseImplTest {
 
     verify(authUserRepository, never()).create(any(), any());
     verify(passwordIdentityRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void createUserWithBackendUser_withoutPasswordEncoder_shouldRejectWithoutWriting()
+      throws Exception {
+    // No PasswordEncoder bean exists with a non-internal password backend (e.g. ScalarDB Cluster).
+    UserUseCaseImpl<RepositoryTransactionContext> nonInternalBackendUseCase =
+        newUseCase(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                nonInternalBackendUseCase.createUserWithBackendUser(
+                    USER_ID, "alice", "alice-internal", "pw"))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata()).containsEntry("field", "backend_username");
+            });
+
+    verify(txManager, never()).withTransaction(any());
+  }
+
+  @Test
+  void createUserWithBackendUser_withoutPasswordEncoder_whenAccessDenied_shouldThrowAccessDenied()
+      throws Exception {
+    UserUseCaseImpl<RepositoryTransactionContext> nonInternalBackendUseCase =
+        newUseCase(Optional.empty());
+    when(authorizationService.authorizeSuperAdmin(USER_ID)).thenReturn(false);
+
+    assertThatThrownBy(
+            () ->
+                nonInternalBackendUseCase.createUserWithBackendUser(
+                    USER_ID, "alice", "alice-internal", "pw"))
+        .isInstanceOf(AnalyticsException.class)
+        .extracting(ex -> ((AnalyticsException) ex).getErrorCode())
+        .isEqualTo(AnalyticsErrorCode.ACCESS_DENIED);
   }
 
   @Test
