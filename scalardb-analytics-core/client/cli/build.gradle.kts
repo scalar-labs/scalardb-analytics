@@ -77,6 +77,22 @@ testing.suites {
     }
 }
 
+// system-stubs 1.x stubs environment variables by reflecting into java.util, which JDK 16+ only
+// allows when the package is opened. The flag is added only for a JVM that knows it: the tests
+// run on Java 8 by default (java8-conventions), where --add-opens is an unrecognized option.
+tasks.named<Test>("test") {
+    val launcher = javaLauncher
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider {
+            if (launcher.get().metadata.languageVersion.canCompileOrRun(9)) {
+                listOf("--add-opens=java.base/java.util=ALL-UNNAMED")
+            } else {
+                emptyList()
+            }
+        },
+    )
+}
+
 tasks.check {
     dependsOn(testing.suites.named("integrationTest"))
 }

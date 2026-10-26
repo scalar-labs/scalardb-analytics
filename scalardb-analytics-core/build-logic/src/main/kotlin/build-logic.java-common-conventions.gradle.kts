@@ -156,7 +156,7 @@ tasks.withType<JavaCompile>().configureEach {
         option("NullAway:HandleTestAssertionLibraries", "true")
         // Fields populated by a framework after instantiation are treated as initialized rather
         // than requiring constructor init: Spring Data JDBC entity columns (@Column) and picocli
-        // command inputs (@Option / @Parameters / @ParentCommand / @ArgGroup).
+        // command inputs (@Option / @Parameters / @ParentCommand / @ArgGroup / @Spec).
         option(
             "NullAway:ExcludedFieldAnnotations",
             listOf(
@@ -165,6 +165,7 @@ tasks.withType<JavaCompile>().configureEach {
                     "picocli.CommandLine.Parameters",
                     "picocli.CommandLine.ParentCommand",
                     "picocli.CommandLine.ArgGroup",
+                    "picocli.CommandLine.Spec",
                 )
                 .joinToString(","),
         )

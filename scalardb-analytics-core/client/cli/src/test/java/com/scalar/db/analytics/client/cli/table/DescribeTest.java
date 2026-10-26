@@ -234,7 +234,7 @@ class DescribeTest extends CliTestBase {
                       "-t",
                       "test_table"));
       assertThat(exitCode).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr()).contains("Missing required argument");
+      assertThat(getStderr()).contains("Missing --catalog, and no default catalog is set");
       verifyNoInteractions(modules.client().table());
     }
   }

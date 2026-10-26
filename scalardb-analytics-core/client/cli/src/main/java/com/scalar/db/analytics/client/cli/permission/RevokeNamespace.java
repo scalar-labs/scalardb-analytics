@@ -5,6 +5,7 @@
 package com.scalar.db.analytics.client.cli.permission;
 
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.analytics.client.cli.CliRoot;
 import com.scalar.db.analytics.client.cli.CommandResult.CommandError;
 import com.scalar.db.analytics.client.cli.CommandResult.Failure;
 import com.scalar.db.analytics.client.cli.CommandResult.Success;
@@ -12,11 +13,14 @@ import com.scalar.db.analytics.client.cli.Printer;
 import com.scalar.db.analytics.client.module.Modules;
 import java.util.Locale;
 import java.util.concurrent.Callable;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 @Command(name = "namespace", description = "Revoke a permission on a namespace")
 public class RevokeNamespace implements Callable<Integer> {
@@ -33,9 +37,8 @@ public class RevokeNamespace implements Callable<Integer> {
 
   @Option(
       names = {"-c", "--catalog"},
-      description = "Catalog name",
-      required = true)
-  @SuppressWarnings("NotNullFieldNotInitialized")
+      description = CliRoot.CATALOG_OPTION_DESCRIPTION)
+  @Nullable
   private String catalogName;
 
   @Option(
@@ -57,8 +60,13 @@ public class RevokeNamespace implements Callable<Integer> {
   @SuppressWarnings("NotNullFieldNotInitialized")
   private RevokeCommand parent;
 
+  @Spec
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  private CommandSpec spec;
+
   @Override
   public Integer call() {
+    String catalog = parent.parent().root().resolveCatalog(catalogName, spec);
     try {
       Modules modules = parent.parent().root().loadModules();
       String fullPermission = "NAMESPACE_" + permission.toUpperCase(Locale.ROOT);
@@ -69,7 +77,7 @@ public class RevokeNamespace implements Callable<Integer> {
               grantee.granteeType(),
               grantee.granteeName(),
               fullPermission,
-              catalogName,
+              catalog,
               dataSourceName,
               namespaceNames);
       printer()

@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
+import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
 
 @ExtendWith(SystemStubsExtension.class)
@@ -29,6 +30,12 @@ class ConfigTest {
   class Load {
     @Nested
     class ConfigFromFile {
+      // A default catalog set in the environment would take precedence over the file.
+      @SystemStub
+      @SuppressWarnings("unused")
+      private final EnvironmentVariables environment =
+          new EnvironmentVariables().set("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", null);
+
       Path configFile;
 
       @BeforeEach
@@ -77,6 +84,44 @@ class ConfigTest {
         assertThat(config.catalogServer().port()).isEqualTo(1234);
         assertThat(config.catalogServer().tlsEnabled()).isTrue();
         assertThat(config.catalogServer().caRootCertPath()).isEqualTo("/path/to/ca-cert.pem");
+      }
+
+      @Test
+      void givenDefaultCatalog_shouldLoad() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n"
+                + "scalar.db.analytics.client.default.catalog=my_catalog\n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isEqualTo("my_catalog");
+      }
+
+      @Test
+      void givenNoDefaultCatalog_shouldBeNull() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isNull();
+      }
+
+      @Test
+      void givenBlankDefaultCatalog_shouldBeNull() throws IOException {
+        String properties =
+            "scalar.db.analytics.client.server.host=localhost\n"
+                + "scalar.db.analytics.client.server.catalog.port=1234\n"
+                + "scalar.db.analytics.client.default.catalog= \n";
+        Files.write(configFile, properties.getBytes(StandardCharsets.UTF_8));
+
+        AppConfig config = AppConfig.load(configFile);
+
+        assertThat(config.defaultCatalog()).isNull();
       }
 
       @Test
@@ -360,6 +405,19 @@ class ConfigTest {
                   assertThat(config.auth()).isNotNull();
                   assertThat(config.auth().username()).isEqualTo("user_from_env");
                   assertThat(config.auth().password()).isEqualTo("pass_from_env");
+                });
+      }
+
+      @Test
+      void shouldLoadDefaultCatalogFromEnvironmentVariable() throws Exception {
+        new EnvironmentVariables()
+            .set("SCALAR_DB_ANALYTICS_CLIENT_SERVER_HOST", "localhost")
+            .set("SCALAR_DB_ANALYTICS_CLIENT_SERVER_CATALOG_PORT", "1234")
+            .set("SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG", "catalog_from_env")
+            .execute(
+                () -> {
+                  AppConfig config = AppConfig.load();
+                  assertThat(config.defaultCatalog()).isEqualTo("catalog_from_env");
                 });
       }
 

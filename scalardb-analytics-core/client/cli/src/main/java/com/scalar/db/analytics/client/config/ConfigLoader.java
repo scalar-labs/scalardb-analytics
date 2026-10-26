@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
  * scalar.db.analytics.client.server.tls.enabled=true
  * scalar.db.analytics.client.server.tls.ca_root_cert_path=/path/to/ca-cert.pem
  * scalar.db.analytics.client.server.tls.override_authority=example.com
+ * scalar.db.analytics.client.default.catalog=my_catalog
  * }</pre>
  *
  * <h3>Environment Variables</h3>
@@ -50,6 +51,7 @@ import org.jspecify.annotations.Nullable;
  * SCALAR_DB_ANALYTICS_CLIENT_SERVER_TLS_ENABLED=true
  * SCALAR_DB_ANALYTICS_CLIENT_SERVER_TLS_CA_ROOT_CERT_PATH=/path/to/ca-cert.pem
  * SCALAR_DB_ANALYTICS_CLIENT_SERVER_TLS_OVERRIDE_AUTHORITY=example.com
+ * SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG=my_catalog
  * }</pre>
  *
  * <h3>Precedence</h3>
@@ -95,21 +97,39 @@ class ConfigLoader {
    * @throws ClientException if there is an error loading or validating the configuration
    */
   static AppConfig load(Path configPath) {
-    try {
-      UnvalidatedConfig unvalidatedConfig =
-          ConfigFactory.create(
-              UnvalidatedConfig.class,
-              loadPropertiesFromEnvironment(),
-              loadPropertiesFromFile(configPath));
+    return validateConfig(loadUnvalidated(configPath));
+  }
 
-      return validateConfig(unvalidatedConfig);
+  /**
+   * Loads only the default catalog from the specified path and the environment, without validating
+   * the rest of the configuration.
+   *
+   * @param configPath the path to the configuration file
+   * @return the default catalog, or {@code null} if none is set
+   * @throws ClientException if there is an error loading the configuration
+   */
+  @Nullable
+  static String loadDefaultCatalog(Path configPath) {
+    return normalizeBlank(loadUnvalidated(configPath).defaultCatalog());
+  }
+
+  private static UnvalidatedConfig loadUnvalidated(Path configPath) {
+    try {
+      return ConfigFactory.create(
+          UnvalidatedConfig.class,
+          loadPropertiesFromEnvironment(),
+          loadPropertiesFromFile(configPath));
     } catch (IOException e) {
       throw new ClientException(new ConfigLoadError(e));
     }
   }
 
   private static AppConfig validateConfig(UnvalidatedConfig config) {
-    return new AppConfig(validateCatalogServerConfig(config), validateAuthConfig(config));
+    return new AppConfig(
+        validateCatalogServerConfig(config),
+        validateAuthConfig(config),
+        // Blank is treated as unset, so that "default.catalog=" disables the default.
+        normalizeBlank(config.defaultCatalog()));
   }
 
   private static AppConfig.@Nullable AuthConfig validateAuthConfig(UnvalidatedConfig config) {

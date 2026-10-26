@@ -164,7 +164,7 @@ class DescribeTest extends CliTestBase {
                       "--namespace",
                       "test_namespace"));
       assertThat(exitCode).isEqualTo(ExitCode.USAGE);
-      assertThat(getStderr()).contains("Error: Missing required argument");
+      assertThat(getStderr()).contains("Missing --catalog, and no default catalog is set");
       verifyNoInteractions(modules.client().namespace());
     }
   }

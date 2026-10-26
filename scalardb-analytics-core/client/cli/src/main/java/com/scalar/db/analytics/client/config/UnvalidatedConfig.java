@@ -41,6 +41,13 @@ public interface UnvalidatedConfig extends Config {
   @EnvVar
   String tlsOverrideAuthority();
 
+  final String DEFAULT_CATALOG_KEY = "scalar.db.analytics.client.default.catalog";
+
+  @Nullable
+  @Config.Key(DEFAULT_CATALOG_KEY)
+  @EnvVar
+  String defaultCatalog();
+
   final String AUTH_USERNAME_KEY = "scalar.db.analytics.client.auth.username";
   final String AUTH_PASSWORD_KEY = "scalar.db.analytics.client.auth.password";
 

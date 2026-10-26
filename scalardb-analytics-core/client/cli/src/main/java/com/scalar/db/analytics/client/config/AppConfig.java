@@ -12,10 +12,19 @@ import org.jspecify.annotations.Nullable;
 public class AppConfig {
   private final CatalogServerConfig catalogServer;
   @Nullable private final AuthConfig auth;
+  @Nullable private final String defaultCatalog;
 
   public AppConfig(CatalogServerConfig catalogServer, @Nullable AuthConfig auth) {
+    this(catalogServer, auth, null);
+  }
+
+  public AppConfig(
+      CatalogServerConfig catalogServer,
+      @Nullable AuthConfig auth,
+      @Nullable String defaultCatalog) {
     this.catalogServer = catalogServer;
     this.auth = auth;
+    this.defaultCatalog = defaultCatalog;
   }
 
   public CatalogServerConfig catalogServer() {
@@ -25,6 +34,15 @@ public class AppConfig {
   @Nullable
   public AuthConfig auth() {
     return auth;
+  }
+
+  /**
+   * Returns the catalog that commands use when {@code --catalog} is not given, or {@code null} if
+   * none is configured.
+   */
+  @Nullable
+  public String defaultCatalog() {
+    return defaultCatalog;
   }
 
   /**
@@ -114,5 +132,31 @@ public class AppConfig {
    */
   public static AppConfig load(Path configPath) {
     return ConfigLoader.load(configPath);
+  }
+
+  /**
+   * Loads only the default catalog from the default path and the environment, without validating
+   * the rest of the configuration, so that it can be told whether a default is set even when the
+   * configuration is invalid.
+   *
+   * @return the default catalog, or {@code null} if none is set
+   * @throws ClientException if there is an error loading the configuration
+   */
+  @Nullable
+  public static String loadDefaultCatalog() {
+    return ConfigLoader.loadDefaultCatalog(ConfigLoader.getConfigFilePath());
+  }
+
+  /**
+   * Loads only the default catalog from the specified path and the environment, without validating
+   * the rest of the configuration.
+   *
+   * @param configPath the path to the configuration file
+   * @return the default catalog, or {@code null} if none is set
+   * @throws ClientException if there is an error loading the configuration
+   */
+  @Nullable
+  public static String loadDefaultCatalog(Path configPath) {
+    return ConfigLoader.loadDefaultCatalog(configPath);
   }
 }
