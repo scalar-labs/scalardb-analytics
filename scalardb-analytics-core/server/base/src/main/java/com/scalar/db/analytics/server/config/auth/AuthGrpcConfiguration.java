@@ -24,6 +24,7 @@ import com.scalar.db.analytics.usecase.auth.UserUseCase;
 import com.scalar.db.analytics.usecase.auth.UserUseCaseImpl;
 import com.scalar.db.analytics.usecase.authz.PermissionUseCase;
 import com.scalar.db.analytics.usecase.authz.RoleUseCase;
+import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -71,7 +72,8 @@ public class AuthGrpcConfiguration {
       AccessTokenRepository<SpringDataJdbcTransactionContext> accessTokenRepository,
       RepositoryTransactionManager<SpringDataJdbcTransactionContext> repositoryTransactionManager,
       AuthorizationService authorizationService,
-      PasswordEncoder passwordEncoder) {
+      // Defined by InternalBackendConfiguration only; absent with other password backends.
+      Optional<PasswordEncoder> passwordEncoder) {
     return new UserUseCaseImpl<>(
         passwordIdentityRepository,
         authUserRepository,

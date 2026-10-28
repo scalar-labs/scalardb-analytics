@@ -22,7 +22,8 @@ import picocli.CommandLine.ParentCommand;
     name = "create",
     description =
         "Create an Analytics user (principal). With --backend-user, also creates an "
-            + "internal-backend user and links them in one atomic operation.")
+            + "internal-backend user and links them in one atomic operation (internal password "
+            + "backend only).")
 public class Create implements Callable<Integer> {
 
   @Option(
@@ -38,7 +39,9 @@ public class Create implements Callable<Integer> {
   static class BackendUserOptions {
     @Option(
         names = {"--backend-user"},
-        description = "Internal-backend username to create and link atomically with the principal",
+        description =
+            "Internal-backend username to create and link atomically with the principal. "
+                + "Requires the server to use the internal password backend",
         required = true)
     @SuppressWarnings("NotNullFieldNotInitialized")
     String backendUsername;

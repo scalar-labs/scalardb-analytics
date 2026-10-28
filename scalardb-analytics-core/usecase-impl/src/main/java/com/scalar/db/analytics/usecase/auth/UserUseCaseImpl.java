@@ -50,7 +50,9 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
   private final AccessControlEntryRepository<T> aceRepository;
   private final RepositoryTransactionManager<T> txManager;
   private final AuthorizationService authorizationService;
-  private final PasswordEncoder passwordEncoder;
+  // Present only with the internal password backend. Other backends (e.g. ScalarDB Cluster)
+  // verify passwords themselves, so the server never hashes a password for them.
+  private final Optional<PasswordEncoder> passwordEncoder;
   private final UserCascadeHelper<T> cascadeHelper;
 
   public UserUseCaseImpl(
@@ -63,7 +65,7 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
       AccessTokenRepository<T> accessTokenRepository,
       RepositoryTransactionManager<T> txManager,
       AuthorizationService authorizationService,
-      PasswordEncoder passwordEncoder) {
+      Optional<PasswordEncoder> passwordEncoder) {
     this.passwordIdentityRepository = passwordIdentityRepository;
     this.authUserRepository = authUserRepository;
     this.roleAssignmentRepository = roleAssignmentRepository;
@@ -189,6 +191,18 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
   public AuthUser createUserWithBackendUser(
       UUID userId, String username, String backendUsername, String password) {
     requireSuperAdmin(userId);
+    // The backend user created here is an internal-backend credential, which can only be used to
+    // log in with the internal password backend. Other backends manage their own users.
+    PasswordEncoder encoder =
+        passwordEncoder.orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.INVALID_ARGUMENT,
+                    Map.of(
+                        "field",
+                        "backend_username",
+                        "reason",
+                        "internal_password_backend_required")));
     return txManager.withTransaction(
         ctx -> {
           if (authUserRepository.findByUsername(ctx, username).isPresent()) {
@@ -203,7 +217,7 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
           AuthUser user = AuthUser.create(username);
           authUserRepository.create(ctx, user);
 
-          String passwordHash = requireNonNull(passwordEncoder.encode(password));
+          String passwordHash = requireNonNull(encoder.encode(password));
           InternalCredential credential = new InternalCredential(backendUsername, passwordHash);
           internalCredentialRepository.create(ctx, credential);
 
