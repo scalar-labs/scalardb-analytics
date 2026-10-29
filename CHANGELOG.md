@@ -20,6 +20,10 @@ changes released from here, starting with the entries below.
 
 ### Improvements
 
+- Mitigated CVE-2026-91403 and CVE-2026-114820 (eMudhra CA compromise) by removing the affected emSign root CAs from the `cacerts` of the server and CLI images. The images ship Oracle's `CheckCerts` in the working directory, so `java CheckCerts` confirms that the runtime does not trust them. This is a temporary measure until the images move to a Java release that no longer ships those roots
+- Hardened the server and CLI images: pinned the base images and the `grpc_health_probe` image by digest, and created the `scalardb` user with a nologin shell
+- [BREAKING] The application files under `/scalardb-analytics-server` in the server image and `/scalardb-analytics-cli` in the CLI image are now owned by root, so the runtime user can no longer write there. The server and the CLI never write to those directories, and the documented configurations are unaffected: configuration files mounted there are still readable. This only affects deployments that mounted a writable path at a location under those directories; move that path to a mounted volume elsewhere
+- Moved the server image from `eclipse-temurin:21-jdk-noble` (Ubuntu 24.04) to `eclipse-temurin:21.0.12.1_1-jdk-resolute` (Ubuntu 26.04), and the CLI image from `eclipse-temurin:21-jre-noble` to `eclipse-temurin:21.0.12.1_1-jre-resolute`
 - Replaced MySQL Connector/J with MariaDB Connector/J for MySQL data sources
 - Added an optional `sslMode` field to the MySQL data source provider. It defaults to `trust` rather than the MariaDB Connector/J default of `disable`, so that MySQL 8.x accounts using the default `caching_sha2_password` plugin can authenticate over the TLS that MySQL 8.0 enables by default. Set `sslMode` to `disable` explicitly for MySQL servers with TLS turned off
 - Include consolidated third-party notices in the CLI and server distributions, and the Oracle JDBC redistribution terms in the server distribution

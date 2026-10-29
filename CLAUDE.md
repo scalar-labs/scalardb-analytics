@@ -48,7 +48,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 - **Java (Core)**: Google Java Format via Spotless, SpotBugs, ErrorProne
 - **Scala (Spark)**: Scalafmt, Scalafix, WartRemover
 - **Lefthook**: Pre-commit hooks handle trailing space removal, EOF newline enforcement, and `spotlessApply` for Java and Gradle Kotlin DSL files (`.java`, `.kts`). See `lefthook.yml` for details.
-- **Source license headers**: Every tracked `.java`, `.scala`, `.kt`, `.kts`, `.py`, and `.mill` file must carry `Copyright Scalar, Inc.` and `SPDX-License-Identifier: Apache-2.0` within its first 12 lines. Spotless inserts the header only for `src/*/java/**/*.java`, so files of the other types need it written by hand. Verify with `./scripts/check-source-license-headers.sh`.
+- **Source license headers**: Every tracked `.java`, `.scala`, `.kt`, `.kts`, `.py`, and `.mill` file must carry `Copyright Scalar, Inc.` and `SPDX-License-Identifier: Apache-2.0` within its first 12 lines. Spotless inserts the header only for `src/*/java/**/*.java`, so files of the other types need it written by hand. Verify with `./scripts/check-source-license-headers.sh`. Third-party sources redistributed verbatim keep their own header and are listed in the script's `third_party_sources` exclusion instead.
 
 ### Java Version Rules
 
@@ -74,4 +74,4 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | `ghcr.io/scalar-labs/scalardb-analytics-server` | Catalog server, built from the `server:app` distribution |
 | `ghcr.io/scalar-labs/scalardb-analytics-cli` | Command-line client |
 
-Base image: `eclipse-temurin:21-jdk-noble`. Runs as non-root user `scalardb` (UID 201).
+Base image: `eclipse-temurin:21.0.12.1_1-jdk-resolute` (server) / `21.0.12.1_1-jre-resolute` (CLI runtime), Ubuntu 26.04, pinned by digest in the Dockerfiles. Runs as non-root user `scalardb` (UID 201) with a nologin shell; the application files stay owned by root.
