@@ -6,9 +6,9 @@ package com.scalar.db.analytics.repository.impl.spring.exception;
 
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.sql.exception.SqlException;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,12 +26,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class SpringDataJdbcErrorMapper {
 
-  private final DatabaseSpecificErrorAnalyzer errorAnalyzer;
-
-  public SpringDataJdbcErrorMapper(DatabaseSpecificErrorAnalyzer errorAnalyzer) {
-    this.errorAnalyzer = errorAnalyzer;
-  }
-
   /**
    * Maps a DataAccessException to an AnalyticsException with appropriate error code.
    *
@@ -43,11 +37,9 @@ public class SpringDataJdbcErrorMapper {
   public AnalyticsException mapException(
       DataAccessException e, String entityType, @Nullable String identifier) {
 
-    // First, try database-specific error categorization
-    Optional<AnalyticsException> specificError =
-        errorAnalyzer.categorizeError(e, entityType, identifier);
-    if (specificError.isPresent()) {
-      return specificError.get();
+    // Handle ScalarDB SQL exceptions before Spring DAO exceptions.
+    if (e.getMostSpecificCause() instanceof SqlException) {
+      return new AnalyticsException(AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED, e);
     }
 
     // Handle specific Spring DAO exceptions
