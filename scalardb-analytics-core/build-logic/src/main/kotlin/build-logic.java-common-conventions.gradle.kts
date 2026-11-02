@@ -44,9 +44,6 @@ version =
 
 val libs = the<LibrariesForLibs>()
 
-// Keep Spring Boot's dependency management aligned with ScalarDB's MariaDB driver version.
-extra["mariadb.version"] = libs.versions.mariadb.get()
-
 // Default toolchain for internal/server-side modules: the latest LTS in use across the project.
 // Java 8 client modules opt into Java 8 *target* via build-logic.java8-conventions (compiled with
 // this same modern JDK using --release). Error Prone also requires JDK 21+ to run.
