@@ -32,10 +32,11 @@ jobs:
 
       # The root report covers every module, so it is a superset of the per-artifact reports
       # that the distributions package. Qualifying the task keeps the per-artifact reports out
-      # of this invocation.
+      # of this invocation. The license report plugin resolves configurations across projects,
+      # which Gradle 9 only permits when parallel execution is disabled.
       - name: Check dependency licenses
         working-directory: scalardb-analytics-core
-        run: ./gradlew :checkLicense
+        run: ./gradlew :checkLicense --no-parallel
 
       - name: Show dependencies without an allowed license
         if: failure()
