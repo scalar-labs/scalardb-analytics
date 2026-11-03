@@ -76,27 +76,17 @@ public class SpringDataJdbcErrorMapper {
    * @return the corresponding error code
    */
   static AnalyticsErrorCode entityAlreadyExistsCode(String entityType) {
-    switch (entityType) {
-      case "Catalog":
-        return AnalyticsErrorCode.CATALOG_ALREADY_EXISTS;
-      case "DataSource":
-        return AnalyticsErrorCode.DATA_SOURCE_ALREADY_EXISTS;
-      case "Namespace":
-        return AnalyticsErrorCode.NAMESPACE_ALREADY_EXISTS;
-      case "Table":
-        return AnalyticsErrorCode.TABLE_ALREADY_EXISTS;
-      case "Role":
-        return AnalyticsErrorCode.ROLE_ALREADY_EXISTS;
-      case "RoleAssignment":
-        return AnalyticsErrorCode.ROLE_ALREADY_ASSIGNED;
-      case "AccessControlEntry":
-        return AnalyticsErrorCode.PERMISSION_ALREADY_GRANTED;
-      case "PasswordIdentity":
-      case "InternalCredential":
-        return AnalyticsErrorCode.USER_ALREADY_EXISTS;
-      default:
-        return AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED;
-    }
+    return switch (entityType) {
+      case "Catalog" -> AnalyticsErrorCode.CATALOG_ALREADY_EXISTS;
+      case "DataSource" -> AnalyticsErrorCode.DATA_SOURCE_ALREADY_EXISTS;
+      case "Namespace" -> AnalyticsErrorCode.NAMESPACE_ALREADY_EXISTS;
+      case "Table" -> AnalyticsErrorCode.TABLE_ALREADY_EXISTS;
+      case "Role" -> AnalyticsErrorCode.ROLE_ALREADY_EXISTS;
+      case "RoleAssignment" -> AnalyticsErrorCode.ROLE_ALREADY_ASSIGNED;
+      case "AccessControlEntry" -> AnalyticsErrorCode.PERMISSION_ALREADY_GRANTED;
+      case "PasswordIdentity", "InternalCredential" -> AnalyticsErrorCode.USER_ALREADY_EXISTS;
+      default -> AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED;
+    };
   }
 
   private AnalyticsException mapSpringException(
