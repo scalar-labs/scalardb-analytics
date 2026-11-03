@@ -4,9 +4,11 @@ This document covers two things: which dependency licenses ScalarDB Analytics pe
 resulting redistribution obligations are met in the artifacts it publishes.
 
 The permitted licenses are matched by [`allowed-licenses.json`](../allowed-licenses.json), the
-executable policy used by both license checks: `./gradlew :checkLicense` in
+executable policy used by both license checks: `./gradlew :checkLicense --no-parallel` in
 `scalardb-analytics-core/` and `./mill checkLicense` in `scalardb-analytics-spark/`. The sections
 below record why each entry is permitted; this document does not change the check result.
+
+The Gradle license-reporting plugin requires `--no-parallel` for Gradle 9 multi-project builds.
 
 ## Permissive and public-domain licenses
 
@@ -106,7 +108,8 @@ just resolved. Gradle skips it when those dependencies have not changed, which k
 ordinary builds.
 
 `build-logic.license-reporting` applies to the root project and covers the union of every module.
-It backs `./gradlew :checkLicense`, the policy check that `.github/workflows/license-check.yaml`
+It backs `./gradlew :checkLicense --no-parallel`, the policy check that
+`.github/workflows/license-check.yaml`
 runs on every pull request. Its report is an intermediate result and is never published.
 
 ### The Mill equivalents
@@ -135,7 +138,7 @@ in a published artifact is correct by construction rather than by discipline.
 
 ## When the license check fails
 
-`./gradlew :checkLicense` fails when a dependency carries a license that
+`./gradlew :checkLicense --no-parallel` fails when a dependency carries a license that
 [`allowed-licenses.json`](../allowed-licenses.json) does not match. The offending entries are
 listed in `dependencies-without-allowed-license.json` under
 `scalardb-analytics-core/build/reports/dependency-license/`, which the CI job prints on failure.
