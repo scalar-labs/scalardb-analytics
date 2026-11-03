@@ -93,16 +93,30 @@ public class CatalogGrpcServer implements ManagedGrpcServer {
   @Override
   public void stop() throws InterruptedException {
     if (server != null) {
-      boolean shutdown =
-          server.shutdown().awaitTermination(WAITING_SECONDS_FOR_SHUTDOWN, TimeUnit.SECONDS);
-      if (!shutdown) {
-        logger.warn(
-            "Catalog gRPC server did not shut down in {} seconds, forcing shutdown",
-            WAITING_SECONDS_FOR_SHUTDOWN);
-        server.shutdownNow();
-      } else {
+      shutdownAndAwaitTermination(server, WAITING_SECONDS_FOR_SHUTDOWN, TimeUnit.SECONDS);
+    }
+  }
+
+  static void shutdownAndAwaitTermination(Server server, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    try {
+      if (server.shutdown().awaitTermination(timeout, unit)) {
         logger.info("Catalog gRPC server shut down successfully");
+        return;
       }
+      logger.warn(
+          "Catalog gRPC server did not shut down in {} {}, forcing shutdown", timeout, unit);
+      server.shutdownNow();
+      if (server.awaitTermination(timeout, unit)) {
+        logger.info("Catalog gRPC server shut down after forcing shutdown");
+      } else {
+        logger.warn(
+            "Catalog gRPC server did not terminate in {} {} after forcing shutdown", timeout, unit);
+      }
+    } catch (InterruptedException e) {
+      // Nothing waits for the server after this, so it must not keep running.
+      server.shutdownNow();
+      throw e;
     }
   }
 

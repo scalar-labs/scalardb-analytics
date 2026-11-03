@@ -8,6 +8,8 @@ import com.scalar.db.analytics.server.config.ServerCommonProperties;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +39,31 @@ public class GrpcServerRunner {
 
   @PostConstruct
   public void start() throws IOException {
-    for (ManagedGrpcServer server : grpcServers) {
-      server.start();
-      logger.info("{} started", server.getServerName());
+    Deque<ManagedGrpcServer> startedServers = new ArrayDeque<>();
+    try {
+      for (ManagedGrpcServer server : grpcServers) {
+        server.start();
+        startedServers.push(server);
+        logger.info("{} started", server.getServerName());
+      }
+    } catch (IOException | RuntimeException e) {
+      // Spring does not call @PreDestroy on a bean whose @PostConstruct failed.
+      stopStartedServers(startedServers, e);
+      throw e;
+    }
+  }
+
+  private void stopStartedServers(Deque<ManagedGrpcServer> startedServers, Exception cause) {
+    for (ManagedGrpcServer server : startedServers) {
+      try {
+        server.stop();
+        logger.info("{} shut down after a startup failure", server.getServerName());
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        cause.addSuppressed(e);
+      } catch (RuntimeException e) {
+        cause.addSuppressed(e);
+      }
     }
   }
 
