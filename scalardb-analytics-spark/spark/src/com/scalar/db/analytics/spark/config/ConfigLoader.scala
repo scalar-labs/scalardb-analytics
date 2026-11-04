@@ -48,12 +48,8 @@ final class ConfigLoader private (
 
   private def resolveRaw[T](defn: ConfigDef[T]): Option[String] = {
     // Normalize each source before merging so an empty/blank env var does not
-    // shadow a valid property value (Item 5). The allowEmpty branch still
-    // trims; it only opts out of dropping the empty result (Item 6).
-    def normalize(s: String): Option[String] = {
-      val trimmed = s.trim
-      if (defn.allowEmpty) Some(trimmed) else Some(trimmed).filter(_.nonEmpty)
-    }
+    // shadow a valid property value (Item 5).
+    def normalize(s: String): Option[String] = Some(s.trim).filter(_.nonEmpty)
 
     defn.envVarName
       .flatMap(envReader)

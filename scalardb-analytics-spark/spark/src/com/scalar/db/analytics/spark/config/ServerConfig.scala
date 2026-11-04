@@ -5,6 +5,16 @@
 
 package com.scalar.db.analytics.spark.config
 
+import com.scalar.db.analytics.sdk.config.{
+  ClientConfigException,
+  ClientConfigKey,
+  ClientConfigResolver,
+  ConfigSource
+}
+
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
+
 final case class ServerConfig(
     host: String,
     catalogPort: Int,
@@ -22,14 +32,6 @@ object ServerConfig {
   private val TlsEnabled: ConfigDef[Boolean] = ConfigDef.boolean("tls.enabled", default = false)
   private val TlsCaRootCertPath: ConfigDef[String]    = ConfigDef.string("tls.ca_root_cert_path")
   private val TlsOverrideAuthority: ConfigDef[String] = ConfigDef.string("tls.override_authority")
-  private val AuthUsername: ConfigDef[String] =
-    ConfigDef.string("auth.username", envVarName = "SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME")
-  private val AuthPassword: ConfigDef[String] =
-    ConfigDef.string(
-      "auth.password",
-      envVarName = "SCALAR_DB_ANALYTICS_CLIENT_AUTH_PASSWORD",
-      allowEmpty = true
-    )
 
   def parse(properties: Map[String, String]): ServerConfig =
     parse(properties, sys.env.get)
@@ -46,23 +48,7 @@ object ServerConfig {
 
     val caCertFilePath       = loader.getOption(TlsCaRootCertPath)
     val tlsOverrideAuthority = loader.getOption(TlsOverrideAuthority)
-    val authUsername         = loader.getOption(AuthUsername)
-
-    // Password is not trimmed or filtered: empty passwords may be valid.
-    val authPassword = loader.getOption(AuthPassword)
-
-    val authCredential = (authUsername, authPassword) match {
-      case (Some(u), Some(p)) => Some(AuthCredential(u, p))
-      case (None, None)       => None
-      case (Some(_), None) =>
-        throw new IllegalArgumentException(
-          s"`$Prefix.${AuthPassword.propertyKey}` is required when `$Prefix.${AuthUsername.propertyKey}` is set"
-        )
-      case (None, Some(_)) =>
-        throw new IllegalArgumentException(
-          s"`$Prefix.${AuthUsername.propertyKey}` is required when `$Prefix.${AuthPassword.propertyKey}` is set"
-        )
-    }
+    val authCredential       = resolveAuthCredential(properties, envReader)
 
     if (authCredential.isDefined && !tlsEnabled) {
       throw new IllegalArgumentException(
@@ -79,4 +65,38 @@ object ServerConfig {
       authCredential
     )
   }
+
+  /** Resolves the credential through the SDK, so that it follows the same rules as the CLI and the
+    * SDK: environment variables (`SCALAR_DB_ANALYTICS_CLIENT_AUTH_*`) take precedence over the
+    * `server.auth.*` catalog options, a blank username falls through to the next source, and the
+    * password is used as is.
+    */
+  private def resolveAuthCredential(
+      properties: Map[String, String],
+      envReader: String => Option[String]
+  ): Option[AuthCredential] = {
+    val options =
+      ConfigSource.properties(properties.asJava, (key: ClientConfigKey) => optionKey(key))
+    val resolved =
+      try ClientConfigResolver.resolve(environment(envReader), options)
+      catch {
+        case e: ClientConfigException =>
+          val other = e.key match {
+            case ClientConfigKey.AUTH_USERNAME => ClientConfigKey.AUTH_PASSWORD
+            case _                             => ClientConfigKey.AUTH_USERNAME
+          }
+          throw new IllegalArgumentException(
+            s"`${optionKey(e.key)}` is required when `${optionKey(other)}` is set",
+            e
+          )
+      }
+    resolved.passwordCredential.toScala.map(c => AuthCredential(c.getUsername, c.getPassword))
+  }
+
+  private def optionKey(key: ClientConfigKey): String = s"$Prefix.${key.relativeKey}"
+
+  // ConfigSource follows the Java convention of returning null for an unset variable.
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
+  private def environment(envReader: String => Option[String]): ConfigSource =
+    ConfigSource.environment((name: String) => envReader(name).orNull)
 }

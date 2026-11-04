@@ -48,16 +48,6 @@ public interface UnvalidatedConfig extends Config {
   @EnvVar
   String defaultCatalog();
 
-  final String AUTH_USERNAME_KEY = "scalar.db.analytics.client.auth.username";
-  final String AUTH_PASSWORD_KEY = "scalar.db.analytics.client.auth.password";
-
-  @Nullable
-  @Config.Key(AUTH_USERNAME_KEY)
-  @EnvVar
-  String authUsername();
-
-  @Nullable
-  @Config.Key(AUTH_PASSWORD_KEY)
-  @EnvVar
-  String authPassword();
+  // The authentication keys (scalar.db.analytics.client.auth.*) are not declared here. They are
+  // owned by the SDK's ClientConfigKey and resolved by ClientConfigResolver; see ConfigLoader.
 }

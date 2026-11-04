@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,7 +18,12 @@ import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.grpc.common.HealthCheckClient;
 import com.scalar.db.analytics.sdk.auth.TokenManager;
+import com.scalar.db.analytics.sdk.config.ClientConfigException;
+import com.scalar.db.analytics.sdk.config.ClientConfigKey;
+import com.scalar.db.analytics.sdk.config.ConfigSource;
 import io.grpc.ManagedChannel;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -180,6 +186,107 @@ class BlockingGrpcAnalyticsClientTest {
     // Act & Assert
     assertThatThrownBy(builder::build).isInstanceOf(AnalyticsException.class);
     verify(mockChannel).shutdownNow();
+  }
+
+  @Test
+  void resolveCredential_ShouldUseExplicitCredentialOnly_WhenNoConfigSourcesAreSet() {
+    // Arrange
+    BlockingGrpcAnalyticsClient.BuilderImpl builder = new BlockingGrpcAnalyticsClient.BuilderImpl();
+
+    // Act & Assert
+    assertThat(builder.resolveCredential()).isNull();
+    PasswordCredential explicit = new PasswordCredential("user", "pass");
+    builder.passwordCredential(explicit);
+    assertThat(builder.resolveCredential()).isSameAs(explicit);
+  }
+
+  @Test
+  void resolveCredential_ShouldResolveFromConfigSources_WhenSet() {
+    // Arrange
+    Map<String, String> env = new HashMap<>();
+    env.put(ClientConfigKey.AUTH_USERNAME.envVarName(), "env-user");
+    Map<String, String> file = new HashMap<>();
+    file.put(ClientConfigKey.AUTH_USERNAME.propertyKey(), "file-user");
+    file.put(ClientConfigKey.AUTH_PASSWORD.propertyKey(), "file-pass");
+    BlockingGrpcAnalyticsClient.BuilderImpl builder = new BlockingGrpcAnalyticsClient.BuilderImpl();
+    builder.configSources(ConfigSource.environment(env::get), ConfigSource.properties(file));
+
+    // Act & Assert
+    assertThat(builder.resolveCredential())
+        .isEqualTo(new PasswordCredential("env-user", "file-pass"));
+  }
+
+  @Test
+  void resolveCredential_ShouldPreferExplicitCredential_WhenConfigSourcesAreSet() {
+    // Arrange
+    Map<String, String> env = new HashMap<>();
+    env.put(ClientConfigKey.AUTH_USERNAME.envVarName(), "env-user");
+    env.put(ClientConfigKey.AUTH_PASSWORD.envVarName(), "env-pass");
+    PasswordCredential explicit = new PasswordCredential("user", "pass");
+    BlockingGrpcAnalyticsClient.BuilderImpl builder = new BlockingGrpcAnalyticsClient.BuilderImpl();
+    builder.passwordCredential(explicit);
+    builder.configSources(ConfigSource.environment(env::get), ConfigSource.empty());
+
+    // Act & Assert
+    assertThat(builder.resolveCredential()).isSameAs(explicit);
+  }
+
+  @Test
+  void build_ShouldAuthenticateWithCredentialFromConfigSources() {
+    // Arrange: authentication against the mock channel fails, which shows that build() tried to
+    // authenticate with the credential resolved from the sources.
+    Map<String, String> env = new HashMap<>();
+    env.put(ClientConfigKey.AUTH_USERNAME.envVarName(), "env-user");
+    env.put(ClientConfigKey.AUTH_PASSWORD.envVarName(), "env-pass");
+    ManagedChannel mockChannel = mock(ManagedChannel.class);
+    BlockingGrpcAnalyticsClient.BuilderImpl builder =
+        spy(new BlockingGrpcAnalyticsClient.BuilderImpl());
+    doReturn(mockChannel).when(builder).createChannel();
+    builder.host("localhost");
+    builder.port(8080);
+    builder.configSources(ConfigSource.environment(env::get), ConfigSource.empty());
+
+    // Act & Assert
+    assertThatThrownBy(builder::build).isInstanceOf(AnalyticsException.class);
+    verify(mockChannel).shutdownNow();
+  }
+
+  @Test
+  void build_ShouldNotAuthenticate_WhenConfigSourcesHaveNoCredential() {
+    // Arrange
+    ManagedChannel mockChannel = mock(ManagedChannel.class);
+    BlockingGrpcAnalyticsClient.BuilderImpl builder =
+        spy(new BlockingGrpcAnalyticsClient.BuilderImpl());
+    doReturn(mockChannel).when(builder).createChannel();
+    builder.host("localhost");
+    builder.port(8080);
+    builder.configSources(ConfigSource.empty(), ConfigSource.empty());
+
+    // Act
+    ScalarDbAnalyticsClient built = builder.build();
+
+    // Assert
+    assertThat(built).isNotNull();
+    verify(mockChannel, never()).shutdownNow();
+  }
+
+  @Test
+  void build_ShouldThrowBeforeCreatingChannel_WhenConfigSourcesAreIncomplete() {
+    // Arrange
+    Map<String, String> env = new HashMap<>();
+    env.put(ClientConfigKey.AUTH_USERNAME.envVarName(), "env-user");
+    BlockingGrpcAnalyticsClient.BuilderImpl builder =
+        spy(new BlockingGrpcAnalyticsClient.BuilderImpl());
+    builder.host("localhost");
+    builder.port(8080);
+    builder.configSources(ConfigSource.environment(env::get), ConfigSource.empty());
+
+    // Act & Assert
+    assertThatThrownBy(builder::build)
+        .isInstanceOfSatisfying(
+            ClientConfigException.class,
+            e -> assertThat(e.key()).isEqualTo(ClientConfigKey.AUTH_PASSWORD));
+    verify(builder, never()).createChannel();
   }
 
   @Test

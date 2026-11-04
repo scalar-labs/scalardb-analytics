@@ -49,7 +49,7 @@ class ConfigLoaderTest extends AnyFunSpec with Matchers {
         val properties = Map("foo." -> "v", "foo.real" -> "ok")
         val loader     = ConfigLoader(properties, "foo", noEnv)
 
-        loader.getOption(ConfigDef.string("", allowEmpty = true)) shouldBe None
+        loader.getOption(ConfigDef.string("")) shouldBe None
         loader.getOption(ConfigDef.string("real")) shouldBe Some("ok")
       }
     }
@@ -108,7 +108,7 @@ class ConfigLoaderTest extends AnyFunSpec with Matchers {
       it("prefers env var over property") {
         val env                     = Map("MY_HOST" -> "env-host")
         val loader                  = ConfigLoader(Map("s.host" -> "prop-host"), "s", env.get)
-        val defn: ConfigDef[String] = ConfigDef("host", Some("MY_HOST"), None, false, identity)
+        val defn: ConfigDef[String] = ConfigDef("host", Some("MY_HOST"), None, identity)
 
         loader.get(defn) shouldBe "env-host"
       }
@@ -116,7 +116,7 @@ class ConfigLoaderTest extends AnyFunSpec with Matchers {
       it("prefers env var over default") {
         val env                  = Map("MY_PORT" -> "9090")
         val loader               = ConfigLoader(Map.empty[String, String], "s", env.get)
-        val defn: ConfigDef[Int] = ConfigDef("port", Some("MY_PORT"), Some(8080), false, _.toInt)
+        val defn: ConfigDef[Int] = ConfigDef("port", Some("MY_PORT"), Some(8080), _.toInt)
 
         loader.get(defn) shouldBe 9090
       }
@@ -188,72 +188,25 @@ class ConfigLoaderTest extends AnyFunSpec with Matchers {
 
       it("falls back to default when trimmed value is empty") {
         val loader                  = ConfigLoader(Map("s.name" -> "   "), "s", noEnv)
-        val defn: ConfigDef[String] = ConfigDef("name", None, Some("fallback"), false, identity)
+        val defn: ConfigDef[String] = ConfigDef("name", None, Some("fallback"), identity)
 
         loader.get(defn) shouldBe "fallback"
       }
     }
 
-    describe("allowEmpty") {
-      it("trims whitespace but preserves the trimmed value when allowEmpty is true") {
-        val loader = ConfigLoader(Map("s.pass" -> "  secret  "), "s", noEnv)
-
-        loader.getOption(ConfigDef.string("pass", allowEmpty = true)) shouldBe Some("secret")
-      }
-
-      it("preserves empty string when allowEmpty is true") {
-        val loader = ConfigLoader(Map("s.pass" -> ""), "s", noEnv)
-
-        loader.getOption(ConfigDef.string("pass", allowEmpty = true)) shouldBe Some("")
-      }
-
-      it("normalizes whitespace-only value to empty when allowEmpty is true") {
-        val loader = ConfigLoader(Map("s.pass" -> "   "), "s", noEnv)
-
-        loader.getOption(ConfigDef.string("pass", allowEmpty = true)) shouldBe Some("")
-      }
-    }
-
     describe("per-source normalization (env vs property)") {
-      it("falls back to property when env var is empty and allowEmpty is false") {
+      it("falls back to property when env var is empty") {
         val env    = Map("MY_USER" -> "")
         val loader = ConfigLoader(Map("s.user" -> "alice"), "s", env.get)
 
         loader.getOption(ConfigDef.string("user", envVarName = "MY_USER")) shouldBe Some("alice")
       }
 
-      it("falls back to property when env var is whitespace-only and allowEmpty is false") {
+      it("falls back to property when env var is whitespace-only") {
         val env    = Map("MY_USER" -> "   ")
         val loader = ConfigLoader(Map("s.user" -> "alice"), "s", env.get)
 
         loader.getOption(ConfigDef.string("user", envVarName = "MY_USER")) shouldBe Some("alice")
-      }
-
-      it("lets an empty env var win over a property when allowEmpty is true") {
-        val env    = Map("MY_PASS" -> "")
-        val loader = ConfigLoader(Map("s.pass" -> "secret"), "s", env.get)
-        val defn: ConfigDef[String] =
-          ConfigDef.string("pass", envVarName = "MY_PASS", allowEmpty = true)
-
-        loader.getOption(defn) shouldBe Some("")
-      }
-
-      it("trims a padded env value when allowEmpty is true") {
-        val env    = Map("MY_PASS" -> "  secret  ")
-        val loader = ConfigLoader(Map.empty[String, String], "s", env.get)
-        val defn: ConfigDef[String] =
-          ConfigDef.string("pass", envVarName = "MY_PASS", allowEmpty = true)
-
-        loader.getOption(defn) shouldBe Some("secret")
-      }
-
-      it("normalizes whitespace-only env to empty and wins over property when allowEmpty is true") {
-        val env    = Map("MY_PASS" -> "   ")
-        val loader = ConfigLoader(Map("s.pass" -> "prop-secret"), "s", env.get)
-        val defn: ConfigDef[String] =
-          ConfigDef.string("pass", envVarName = "MY_PASS", allowEmpty = true)
-
-        loader.getOption(defn) shouldBe Some("")
       }
     }
   }
