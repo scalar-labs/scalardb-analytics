@@ -82,7 +82,7 @@ Note: The CLI itself does not have an interactive mode. Each invocation runs a s
 
 ## Image Details
 
-- Base image: `eclipse-temurin:21.0.12.1_1-jre-resolute` (Ubuntu 26.04), pinned by digest in the Dockerfile
+- Base image: `eclipse-temurin:21.0.13_9-jre-resolute` (Ubuntu 26.04), pinned by digest in the Dockerfile
 - User: `scalardb` (UID/GID 201) with a nologin shell
 - Working directory: `/scalardb-analytics-cli`
 - JAR location: `/scalardb-analytics-cli/scalardb-analytics-cli.jar`
@@ -96,20 +96,3 @@ Note: The CLI itself does not have an interactive mode. Each invocation runs a s
   cannot modify them. The CLI reads its configuration from the path given with `-c`,
   `SCALAR_DB_ANALYTICS_CONFIG_PATH`, or the XDG config directory, and writes nothing to its
   working directory
-
-## Temporary mitigation of the emSign CA compromise
-
-As a temporary fix for the [eMudhra CA compromise](https://emudhra.we-have-a-problem.com/)
-(CVE-2026-91403 and CVE-2026-114820), the image deletes the emSign root CAs from the Java
-`cacerts` at build time. It also ships Oracle's `CheckCerts` in the working directory, so you can
-confirm that the actual runtime does not trust the compromised CA certificates:
-
-```console
-$ docker run -it --rm --entrypoint bash ghcr.io/scalar-labs/scalardb-analytics-cli:latest
-scalardb@7c3a9e1b5d02:/scalardb-analytics-cli$ java CheckCerts
-Java runtime version 21.0.12.1+1-LTS at /opt/java/openjdk
-No bad root certificates found
-```
-
-The mitigation, `CheckCerts`, and the `tmp-fix-ca-compromise/` directory go away once the image
-moves to a Java release that no longer ships those roots.

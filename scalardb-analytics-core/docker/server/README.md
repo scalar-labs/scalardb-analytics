@@ -118,20 +118,3 @@ The server runs as a non-root user (`scalardb`) and exposes port 11051 by defaul
 
 The application files under `/scalardb-analytics-server` are owned by root, so the runtime user
 cannot modify them. Anything the server has to write must point at a mounted volume.
-
-## Temporary mitigation of the emSign CA compromise
-
-As a temporary fix for the [eMudhra CA compromise](https://emudhra.we-have-a-problem.com/)
-(CVE-2026-91403 and CVE-2026-114820), the image deletes the emSign root CAs from the Java
-`cacerts` at build time. It also ships Oracle's `CheckCerts` in the working directory, so you can
-confirm that the actual runtime does not trust the compromised CA certificates:
-
-```console
-$ docker run -it --rm --entrypoint bash ghcr.io/scalar-labs/scalardb-analytics-server:latest
-scalardb@2f1c6b0a8d4e:/scalardb-analytics-server$ java CheckCerts
-Java runtime version 21.0.12.1+1-LTS at /opt/java/openjdk
-No bad root certificates found
-```
-
-The mitigation, `CheckCerts`, and the `tmp-fix-ca-compromise/` directory go away once the image
-moves to a Java release that no longer ships those roots.
