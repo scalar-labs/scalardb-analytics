@@ -83,9 +83,12 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               .putAllMetadata(ae.getMetadata())
               .build();
     } else if (exception instanceof IllegalArgumentException) {
-      // TODO(#499): Temporary bridge. Request-path validation / "not found" code still throws bare
-      // IllegalArgumentException; map it to INVALID_ARGUMENT so client input errors are not
-      // mislabeled as INTERNAL. Remove this branch once those sites throw AnalyticsException.
+      // Fallback for argument checks that are not modelled as AnalyticsException yet: decoding of
+      // request fields (malformed UUIDs, unspecified enum values, provider and schema JSON) and
+      // domain constructor checks such as a blank role name. They fail on the caller's input, so
+      // they are reported as the generic INVALID_ARGUMENT without metadata rather than INTERNAL.
+      // Use-case validation and lookups throw AnalyticsException and must not rely on this.
+      // TODO(#34): Remove this branch once the request decoding sites are migrated.
       errorCode = AnalyticsErrorCode.INVALID_ARGUMENT;
       status =
           Status.INVALID_ARGUMENT.withDescription(
@@ -161,14 +164,25 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               ROLE_ALREADY_EXISTS,
               USER_ALREADY_EXISTS,
               ROLE_ALREADY_ASSIGNED,
-              PERMISSION_ALREADY_GRANTED ->
+              PERMISSION_ALREADY_GRANTED,
+              BACKEND_USER_ALREADY_LINKED ->
           Status.ALREADY_EXISTS;
       case CATALOG_NOT_EMPTY,
               DATA_SOURCE_NOT_EMPTY,
               USER_NOT_EMPTY,
               BUILT_IN_ENTITY_NOT_MODIFIABLE,
-              RESOURCE_UNDER_ACL_DELEGATION ->
+              RESOURCE_UNDER_ACL_DELEGATION,
+              INTERNAL_PASSWORD_BACKEND_REQUIRED ->
           Status.FAILED_PRECONDITION;
+      case CATALOG_NOT_FOUND,
+              DATA_SOURCE_NOT_FOUND,
+              NAMESPACE_NOT_FOUND,
+              TABLE_NOT_FOUND,
+              ROLE_NOT_FOUND,
+              USER_NOT_FOUND,
+              BACKEND_USER_NOT_FOUND,
+              BACKEND_USER_LINK_NOT_FOUND ->
+          Status.NOT_FOUND;
       case DATA_SOURCE_AUTHENTICATION_FAILED,
               DATA_SOURCE_UNREACHABLE,
               INVALID_ARGUMENT,

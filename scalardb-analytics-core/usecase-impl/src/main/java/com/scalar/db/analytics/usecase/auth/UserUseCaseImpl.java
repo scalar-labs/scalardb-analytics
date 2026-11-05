@@ -30,6 +30,7 @@ import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.usecase.auth.internal.UserCascadeHelper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -149,6 +150,7 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
   @Override
   public AuthUser createUser(UUID userId, String username) {
     requireSuperAdmin(userId);
+    requireNonBlankUsername(username);
     return txManager.withTransaction(
         ctx -> {
           if (authUserRepository.findByUsername(ctx, username).isPresent()) {
@@ -191,18 +193,14 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
   public AuthUser createUserWithBackendUser(
       UUID userId, String username, String backendUsername, String password) {
     requireSuperAdmin(userId);
+    requireNonBlankUsername(username);
     // The backend user created here is an internal-backend credential, which can only be used to
     // log in with the internal password backend. Other backends manage their own users.
+    // The encoder is defined only with the internal password backend, so its absence means the
+    // server is configured with another backend.
     PasswordEncoder encoder =
         passwordEncoder.orElseThrow(
-            () ->
-                new AnalyticsException(
-                    AnalyticsErrorCode.INVALID_ARGUMENT,
-                    Map.of(
-                        "field",
-                        "backend_username",
-                        "reason",
-                        "internal_password_backend_required")));
+            () -> new AnalyticsException(AnalyticsErrorCode.INTERNAL_PASSWORD_BACKEND_REQUIRED));
     return txManager.withTransaction(
         ctx -> {
           if (authUserRepository.findByUsername(ctx, username).isPresent()) {
@@ -232,20 +230,13 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
 
   // ---------------- Write operations: link ----------------
 
-  // TODO(#481): linkBackendUser/unlinkBackendUser throw raw IllegalArgumentException, which is
-  // inconsistent with the structured AnalyticsException(AnalyticsErrorCode.*) style used elsewhere
-  // in this class. Reconcile when the server-side error-handling refactor (#481) migrates this
-  // layer onto the unified error codes.
   @Override
   public void linkBackendUser(
       UUID userId, String username, String backendUsername, PasswordBackendType backend) {
     requireSuperAdmin(userId);
     txManager.withTransaction(
         ctx -> {
-          AuthUser principal =
-              authUserRepository
-                  .findByUsername(ctx, username)
-                  .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+          AuthUser principal = findUserByUsername(ctx, username);
           // TODO(#508): Only INTERNAL backend users are verified to exist here. For non-INTERNAL
           // backends (e.g. ScalarDB Cluster) the backend user is reference-only / managed
           // externally, so existence is not checked. Linking a non-existent user creates an inert
@@ -255,32 +246,42 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
           // #507.
           if (backend == PasswordBackendType.INTERNAL
               && internalCredentialRepository.findByUsername(ctx, backendUsername).isEmpty()) {
-            throw new IllegalArgumentException(
-                "Internal-backend user not found: " + backendUsername);
+            throw new AnalyticsException(
+                AnalyticsErrorCode.BACKEND_USER_NOT_FOUND,
+                Map.of("backend", backendName(backend), "backend_username", backendUsername));
           }
           Optional<PasswordIdentity> existingForBackendUser =
               passwordIdentityRepository.findByBackendAndBackendUserId(
                   ctx, backend, backendUsername);
           if (existingForBackendUser.isPresent()) {
-            throw new IllegalArgumentException(
-                "Backend user already linked: backend="
-                    + backend.name()
-                    + ", backendUser="
-                    + backendUsername);
+            throw new AnalyticsException(
+                AnalyticsErrorCode.BACKEND_USER_ALREADY_LINKED,
+                Map.of(
+                    "reason",
+                    "backend_user_linked",
+                    "username",
+                    username,
+                    "backend",
+                    backendName(backend),
+                    "backend_username",
+                    backendUsername));
           }
           // Also refuse if the principal already has an identity on the same backend
           // (one identity per principal per backend).
           for (PasswordIdentity existing :
               passwordIdentityRepository.findByUserId(ctx, principal.getUserId())) {
             if (existing.backend() == backend) {
-              throw new IllegalArgumentException(
-                  "User '"
-                      + username
-                      + "' is already linked to a backend user on backend "
-                      + backend.name()
-                      + " (existing backend user: "
-                      + existing.backendUserId()
-                      + ")");
+              throw new AnalyticsException(
+                  AnalyticsErrorCode.BACKEND_USER_ALREADY_LINKED,
+                  Map.of(
+                      "reason",
+                      "user_linked_on_backend",
+                      "username",
+                      username,
+                      "backend",
+                      backendName(backend),
+                      "backend_username",
+                      existing.backendUserId()));
             }
           }
           PasswordIdentity identity =
@@ -296,21 +297,17 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
     requireSuperAdmin(userId);
     txManager.withTransaction(
         ctx -> {
-          AuthUser principal =
-              authUserRepository
-                  .findByUsername(ctx, username)
-                  .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+          AuthUser principal = findUserByUsername(ctx, username);
           Optional<PasswordIdentity> identityOpt =
               passwordIdentityRepository.findByBackendAndBackendUserId(
                   ctx, backend, backendUsername);
           if (identityOpt.isEmpty() || !identityOpt.get().userId().equals(principal.getUserId())) {
-            throw new IllegalArgumentException(
-                "No link exists between user '"
-                    + username
-                    + "' and backend user '"
-                    + backendUsername
-                    + "' on backend "
-                    + backend.name());
+            throw new AnalyticsException(
+                AnalyticsErrorCode.BACKEND_USER_LINK_NOT_FOUND,
+                Map.of(
+                    "username", username,
+                    "backend", backendName(backend),
+                    "backend_username", backendUsername));
           }
           passwordIdentityRepository.deleteByUserIdAndBackend(ctx, principal.getUserId(), backend);
           // Unlinking removes a way the principal authenticates, so revoke its access tokens
@@ -323,6 +320,31 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
   }
 
   // ---------------- Helpers ----------------
+
+  /**
+   * Mirrors the check in {@link AuthUser#create}, so that the caller gets a modelled error instead
+   * of its IllegalArgumentException.
+   */
+  private static void requireNonBlankUsername(String username) {
+    if (username.trim().isEmpty()) {
+      throw new AnalyticsException(
+          AnalyticsErrorCode.INVALID_ARGUMENT, Map.of("field", "username", "reason", "blank"));
+    }
+  }
+
+  private AuthUser findUserByUsername(T ctx, String username) {
+    return authUserRepository
+        .findByUsername(ctx, username)
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.USER_NOT_FOUND, Map.of("username", username)));
+  }
+
+  /** Returns the backend name in the form the CLI accepts, e.g. {@code scalardb_cluster}. */
+  private static String backendName(PasswordBackendType backend) {
+    return backend.name().toLowerCase(Locale.ROOT);
+  }
 
   private void requireSuperAdmin(UUID userId) {
     if (!authorizationService.authorizeSuperAdmin(userId)) {

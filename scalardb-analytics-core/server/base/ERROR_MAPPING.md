@@ -64,6 +64,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10105` | `USER_ALREADY_EXISTS` | `ALREADY_EXISTS` | USER_ERROR | No | User already exists |
 | `DB-ANALYTICS-10106` | `ROLE_ALREADY_ASSIGNED` | `ALREADY_EXISTS` | USER_ERROR | No | Role already assigned |
 | `DB-ANALYTICS-10107` | `PERMISSION_ALREADY_GRANTED` | `ALREADY_EXISTS` | USER_ERROR | No | Permission already granted |
+| `DB-ANALYTICS-10108` | `BACKEND_USER_ALREADY_LINKED` | `ALREADY_EXISTS` | USER_ERROR | No | Backend user already linked (`reason=backend_user_linked`), or the user is already linked on the same backend (`reason=user_linked_on_backend`) |
 
 ### 102xx — Operation Precondition
 
@@ -74,6 +75,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10202` | `BUILT_IN_ENTITY_NOT_MODIFIABLE` | `FAILED_PRECONDITION` | USER_ERROR | No | Cannot modify built-in entity |
 | `DB-ANALYTICS-10203` | `USER_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | User is not empty |
 | `DB-ANALYTICS-10204` | `RESOURCE_UNDER_ACL_DELEGATION` | `FAILED_PRECONDITION` | USER_ERROR | No | Analytics permission granted on a resource under ACL delegation |
+| `DB-ANALYTICS-10205` | `INTERNAL_PASSWORD_BACKEND_REQUIRED` | `FAILED_PRECONDITION` | USER_ERROR | No | The operation manages internal-backend users, but the server uses another password backend |
 
 ### 103xx — Data Source Connection
 
@@ -88,6 +90,23 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 |------------|------|-------------|----------|--------|-------------|
 | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | `INVALID_ARGUMENT` | USER_ERROR | No | Invalid argument or validation failure |
 | `DB-ANALYTICS-10401` | `INVALID_SCHEMA_METADATA` | `INVALID_ARGUMENT` | USER_ERROR | No | A namespace, table, column, or column type name in the data source schema contains a prohibited control or bidirectional formatting character |
+
+`INVALID_ARGUMENT` raised by request validation carries `field` (the invalid request field) and `reason` (a snake_case token naming the violated rule, such as `blank` or `required_for_provider`) in its metadata, plus the names of the entities involved.
+
+### 105xx — Entity Not Found
+
+Raised when an operation refers to an entity that must exist, such as the role in a role grant or the catalog a data source is registered in. Operations that report absence in their result (find, describe, delete) do not raise these.
+
+| Error Code | Name | gRPC Status | Category | Reauth | Description |
+|------------|------|-------------|----------|--------|-------------|
+| `DB-ANALYTICS-10500` | `CATALOG_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Catalog not found |
+| `DB-ANALYTICS-10501` | `DATA_SOURCE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Data source not found |
+| `DB-ANALYTICS-10502` | `NAMESPACE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Namespace not found |
+| `DB-ANALYTICS-10503` | `TABLE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Table not found |
+| `DB-ANALYTICS-10504` | `ROLE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Role not found |
+| `DB-ANALYTICS-10505` | `USER_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | User not found |
+| `DB-ANALYTICS-10506` | `BACKEND_USER_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Backend user not found in the password backend |
+| `DB-ANALYTICS-10507` | `BACKEND_USER_LINK_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | The user is not linked to the backend user |
 
 ### 300xx — Retryable Internal Errors
 
@@ -122,7 +141,7 @@ Produced only by the SDK (`GrpcExceptionMapper`) when a request terminates befor
 
 | Exception Type | Error Code Used | gRPC Status | Description |
 |----------------|----------------|-------------|-------------|
-| `IllegalArgumentException` | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | Invalid input (e.g., malformed UUID) |
+| `IllegalArgumentException` | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | Fallback, without metadata, for argument checks not yet modelled as `AnalyticsException`: decoding of request fields (malformed UUID, unspecified enum value, provider or schema JSON) and domain constructor checks. Use-case validation and lookups throw `AnalyticsException` instead |
 | Any other exception | `DB-ANALYTICS-30103` | `INTERNAL` | Unexpected error |
 
 ## Implementation Details

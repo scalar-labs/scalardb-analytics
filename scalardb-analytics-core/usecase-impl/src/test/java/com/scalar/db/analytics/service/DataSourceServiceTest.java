@@ -11,6 +11,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
+import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.api.model.DataSourceNamespace;
@@ -39,6 +41,7 @@ import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException
 import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -158,7 +161,29 @@ class DataSourceServiceTest {
   }
 
   @Test
-  void registerDataSource_manualProviderWithoutSchema_shouldThrowIllegalArgumentException()
+  void registerDataSource_whenCatalogDoesNotExist_shouldThrowCatalogNotFound() {
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            createSchema("ns", "tbl", "id"));
+
+    when(catalogRepository.findByName(ctx, CATALOG_NAME)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.registerDataSource(ctx, request))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.CATALOG_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("catalog_name", CATALOG_NAME));
+            });
+
+    verify(dataSourceRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void registerDataSource_manualProviderWithoutSchema_shouldThrowInvalidArgument()
       throws Exception {
     RegisterDataSourceRequest request =
         new RegisterDataSourceRequest(
@@ -171,15 +196,30 @@ class DataSourceServiceTest {
         .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
 
     assertThatThrownBy(() -> service.registerDataSource(ctx, request))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("requires a schema specification");
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "field",
+                          "schema_json",
+                          "reason",
+                          "required_for_provider",
+                          "catalog_name",
+                          CATALOG_NAME,
+                          "data_source_name",
+                          DATA_SOURCE_NAME,
+                          "provider_type",
+                          DynamoDbProvider.TYPE));
+            });
 
     verify(dataSourceRepository, never()).create(any(), any());
   }
 
   @Test
-  void registerDataSource_autoProviderWithSchema_shouldThrowIllegalArgumentException()
-      throws Exception {
+  void registerDataSource_autoProviderWithSchema_shouldThrowInvalidArgument() throws Exception {
     DataSourceSchema schema = createSchema("ns", "tbl", "id");
     RegisterDataSourceRequest request =
         new RegisterDataSourceRequest(
@@ -198,8 +238,24 @@ class DataSourceServiceTest {
         .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
 
     assertThatThrownBy(() -> service.registerDataSource(ctx, request))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("resolves schemas automatically");
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "field",
+                          "schema_json",
+                          "reason",
+                          "not_allowed_for_provider",
+                          "catalog_name",
+                          CATALOG_NAME,
+                          "data_source_name",
+                          DATA_SOURCE_NAME,
+                          "provider_type",
+                          PostgreSql.TYPE));
+            });
 
     verify(dataSourceRepository, never()).create(any(), any());
   }

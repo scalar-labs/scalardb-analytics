@@ -127,7 +127,9 @@ public class DataSourceUseCaseImpl<T extends RepositoryTransactionContext>
           (ctx) -> {
             Optional<Catalog> catalog = catalogRepository.findByName(ctx, request.getCatalogName());
             if (catalog.isEmpty()) {
-              throw new IllegalArgumentException("Catalog not found: " + request.getCatalogName());
+              throw new AnalyticsException(
+                  AnalyticsErrorCode.CATALOG_NOT_FOUND,
+                  Map.of("catalog_name", request.getCatalogName()));
             }
             if (!authorizationService.authorize(
                 userId,

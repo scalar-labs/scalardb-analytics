@@ -4,6 +4,8 @@
  */
 package com.scalar.db.analytics.service;
 
+import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
+import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
 import com.scalar.db.analytics.api.model.DataSourceNamespace;
@@ -45,6 +47,7 @@ import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverSnowflake;
 import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverSqlServer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -82,15 +85,14 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
             .findByName(ctx, request.getCatalogName())
             .orElseThrow(
                 () ->
-                    new IllegalArgumentException(
-                        "The catalog does not exist. Catalog name:" + request.getCatalogName()));
+                    new AnalyticsException(
+                        AnalyticsErrorCode.CATALOG_NOT_FOUND,
+                        Map.of("catalog_name", request.getCatalogName())));
 
     DataSource dataSource =
         DataSource.create(catalog.getId(), request.getName(), request.getProvider());
 
-    DataSourceSchema schema = request.getSchema();
-    DataSourceProvider provider = request.getProvider();
-    ResolvedSchema resolvedSchema = resolveSchema(dataSource.getId(), provider, schema);
+    ResolvedSchema resolvedSchema = resolveSchema(dataSource.getId(), request);
     // Every schema, resolved or given manually, is checked before anything is persisted.
     SchemaMetadataValidator.validate(resolvedSchema);
 
@@ -105,26 +107,40 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
     return new RegisterDataSourceResult(dataSource, resolvedSchema.getSkippedColumns());
   }
 
-  private ResolvedSchema resolveSchema(
-      UUID dataSourceId, DataSourceProvider provider, @Nullable DataSourceSchema schema)
+  private ResolvedSchema resolveSchema(UUID dataSourceId, RegisterDataSourceRequest request)
       throws SchemaResolverException {
+    DataSourceProvider provider = request.getProvider();
+    @Nullable DataSourceSchema schema = request.getSchema();
     boolean supportsResolution = provider.supportsSchemaResolution();
     if (supportsResolution) {
       if (schema != null) {
-        throw new IllegalArgumentException(
-            "Provider type '%s' resolves schemas automatically; omit manual schema."
-                .formatted(provider.getType()));
+        throw invalidSchema(request, "not_allowed_for_provider");
       }
       SchemaResolverVisitor visitor = new SchemaResolverVisitor(dataSourceId);
       return provider.accept(visitor);
     }
 
     if (schema == null) {
-      throw new IllegalArgumentException(
-          "Provider type '%s' requires a schema specification.".formatted(provider.getType()));
+      throw invalidSchema(request, "required_for_provider");
     }
 
     return new NoOpSchemaResolver(dataSourceId, schema).resolveSchema();
+  }
+
+  /**
+   * Returns the error for a manual schema that is given for a provider that resolves schemas
+   * automatically, or that is missing for a provider that does not.
+   */
+  private static AnalyticsException invalidSchema(
+      RegisterDataSourceRequest request, String reason) {
+    return new AnalyticsException(
+        AnalyticsErrorCode.INVALID_ARGUMENT,
+        Map.of(
+            "field", "schema_json",
+            "reason", reason,
+            "catalog_name", request.getCatalogName(),
+            "data_source_name", request.getName(),
+            "provider_type", request.getProvider().getType()));
   }
 
   public void deleteDataSourceCascade(T ctx, UUID dataSourceId) {

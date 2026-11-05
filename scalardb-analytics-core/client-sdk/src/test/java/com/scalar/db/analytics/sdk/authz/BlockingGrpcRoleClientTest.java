@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.protobuf.Any;
 import com.scalar.db.analytics.api.authz.Role;
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
@@ -24,7 +25,10 @@ import com.scalar.db.analytics.grpc.generated.auth.v1.ListRolesResponse;
 import com.scalar.db.analytics.grpc.generated.auth.v1.RevokeRoleRequest;
 import com.scalar.db.analytics.grpc.generated.auth.v1.RevokeRoleResponse;
 import com.scalar.db.analytics.grpc.generated.auth.v1.RoleServiceGrpc;
+import com.scalar.db.analytics.grpc.generated.error.v1.AnalyticsError;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -191,6 +195,31 @@ class BlockingGrpcRoleClientTest {
           .isInstanceOf(AnalyticsException.class)
           .extracting(e -> ((AnalyticsException) e).getErrorCode())
           .isEqualTo(AnalyticsErrorCode.CLIENT_INTERNAL_ERROR);
+    }
+
+    @Test
+    void shouldThrowRoleNotFound_WhenServerReportsMissingRole() {
+      // The structured error the server sends for a missing role.
+      com.google.rpc.Status rpcStatus =
+          com.google.rpc.Status.newBuilder()
+              .setCode(io.grpc.Status.Code.NOT_FOUND.value())
+              .addDetails(
+                  Any.pack(
+                      AnalyticsError.newBuilder()
+                          .setErrorCode(AnalyticsErrorCode.ROLE_NOT_FOUND.getCode())
+                          .putMetadata("role_name", ROLE_NAME)
+                          .build()))
+              .build();
+      when(stub.grantRole(any())).thenThrow(StatusProto.toStatusRuntimeException(rpcStatus));
+
+      assertThatThrownBy(() -> client.grantRole(ROLE_NAME, USERNAME))
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              e -> {
+                assertThat(e.getErrorCode()).isEqualTo(AnalyticsErrorCode.ROLE_NOT_FOUND);
+                assertThat(e.getMetadata())
+                    .isEqualTo(Collections.singletonMap("role_name", ROLE_NAME));
+              });
     }
   }
 

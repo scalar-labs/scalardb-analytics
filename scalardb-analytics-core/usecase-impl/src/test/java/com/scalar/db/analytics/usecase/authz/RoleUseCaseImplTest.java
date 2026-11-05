@@ -9,10 +9,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.scalar.db.analytics.api.auth.AuthUser;
+import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.domain.authz.Role;
 import com.scalar.db.analytics.domain.authz.RoleAssignment;
@@ -23,6 +25,7 @@ import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,6 +91,20 @@ class RoleUseCaseImplTest {
 
     assertThatThrownBy(() -> roleUseCase.createRole(USER_ID, "analyst"))
         .isInstanceOf(AnalyticsException.class);
+  }
+
+  @Test
+  void createRole_shouldThrowInvalidArgumentWhenNameIsBlank() throws Exception {
+    assertThatThrownBy(() -> roleUseCase.createRole(USER_ID, " "))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(Map.of("field", "role_name", "reason", "blank"));
+            });
+
+    verify(roleRepository, never()).create(any(), any());
   }
 
   @Test
@@ -159,8 +176,12 @@ class RoleUseCaseImplTest {
     when(roleRepository.findByName(txContext, "nonexistent")).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> roleUseCase.grantRole(USER_ID, "nonexistent", "alice"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("Role not found");
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.ROLE_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("role_name", "nonexistent"));
+            });
   }
 
   @Test
@@ -170,8 +191,12 @@ class RoleUseCaseImplTest {
     when(authUserRepository.findByUsername(txContext, "nonexistent")).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> roleUseCase.grantRole(USER_ID, "editor", "nonexistent"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("User not found");
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.USER_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("username", "nonexistent"));
+            });
   }
 
   @Test
@@ -212,7 +237,12 @@ class RoleUseCaseImplTest {
     when(roleRepository.findById(txContext, ROLE_ID)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> roleUseCase.grantRoleById(USER_ID, ROLE_ID, TARGET_USER_ID))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.ROLE_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("role_id", ROLE_ID.toString()));
+            });
   }
 
   @Test
@@ -230,7 +260,12 @@ class RoleUseCaseImplTest {
     when(roleRepository.findById(txContext, ROLE_ID)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> roleUseCase.revokeRoleById(USER_ID, ROLE_ID, TARGET_USER_ID))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.ROLE_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("role_id", ROLE_ID.toString()));
+            });
   }
 
   @Test

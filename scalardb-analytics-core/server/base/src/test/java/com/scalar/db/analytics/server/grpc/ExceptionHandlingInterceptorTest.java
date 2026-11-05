@@ -24,6 +24,9 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -213,6 +216,45 @@ class ExceptionHandlingInterceptorTest {
               assertThat(sre.getStatus().getCode()).isEqualTo(Status.INVALID_ARGUMENT.getCode());
               assertThat(sre.getStatus().getDescription()).contains("Invalid catalog name");
               assertThat(errorCodeOf(sre)).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT.getCode());
+            });
+  }
+
+  @Test
+  void testNotFound_mapsToNotFoundWithMetadata() {
+    assertThatThrownBy(
+            () ->
+                stub.createCatalog(
+                    CreateCatalogRequest.newBuilder().setCatalogName("role-not-found").build()))
+        .isInstanceOf(StatusRuntimeException.class)
+        .satisfies(
+            e -> {
+              StatusRuntimeException sre = (StatusRuntimeException) e;
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.NOT_FOUND.getCode());
+              assertThat(sre.getStatus().getDescription())
+                  .isEqualTo("DB-ANALYTICS-10504: Role not found [role_name=analyst]");
+              AnalyticsError error = analyticsErrorOf(sre);
+              assertThat(error.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.ROLE_NOT_FOUND.getCode());
+              assertThat(error.getMetadataMap()).isEqualTo(Map.of("role_name", "analyst"));
+            });
+  }
+
+  @Test
+  void testInvalidArgumentWithMetadata_mapsToInvalidArgumentWithMetadata() {
+    assertThatThrownBy(
+            () ->
+                stub.createCatalog(
+                    CreateCatalogRequest.newBuilder().setCatalogName("blank-role-name").build()))
+        .isInstanceOf(StatusRuntimeException.class)
+        .satisfies(
+            e -> {
+              StatusRuntimeException sre = (StatusRuntimeException) e;
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.INVALID_ARGUMENT.getCode());
+              AnalyticsError error = analyticsErrorOf(sre);
+              assertThat(error.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT.getCode());
+              assertThat(error.getMetadataMap())
+                  .isEqualTo(Map.of("field", "role_name", "reason", "blank"));
             });
   }
 
@@ -411,12 +453,17 @@ class ExceptionHandlingInterceptorTest {
 
   /** Extracts the {@code AnalyticsError} error code from the {@code grpc-status-details-bin}. */
   private static String errorCodeOf(StatusRuntimeException sre) {
+    return analyticsErrorOf(sre).getErrorCode();
+  }
+
+  /** Extracts the {@code AnalyticsError} detail from the {@code grpc-status-details-bin}. */
+  static AnalyticsError analyticsErrorOf(StatusRuntimeException sre) {
     com.google.rpc.Status rpcStatus = StatusProto.fromThrowable(sre);
     assertThat(rpcStatus).isNotNull();
     for (Any detail : rpcStatus.getDetailsList()) {
       if (detail.is(AnalyticsError.class)) {
         try {
-          return detail.unpack(AnalyticsError.class).getErrorCode();
+          return detail.unpack(AnalyticsError.class);
         } catch (InvalidProtocolBufferException e) {
           throw new AssertionError(e);
         }
@@ -444,6 +491,47 @@ class ExceptionHandlingInterceptorTest {
             ExceptionHandlingInterceptor.mapToGrpcStatus(AnalyticsErrorCode.INVALID_SCHEMA_METADATA)
                 .getCode())
         .isEqualTo(Status.INVALID_ARGUMENT.getCode());
+  }
+
+  @Test
+  void mapToGrpcStatus_ShouldMapNotFoundCodesToNotFound() {
+    Set<AnalyticsErrorCode> notFoundCodes =
+        EnumSet.of(
+            AnalyticsErrorCode.CATALOG_NOT_FOUND,
+            AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND,
+            AnalyticsErrorCode.NAMESPACE_NOT_FOUND,
+            AnalyticsErrorCode.TABLE_NOT_FOUND,
+            AnalyticsErrorCode.ROLE_NOT_FOUND,
+            AnalyticsErrorCode.USER_NOT_FOUND,
+            AnalyticsErrorCode.BACKEND_USER_NOT_FOUND,
+            AnalyticsErrorCode.BACKEND_USER_LINK_NOT_FOUND);
+    for (AnalyticsErrorCode code : AnalyticsErrorCode.values()) {
+      boolean mapsToNotFound =
+          code.getErrorCategory() != AnalyticsErrorCode.ErrorCategory.CLIENT_ERROR
+              && ExceptionHandlingInterceptor.mapToGrpcStatus(code).getCode()
+                  == Status.Code.NOT_FOUND;
+      assertThat(mapsToNotFound)
+          .as("%s maps to NOT_FOUND", code)
+          .isEqualTo(notFoundCodes.contains(code));
+    }
+  }
+
+  @Test
+  void mapToGrpcStatus_ShouldMapBackendUserAlreadyLinkedToAlreadyExists() {
+    assertThat(
+            ExceptionHandlingInterceptor.mapToGrpcStatus(
+                    AnalyticsErrorCode.BACKEND_USER_ALREADY_LINKED)
+                .getCode())
+        .isEqualTo(Status.ALREADY_EXISTS.getCode());
+  }
+
+  @Test
+  void mapToGrpcStatus_ShouldMapInternalPasswordBackendRequiredToFailedPrecondition() {
+    assertThat(
+            ExceptionHandlingInterceptor.mapToGrpcStatus(
+                    AnalyticsErrorCode.INTERNAL_PASSWORD_BACKEND_REQUIRED)
+                .getCode())
+        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
   }
 
   @Test
@@ -515,6 +603,14 @@ class ExceptionHandlingInterceptorTest {
 
         case "internal-error":
           throw new AnalyticsException(AnalyticsErrorCode.INTERNAL_ERROR);
+
+        case "role-not-found":
+          throw new AnalyticsException(
+              AnalyticsErrorCode.ROLE_NOT_FOUND, Map.of("role_name", "analyst"));
+
+        case "blank-role-name":
+          throw new AnalyticsException(
+              AnalyticsErrorCode.INVALID_ARGUMENT, Map.of("field", "role_name", "reason", "blank"));
 
         case "generic-error":
           throw new RuntimeException("Unexpected error");
