@@ -91,7 +91,18 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | `INVALID_ARGUMENT` | USER_ERROR | No | Invalid argument or validation failure |
 | `DB-ANALYTICS-10401` | `INVALID_SCHEMA_METADATA` | `INVALID_ARGUMENT` | USER_ERROR | No | A namespace, table, column, or column type name in the data source schema contains a prohibited control or bidirectional formatting character |
 
-`INVALID_ARGUMENT` raised by request validation carries `field` (the invalid request field) and `reason` (a snake_case token naming the violated rule, such as `blank` or `required_for_provider`) in its metadata, plus the names of the entities involved.
+`INVALID_ARGUMENT` raised by request validation carries `field` (the invalid request field) and `reason` (a snake_case token naming the violated rule, such as `blank` or `required_for_provider`) in its metadata, plus the names of the entities involved. `field` is the name of the request field in the proto definition:
+
+| `field` | `reason` | Raised when |
+|---------|----------|-------------|
+| `role_name`, `username` | `blank` | A role or user is created with a blank name |
+| `schema_json` | `not_allowed_for_provider` | A data source registration gives a manual schema for a provider that resolves schemas. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type` |
+| `schema_json` | `required_for_provider` | A data source registration gives no manual schema for a provider that does not resolve schemas. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type` |
+| `catalog_id`, `data_source_id`, `namespace_id`, `table_id`, `role_id`, `user_id`, `grantee_id`, `resource_id` | `malformed_uuid` | The ID of a `*ById` request is not a UUID |
+| `grantee_type`, `permission`, `backend` | `unspecified` | The enum is left at its zero (`*_UNSPECIFIED`) value |
+| `grantee_type`, `permission`, `backend` | `unrecognized` | The enum holds a value the server does not know, such as one sent by a newer client |
+| `provider_payload_json` | `required` | A data source registration has no provider JSON |
+| `provider_payload_json`, `schema_json` | `invalid` | The provider or schema JSON does not decode: malformed JSON, an unknown provider type or data type, or a value the provider rejects. The metadata also carries `catalog_name` and `data_source_name`; the decoder's message is logged on the server but not returned, since it can echo the payload |
 
 ### 105xx — Entity Not Found
 

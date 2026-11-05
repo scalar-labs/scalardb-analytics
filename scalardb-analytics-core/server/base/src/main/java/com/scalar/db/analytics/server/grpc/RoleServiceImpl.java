@@ -61,7 +61,8 @@ public class RoleServiceImpl extends RoleServiceImplBase {
       DeleteRoleByIdRequest request,
       io.grpc.stub.StreamObserver<DeleteRoleByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
-    boolean deleted = roleUseCase.deleteRoleById(userId, UUID.fromString(request.getRoleId()));
+    boolean deleted =
+        roleUseCase.deleteRoleById(userId, RequestFields.uuid("role_id", request.getRoleId()));
 
     responseObserver.onNext(DeleteRoleByIdResponse.newBuilder().setDeleted(deleted).build());
     responseObserver.onCompleted();
@@ -97,7 +98,9 @@ public class RoleServiceImpl extends RoleServiceImplBase {
       io.grpc.stub.StreamObserver<GrantRoleByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     roleUseCase.grantRoleById(
-        userId, UUID.fromString(request.getRoleId()), UUID.fromString(request.getUserId()));
+        userId,
+        RequestFields.uuid("role_id", request.getRoleId()),
+        RequestFields.uuid("user_id", request.getUserId()));
 
     responseObserver.onNext(GrantRoleByIdResponse.getDefaultInstance());
     responseObserver.onCompleted();
@@ -119,7 +122,9 @@ public class RoleServiceImpl extends RoleServiceImplBase {
       io.grpc.stub.StreamObserver<RevokeRoleByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     roleUseCase.revokeRoleById(
-        userId, UUID.fromString(request.getRoleId()), UUID.fromString(request.getUserId()));
+        userId,
+        RequestFields.uuid("role_id", request.getRoleId()),
+        RequestFields.uuid("user_id", request.getUserId()));
 
     responseObserver.onNext(RevokeRoleByIdResponse.getDefaultInstance());
     responseObserver.onCompleted();
