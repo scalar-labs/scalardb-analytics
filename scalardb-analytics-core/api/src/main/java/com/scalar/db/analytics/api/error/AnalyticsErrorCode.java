@@ -336,8 +336,7 @@ public enum AnalyticsErrorCode {
    *
    * <p>Expected metadata keys: {@code field} (the invalid request field) and {@code reason} (a
    * snake_case token naming the violated rule) where the failure is modelled, plus the names of the
-   * entities involved (e.g. {@code catalog_name}). None when the server maps an unmodelled {@link
-   * IllegalArgumentException}.
+   * entities involved (e.g. {@code catalog_name}).
    */
   INVALID_ARGUMENT(
       "DB-ANALYTICS-10400",

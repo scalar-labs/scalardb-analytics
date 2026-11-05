@@ -27,6 +27,10 @@ import org.slf4j.LoggerFactory;
  * <p>Error details are transmitted via the {@code grpc-status-details-bin} trailing metadata, which
  * carries a {@code google.rpc.Status} with an {@code AnalyticsError} detail for structured access.
  *
+ * <p>Only {@link AnalyticsException} carries an error code to the client. Any other exception,
+ * including a bare {@link IllegalArgumentException}, is unexpected and maps to {@link
+ * AnalyticsErrorCode#INTERNAL_ERROR}.
+ *
  * <p>See ERROR_MAPPING.md for the complete error mapping documentation.
  */
 public class ExceptionHandlingInterceptor implements ServerInterceptor {
@@ -82,19 +86,11 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               .setErrorCode(errorCode.getCode())
               .putAllMetadata(ae.getMetadata())
               .build();
-    } else if (exception instanceof IllegalArgumentException) {
-      // Fallback for argument checks that are not modelled as AnalyticsException yet: decoding of
-      // request fields (malformed UUIDs, unspecified enum values, provider and schema JSON) and
-      // domain constructor checks such as a blank role name. They fail on the caller's input, so
-      // they are reported as the generic INVALID_ARGUMENT without metadata rather than INTERNAL.
-      // Use-case validation and lookups throw AnalyticsException and must not rely on this.
-      // TODO(#34): Remove this branch once the request decoding sites are migrated.
-      errorCode = AnalyticsErrorCode.INVALID_ARGUMENT;
-      status =
-          Status.INVALID_ARGUMENT.withDescription(
-              errorCode.getCode() + ": " + exception.getMessage());
-      analyticsError = AnalyticsError.newBuilder().setErrorCode(errorCode.getCode()).build();
     } else {
+      // Expected failures, including invalid caller input, are thrown as AnalyticsException: the
+      // gRPC layer decodes request fields (RequestFields, RequestMapper) and the use cases validate
+      // the rest before reaching code with its own argument checks. Anything else, including a bare
+      // IllegalArgumentException, is a server-side defect and is reported as INTERNAL_ERROR.
       errorCode = AnalyticsErrorCode.INTERNAL_ERROR;
       status = Status.INTERNAL.withDescription(errorCode.getCode() + ": " + exception.getMessage());
       analyticsError = AnalyticsError.newBuilder().setErrorCode(errorCode.getCode()).build();

@@ -152,8 +152,9 @@ Produced only by the SDK (`GrpcExceptionMapper`) when a request terminates befor
 
 | Exception Type | Error Code Used | gRPC Status | Description |
 |----------------|----------------|-------------|-------------|
-| `IllegalArgumentException` | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | Fallback, without metadata, for argument checks not yet modelled as `AnalyticsException`: decoding of request fields (malformed UUID, unspecified enum value, provider or schema JSON) and domain constructor checks. Use-case validation and lookups throw `AnalyticsException` instead |
 | Any other exception | `DB-ANALYTICS-30103` | `INTERNAL` | Unexpected error |
+
+A bare `IllegalArgumentException` is not treated as a caller error. Invalid input is reported as `AnalyticsException` before it reaches code with its own argument checks: the gRPC layer decodes request fields (`RequestFields`, `RequestMapper`), and the use cases validate the rest, mirroring the checks of the domain and API constructors (such as a blank role name). An `IllegalArgumentException` that reaches the interceptor therefore indicates a server-side defect and maps to `DB-ANALYTICS-30103`. New request-path validation must throw `AnalyticsException` with `field` and `reason` metadata.
 
 ## Implementation Details
 

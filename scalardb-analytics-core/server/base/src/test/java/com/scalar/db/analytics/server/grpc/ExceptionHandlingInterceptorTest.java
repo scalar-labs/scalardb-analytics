@@ -203,7 +203,9 @@ class ExceptionHandlingInterceptorTest {
   }
 
   @Test
-  void testIllegalArgumentException_mapsToInvalidArgument() {
+  void testIllegalArgumentException_mapsToInternal() {
+    // Invalid caller input is thrown as AnalyticsException; a bare IllegalArgumentException is a
+    // server-side defect.
     // Act & Assert
     assertThatThrownBy(
             () ->
@@ -213,9 +215,8 @@ class ExceptionHandlingInterceptorTest {
         .satisfies(
             e -> {
               StatusRuntimeException sre = (StatusRuntimeException) e;
-              assertThat(sre.getStatus().getCode()).isEqualTo(Status.INVALID_ARGUMENT.getCode());
-              assertThat(sre.getStatus().getDescription()).contains("Invalid catalog name");
-              assertThat(errorCodeOf(sre)).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT.getCode());
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.INTERNAL.getCode());
+              assertThat(errorCodeOf(sre)).isEqualTo(AnalyticsErrorCode.INTERNAL_ERROR.getCode());
             });
   }
 
