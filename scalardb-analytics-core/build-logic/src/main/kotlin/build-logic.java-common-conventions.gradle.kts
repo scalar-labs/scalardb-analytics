@@ -67,8 +67,8 @@ dependencies {
     // JSpecify annotations (@NullMarked / @Nullable) are used for null-safety across every module,
     // so provide them from the common convention rather than per-module.
     implementation(libs.jspecify)
-    // Jackson BOM for version management (Spring Boot BOM modules get this transitively,
-    // but non-Spring modules need it explicitly)
+    // Jackson BOM for every module. In the Spring modules, the higher of this and the Spring Boot
+    // BOM's Jackson 2 version wins (see build-logic.spring-boot-platform).
     implementation(platform(libs.jackson.bom))
     implementation(libs.jackson.databind)
     // gRPC BOM keeps the whole gRPC artifact family on a single version. Without it, only the
