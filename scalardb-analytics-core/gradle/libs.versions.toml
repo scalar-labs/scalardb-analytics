@@ -28,7 +28,7 @@ oracle = "23.26.3.0.0"
 oracle11 = "23.26.3.0.0"    # ojdbc11 for Spring Data JDBC module (Java 21)
 
 # Data Sources
-scalardb = "3.20.0-SNAPSHOT"
+scalardb = "3.20.0"
 emr-dynamodb = "5.8.0"
 aws = "2.53.1"
 databricks = "1.0.11-oss"
