@@ -26,6 +26,15 @@ public class AuthUser {
   //  different backends via JIT provisioning).
   String username;
 
+  /**
+   * Creates a user with a new ID.
+   *
+   * @param username the username
+   * @return the user
+   * @throws IllegalArgumentException if {@code username} is blank. This is an invariant check; the
+   *     server validates usernames in requests before creating users and reports {@code
+   *     INVALID_ARGUMENT} instead
+   */
   public static AuthUser create(String username) {
     if (username.trim().isEmpty()) {
       throw new IllegalArgumentException("username must not be blank");

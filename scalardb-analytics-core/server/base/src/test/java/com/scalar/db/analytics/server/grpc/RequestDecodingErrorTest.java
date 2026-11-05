@@ -419,6 +419,29 @@ class RequestDecodingErrorTest {
   }
 
   @Test
+  void register_withProviderRejectedByItsBuilder_shouldFailWithProviderInvalid() {
+    // DynamoDbProvider.Builder requires a region or an endpoint.
+    StatusRuntimeException e =
+        catchThrowableOfType(
+            StatusRuntimeException.class,
+            () ->
+                DataSourceServiceGrpc.newBlockingStub(channel)
+                    .register(
+                        registerRequest()
+                            .setProviderPayloadJson("{\"type\":\"dynamodb\"}")
+                            .build()));
+
+    assertInvalidArgument(
+        e,
+        Map.of(
+            "catalog_name", "cat",
+            "data_source_name", "ds",
+            "field", "provider_payload_json",
+            "reason", "invalid"));
+    verifyNoUseCaseCalled();
+  }
+
+  @Test
   void register_withMalformedSchema_shouldFailWithSchemaInvalid() {
     StatusRuntimeException e =
         catchThrowableOfType(

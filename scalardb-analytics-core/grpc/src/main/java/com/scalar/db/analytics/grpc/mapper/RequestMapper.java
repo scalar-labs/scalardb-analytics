@@ -4,6 +4,7 @@
  */
 package com.scalar.db.analytics.grpc.mapper;
 
+import com.scalar.db.analytics.api.codec.provider.ProviderCodecException;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.datasource.DataSourceProvider;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
@@ -50,7 +51,9 @@ public interface RequestMapper {
     DataSourceProvider provider;
     try {
       provider = DataSourceProviderJsonMapper.INSTANCE.fromJson(request.getProviderPayloadJson());
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException | ProviderCodecException e) {
+      // ProviderCodecException covers what the JSON binding rejects, including the argument checks
+      // of the provider's builder (e.g. a DynamoDB provider without a region or an endpoint).
       throw RegisterRequestErrors.invalidField(
           request, RegisterRequestErrors.PROVIDER_PAYLOAD_JSON, RegisterRequestErrors.INVALID, e);
     }

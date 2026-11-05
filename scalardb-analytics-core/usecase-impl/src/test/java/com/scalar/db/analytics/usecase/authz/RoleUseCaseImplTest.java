@@ -6,6 +6,7 @@ package com.scalar.db.analytics.usecase.authz;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -31,6 +32,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -105,6 +108,25 @@ class RoleUseCaseImplTest {
             });
 
     verify(roleRepository, never()).create(any(), any());
+  }
+
+  // createRole mirrors the name check of Role, so that the request path reports INVALID_ARGUMENT
+  // instead of reaching the constructor's IllegalArgumentException. Both must agree on every name.
+  @ParameterizedTest
+  @ValueSource(strings = {"", " ", "\t\n", "\u2003", "\u00a0", "analyst", " analyst "})
+  void createRole_shouldRejectExactlyTheNamesThatRoleRejects(String name) {
+    boolean rejectedByRole = catchThrowable(() -> Role.create(name)) != null;
+
+    Throwable thrown = catchThrowable(() -> roleUseCase.createRole(USER_ID, name));
+
+    if (rejectedByRole) {
+      assertThat(thrown)
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              ex -> assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT));
+    } else {
+      assertThat(thrown).isNull();
+    }
   }
 
   @Test

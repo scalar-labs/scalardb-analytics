@@ -6,6 +6,7 @@ package com.scalar.db.analytics.usecase.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -44,6 +45,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -543,6 +546,26 @@ class UserUseCaseImplTest {
     assertThat(created.backendUserId()).isEqualTo("alice-cluster");
     assertThat(created.userId()).isEqualTo(aliceUserId);
     verify(internalCredentialRepository, never()).findByUsername(any(), any());
+  }
+
+  // createUser mirrors the username check of AuthUser.create, so that the request path reports
+  // INVALID_ARGUMENT instead of reaching its IllegalArgumentException. Both must agree on every
+  // name.
+  @ParameterizedTest
+  @ValueSource(strings = {"", " ", "\t\n", "\u2003", "\u00a0", "alice", " alice "})
+  void createUser_shouldRejectExactlyTheUsernamesThatAuthUserRejects(String username) {
+    boolean rejectedByAuthUser = catchThrowable(() -> AuthUser.create(username)) != null;
+
+    Throwable thrown = catchThrowable(() -> useCase.createUser(USER_ID, username));
+
+    if (rejectedByAuthUser) {
+      assertThat(thrown)
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              ex -> assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT));
+    } else {
+      assertThat(thrown).isNull();
+    }
   }
 
   @Test

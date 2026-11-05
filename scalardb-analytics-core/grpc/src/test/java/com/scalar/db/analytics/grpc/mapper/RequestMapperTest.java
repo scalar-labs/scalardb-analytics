@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Assertions.entry;
 
+import com.scalar.db.analytics.api.codec.provider.ProviderCodecException;
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
@@ -46,6 +47,27 @@ class RequestMapperTest {
   void toDomainRegisterDataSourceRequest_withUnknownProviderType_shouldThrowInvalid() {
     AnalyticsException e =
         decodeFailure(request().setProviderPayloadJson("{\"type\":\"unknown\"}").build());
+
+    assertInvalidField(e, "provider_payload_json", "invalid");
+  }
+
+  @Test
+  void toDomainRegisterDataSourceRequest_withProviderRejectedByItsBuilder_shouldThrowInvalid() {
+    // DynamoDbProvider.Builder requires a region or an endpoint.
+    AnalyticsException e =
+        decodeFailure(request().setProviderPayloadJson("{\"type\":\"dynamodb\"}").build());
+
+    assertInvalidField(e, "provider_payload_json", "invalid");
+    assertThat(e.getCause()).isInstanceOf(ProviderCodecException.class);
+  }
+
+  @Test
+  void toDomainRegisterDataSourceRequest_withProviderFieldOfWrongType_shouldThrowInvalid() {
+    AnalyticsException e =
+        decodeFailure(
+            request()
+                .setProviderPayloadJson("{\"type\":\"dynamodb\",\"region\":{\"a\":1}}")
+                .build());
 
     assertInvalidField(e, "provider_payload_json", "invalid");
   }
