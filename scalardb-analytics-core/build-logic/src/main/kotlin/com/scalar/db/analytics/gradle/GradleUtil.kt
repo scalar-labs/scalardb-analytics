@@ -28,7 +28,7 @@ object GradleUtil {
             requireNotNull(project.rootProject.findProject(name)) { "Project $name not found" }
         }
 
-    private fun <T> findExtension(project: Project, extension: Class<T>): Provider<T> =
+    private fun <T : Any> findExtension(project: Project, extension: Class<T>): Provider<T> =
         project.provider {
             requireNotNull(project.extensions.findByType(extension)) {
                 "Extension $extension not found"
