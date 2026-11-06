@@ -20,6 +20,9 @@ changes released from here, starting with the entries below.
 
 ### Improvements
 
+- Hardened the server and CLI images: pinned the base images and the `grpc_health_probe` image by digest, and created the `scalardb` user with a nologin shell
+- [BREAKING] The application files under `/scalardb-analytics-server` in the server image and `/scalardb-analytics-cli` in the CLI image are now owned by root, so the runtime user can no longer modify the image-provided files or create files in those directories. Deployments that write to the image's own application directories must use a writable volume or another writable location instead. Existing bind mounts and volumes, including those under these directories, retain their own permissions and do not need to be relocated if UID/GID 201 can access them
+- Moved the server image from `eclipse-temurin:21-jdk-noble` (Ubuntu 24.04) to `eclipse-temurin:21.0.13_9-jdk-resolute` (Ubuntu 26.04), and the CLI image from `eclipse-temurin:21-jre-noble` to `eclipse-temurin:21.0.13_9-jre-resolute`. Java 21.0.13 addresses CVE-2026-91403 and CVE-2026-114820 (eMudhra CA compromise) by removing the affected emSign root CAs from `cacerts`
 - Replaced MySQL Connector/J with MariaDB Connector/J for MySQL data sources
 - Added an optional `sslMode` field to the MySQL data source provider. It defaults to `trust` rather than the MariaDB Connector/J default of `disable`, so that MySQL 8.x accounts using the default `caching_sha2_password` plugin can authenticate over the TLS that MySQL 8.0 enables by default. Set `sslMode` to `disable` explicitly for MySQL servers with TLS turned off
 - Include consolidated third-party notices in the CLI and server distributions, and the Oracle JDBC redistribution terms in the server distribution
