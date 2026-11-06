@@ -52,7 +52,7 @@ extra["mariadb.version"] = libs.versions.mariadb.get()
 // this same modern JDK using --release). Error Prone also requires JDK 21+ to run.
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -132,9 +132,6 @@ lombok {
 
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:all")
-    // Required by Error Prone when running on JDK 21 so that type-use annotations are attached to
-    // symbols (also a prerequisite for NullAway's JSpecify mode). Harmless on older JDKs.
-    options.compilerArgs.add("-XDaddTypeAnnotationsToSymbol=true")
     options.errorprone {
         disableWarningsInGeneratedCode.set(true)
         // Exclude generated sources from error-prone checks

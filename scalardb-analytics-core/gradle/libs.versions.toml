@@ -59,12 +59,12 @@ shadow-plugin = "8.3.11"
 license-report-plugin = "3.1.2"
 errorprone-plugin = "4.2.0"
 spotless-plugin = "6.25.0"
-detekt-plugin = "1.23.8"
+detekt-plugin = "2.0.0-alpha.6"  # 1.23.x cannot run on JDK 25 and will not get support for it (detekt/detekt#9772)
 
 # Tool versions
-lombok = "1.18.34"
-spotbugs = "4.8.6"
-googleJavaFormat = "1.23.0"
+lombok = "1.18.42"
+spotbugs = "4.9.8"
+googleJavaFormat = "1.30.0"
 ktfmt = "0.46"
 buf-tool = "1.39.0"
 
@@ -181,7 +181,7 @@ lombok-plugin = { module = "io.freefair.gradle:lombok-plugin", version.ref = "lo
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless-plugin" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt-plugin" }
+detekt = { id = "dev.detekt", version.ref = "detekt-plugin" }
 buf-gradle-plugin = { id = "build.buf", version.ref = "buf-gradle-plugin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
