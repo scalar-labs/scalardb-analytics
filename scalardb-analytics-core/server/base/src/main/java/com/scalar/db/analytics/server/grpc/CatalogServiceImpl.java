@@ -24,7 +24,6 @@ import com.scalar.db.analytics.grpc.mapper.RequestMapper;
 import com.scalar.db.analytics.grpc.mapper.catalog.CatalogMapper;
 import com.scalar.db.analytics.usecase.CatalogUseCase;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class CatalogServiceImpl extends CatalogServiceImplBase {
   private final CatalogUseCase catalogUseCase;
@@ -90,9 +89,7 @@ public class CatalogServiceImpl extends CatalogServiceImplBase {
         .initializeCatalog(
             userId,
             request.getCatalogName(),
-            request.getDataSourcesList().stream()
-                .map(RequestMapper.INSTANCE::toDomainRegisterDataSourceRequest)
-                .collect(Collectors.toList()))
+            RequestMapper.INSTANCE.toDomainRegisterDataSourceRequests(request))
         .ifPresent(value -> responseBuilder.setCatalog(CatalogMapper.INSTANCE.toProto(value)));
 
     responseObserver.onNext(responseBuilder.build());

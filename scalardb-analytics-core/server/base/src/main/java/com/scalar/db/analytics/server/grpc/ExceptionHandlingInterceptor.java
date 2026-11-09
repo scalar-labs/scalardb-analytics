@@ -88,8 +88,10 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               .build();
     } else {
       // Expected failures, including invalid caller input, are thrown as AnalyticsException: the
-      // gRPC layer decodes request fields (RequestFields, RequestMapper) and the use cases validate
-      // the rest before reaching code with its own argument checks. Anything else, including a bare
+      // gRPC layer decodes request fields (RequestFields, RequestMapper), the use cases validate
+      // the rest before reaching code with its own argument checks, and an IllegalArgumentException
+      // that a data source's library (ScalarDB, a JDBC driver) throws for the caller's
+      // configuration is converted where the library is called. Anything else, including a bare
       // IllegalArgumentException, is a server-side defect and is reported as INTERNAL_ERROR.
       errorCode = AnalyticsErrorCode.INTERNAL_ERROR;
       status = Status.INTERNAL.withDescription(errorCode.getCode() + ": " + exception.getMessage());

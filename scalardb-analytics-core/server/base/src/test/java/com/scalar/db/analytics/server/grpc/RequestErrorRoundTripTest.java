@@ -504,10 +504,13 @@ class RequestErrorRoundTripTest {
                 CatalogServiceGrpc.newBlockingStub(channel)
                     .initializeCatalog(
                         InitializeCatalogRequest.newBuilder()
-                            .setCatalogName("cat")
+                            .setCatalogName("new-cat")
                             .addDataSources(registerRequest())
                             .addDataSources(
+                                // The nested catalog name is left empty; the error names the
+                                // catalog of the initialization request.
                                 registerRequest()
+                                    .clearCatalogName()
                                     .setDataSourceName("broken")
                                     .setProviderPayloadJson("[]"))
                             .build()));
@@ -515,8 +518,9 @@ class RequestErrorRoundTripTest {
     assertInvalidArgument(
         e,
         Map.of(
-            "catalog_name", "cat",
+            "catalog_name", "new-cat",
             "data_source_name", "broken",
+            "data_source_index", "1",
             "field", "provider_payload_json",
             "reason", "invalid"));
     verifyNoUseCaseCalled();

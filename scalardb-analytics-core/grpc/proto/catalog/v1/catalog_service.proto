@@ -29,6 +29,8 @@ message ListAllCatalogsResponse {
 
 message InitializeCatalogRequest {
   string catalog_name = 1;
+  // The data sources to register in the catalog. Each is registered in catalog_name above; the
+  // catalog_name of each entry is ignored.
   repeated datasource.v1.RegisterRequest data_sources = 2;
 }
 
