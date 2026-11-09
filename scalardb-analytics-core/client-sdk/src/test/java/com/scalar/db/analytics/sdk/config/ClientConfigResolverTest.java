@@ -192,7 +192,10 @@ class ClientConfigResolverTest {
       options.put("server.auth.username", "user");
       options.put("server.auth.password", "pass");
       Function<ClientConfigKey, String> mapper =
-          key -> key == ClientConfigKey.AUTH_USERNAME ? "server.auth.username" : "server.auth.password";
+          key ->
+              key == ClientConfigKey.AUTH_USERNAME
+                  ? "server.auth.username"
+                  : "server.auth.password";
 
       ConfigSource source = ConfigSource.properties(options, mapper);
 
