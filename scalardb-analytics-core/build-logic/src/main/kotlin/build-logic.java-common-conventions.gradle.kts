@@ -44,9 +44,6 @@ version =
 
 val libs = the<LibrariesForLibs>()
 
-// Keep Spring Boot's dependency management aligned with ScalarDB's MariaDB driver version.
-extra["mariadb.version"] = libs.versions.mariadb.get()
-
 // Default toolchain for internal/server-side modules: the latest LTS in use across the project.
 // Java 8 client modules opt into Java 8 *target* via build-logic.java8-conventions (compiled with
 // this same modern JDK using --release). Error Prone also requires JDK 21+ to run.
@@ -70,8 +67,8 @@ dependencies {
     // JSpecify annotations (@NullMarked / @Nullable) are used for null-safety across every module,
     // so provide them from the common convention rather than per-module.
     implementation(libs.jspecify)
-    // Jackson BOM for version management (Spring Boot BOM modules get this transitively,
-    // but non-Spring modules need it explicitly)
+    // Jackson BOM for every module. In the Spring modules, the higher of this and the Spring Boot
+    // BOM's Jackson 2 version wins (see build-logic.spring-boot-platform).
     implementation(platform(libs.jackson.bom))
     implementation(libs.jackson.databind)
     // gRPC BOM keeps the whole gRPC artifact family on a single version. Without it, only the

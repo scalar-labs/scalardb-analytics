@@ -4,9 +4,8 @@
  */
 
 plugins {
-    id("build-logic.java-common-conventions")
+    id("build-logic.spring-boot-platform")
     id("build-logic.publishing-maven-local")
-    alias(libs.plugins.spring.dependency.management)
 }
 
 // Helper function to access test source sets from other projects
@@ -26,12 +25,6 @@ fun sourceSetOutput(
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
-    }
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}")
     }
 }
 

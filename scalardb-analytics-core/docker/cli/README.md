@@ -82,8 +82,8 @@ Note: The CLI itself does not have an interactive mode. Each invocation runs a s
 
 ## Image Details
 
-- Base image: `eclipse-temurin:21-jre-noble`
-- User: `scalardb` (UID/GID 201)
+- Base image: `eclipse-temurin:21.0.13_9-jre-resolute` (Ubuntu 26.04), pinned by digest in the Dockerfile
+- User: `scalardb` (UID/GID 201) with a nologin shell
 - Working directory: `/scalardb-analytics-cli`
 - JAR location: `/scalardb-analytics-cli/scalardb-analytics-cli.jar`
 
@@ -92,3 +92,7 @@ Note: The CLI itself does not have an interactive mode. Each invocation runs a s
 - Runs as non-root user (scalardb)
 - Minimal JRE-only base image
 - Regular security updates via base image
+- The application files under `/scalardb-analytics-cli` are owned by root, so the runtime user
+  cannot modify them. The CLI reads its configuration from the path given with `-c`,
+  `SCALAR_DB_ANALYTICS_CONFIG_PATH`, or the XDG config directory, and writes nothing to its
+  working directory
