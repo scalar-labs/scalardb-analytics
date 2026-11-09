@@ -19,12 +19,12 @@ changes released from here, starting with the entries below.
 
 ### Improvements
 
-- The CLI and the Spark connector resolve the authentication credential through the Java SDK, so they apply the same rules: for each of the username and the password, the environment variable takes precedence over the configuration file or the `server.auth.*` catalog option, a blank username is treated as unset and falls through to the next source, and the password is used as is. In the CLI, a blank `SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME` no longer hides `scalar.db.analytics.client.auth.username` in the configuration file. (#78)
+- The CLI and the Spark connector resolve the authentication credential through the Java SDK, so they apply the same rules: for each of the username and the password, the environment variable takes precedence over the configuration file or the `server.auth.*` catalog option, a blank username is treated as unset and falls through to the next source, and the password is used as is. In the CLI, a blank `SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME` no longer hides `scalar.db.analytics.client.auth.username` in the configuration file. As a result, one setup that used to run without authentication now fails: a blank `SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME` with a username but no password in the configuration file now fails with `REQUIRED_KEY_NOT_SET` for `scalar.db.analytics.client.auth.password` (#78)
 - [BREAKING] The Spark connector no longer trims leading and trailing whitespace from `server.auth.password` or `SCALAR_DB_ANALYTICS_CLIENT_AUTH_PASSWORD`, so the password is sent as it is set, as in the CLI (#78)
 
 ### Bug fixes
 
-- Fixed an issue where the CLI expanded `${...}` in `scalar.db.analytics.client.auth.username` and `scalar.db.analytics.client.auth.password`, whether set in the configuration file or the environment, so that a password containing `${` was altered. The values are now used literally (#78)
+- Fixed an issue where the CLI expanded `${...}` in `scalar.db.analytics.client.auth.username` and `scalar.db.analytics.client.auth.password`, whether set in the configuration file or the environment, so that a password containing `${` was altered. The values are now used literally, so a `${...}` reference in them, such as `${scalar.db.analytics.client.server.host}`, is no longer resolved to the value of another key (#78)
 
 ## [v3.20.0] - 2026-11-06
 
