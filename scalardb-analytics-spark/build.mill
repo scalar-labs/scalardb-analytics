@@ -70,11 +70,10 @@ object SparkVersion {
 
 object Versions {
   // External ScalarDB dependencies
-  val scalardb = "3.20.0-SNAPSHOT"
+  val scalardb = "3.20.0"
 
   val scalapb          = "0.11.17"
   val scalatest        = "3.2.19"
-  val grpc             = "1.83.1"
   val wartremover      = "3.2.2"
   val slf4j            = "2.0.17"
   val testcontainers   = "2.0.2"

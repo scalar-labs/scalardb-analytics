@@ -115,3 +115,6 @@ docker run --rm scalardb-analytics-server:latest start --help
 ## Configuration
 
 The server runs as a non-root user (`scalardb`) and exposes port 11051 by default. Additional configuration can be passed through command-line arguments or environment variables as supported by the server application.
+
+The application files under `/scalardb-analytics-server` are owned by root, so the runtime user
+cannot modify them. Anything the server has to write must point at a mounted volume.

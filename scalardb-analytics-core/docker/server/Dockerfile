@@ -1,12 +1,14 @@
-FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.42 AS grpc-health-probe
-
-FROM docker.io/busybox:1.36 AS tools
-
-# Copy grpc_health_probe from official image
-COPY --from=grpc-health-probe /ko-app/grpc-health-probe /grpc_health_probe
+# grpc_health_probe for Kubernetes:
+# - https://kubernetes.io/blog/2018/10/01/health-checking-grpc-servers-on-kubernetes/
+# The official image is a multi-platform index, so it serves both platforms that the Makefile
+# builds for. You can confirm the digest with:
+#   docker buildx imagetools inspect ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60@sha256:2d433b978644e40eb2b2887dbd0af3a19e470514a2176a97cad1971f13bdb171 AS grpc-health-probe
 
 # Build stage
-FROM eclipse-temurin:21-jdk-noble AS builder
+# You can see sha256 hash in the following page:
+# - https://hub.docker.com/_/eclipse-temurin/tags
+FROM eclipse-temurin:21.0.13_9-jdk-resolute@sha256:7d760d0aecb9f6dc319583802bdb32ed55234e6c79a0e8ae56077ec4da382f22 AS builder
 
 WORKDIR /workspace
 
@@ -22,29 +24,30 @@ RUN --mount=type=secret,id=gpr_username \
     ./gradlew :server:app:installDist --no-daemon
 
 # Runtime stage
-FROM eclipse-temurin:21-jdk-noble
+# You can see sha256 hash in the following page:
+# - https://hub.docker.com/_/eclipse-temurin/tags
+FROM eclipse-temurin:21.0.13_9-jdk-resolute@sha256:7d760d0aecb9f6dc319583802bdb32ed55234e6c79a0e8ae56077ec4da382f22
 
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
 # netcat lets testcontainers check the ports this image exposes
-RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
+RUN export DEBIAN_FRONTEND=noninteractive \
+ && apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends netcat-openbsd \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -r --gid 201 scalardb \
+ && useradd -r --uid 201 -g scalardb -s /usr/sbin/nologin scalardb
 
-COPY --from=tools grpc_health_probe /usr/local/bin/
+COPY --from=grpc-health-probe /ko-app/grpc-health-probe /usr/local/bin/grpc_health_probe
 
 WORKDIR /scalardb-analytics-server
 
-RUN groupadd -r --gid 201 scalardb && \
-    useradd -r --uid 201 -g scalardb scalardb
-
+# The application files stay owned by root so that the runtime user cannot modify them.
 COPY --from=builder /workspace/server/app/build/install/scalardb-analytics-server/ /scalardb-analytics-server/
 
-RUN chown -R scalardb:scalardb /scalardb-analytics-server
-
-USER 201
+USER 201:201
 
 EXPOSE 11051
 
