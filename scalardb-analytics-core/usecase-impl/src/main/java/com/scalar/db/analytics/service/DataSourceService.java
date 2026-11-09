@@ -33,6 +33,7 @@ import com.scalar.db.analytics.repository.NamespaceRepository;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
+import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
 import com.scalar.db.analytics.service.datasource.NoOpSchemaResolver;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
 import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
@@ -117,7 +118,11 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
         throw invalidSchema(request, "not_allowed_for_provider");
       }
       SchemaResolverVisitor visitor = new SchemaResolverVisitor(dataSourceId);
-      return provider.accept(visitor);
+      try {
+        return provider.accept(visitor);
+      } catch (InvalidDataSourceConfigurationException e) {
+        throw invalidProviderConfiguration(request, e);
+      }
     }
 
     if (schema == null) {
@@ -141,6 +146,24 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
             "catalog_name", request.getCatalogName(),
             "data_source_name", request.getName(),
             "provider_type", request.getProvider().getType()));
+  }
+
+  /**
+   * Returns the error for a provider whose configuration the data source's client library (such as
+   * ScalarDB or a JDBC driver) rejects. The library's message is kept in the cause for server logs
+   * but not returned, since it can echo configuration values, which may include credentials.
+   */
+  private static AnalyticsException invalidProviderConfiguration(
+      RegisterDataSourceRequest request, InvalidDataSourceConfigurationException e) {
+    return new AnalyticsException(
+        AnalyticsErrorCode.INVALID_ARGUMENT,
+        Map.of(
+            "field", "provider_payload_json",
+            "reason", "invalid_configuration",
+            "catalog_name", request.getCatalogName(),
+            "data_source_name", request.getName(),
+            "provider_type", request.getProvider().getType()),
+        e);
   }
 
   public void deleteDataSourceCascade(T ctx, UUID dataSourceId) {

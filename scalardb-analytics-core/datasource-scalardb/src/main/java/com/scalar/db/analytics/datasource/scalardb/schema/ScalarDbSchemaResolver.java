@@ -14,6 +14,7 @@ import com.scalar.db.analytics.api.model.TableDetail;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.api.model.datasource.provider.ScalarDbProvider;
 import com.scalar.db.analytics.lib.functional.Throwables;
+import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
 import com.scalar.db.analytics.service.datasource.ResolvedSchemaEntry;
 import com.scalar.db.analytics.service.datasource.SchemaResolver;
@@ -50,13 +51,21 @@ public class ScalarDbSchemaResolver implements SchemaResolver {
 
   @Override
   public ResolvedSchema resolveSchema() throws SchemaResolverException {
-    try {
-      TransactionFactory factory = TransactionFactory.create(configProperties);
-      try (DistributedTransactionAdmin admin = factory.getTransactionAdmin()) {
-        return resolveAllTables(admin);
-      }
+    try (DistributedTransactionAdmin admin = createAdmin()) {
+      return resolveAllTables(admin);
     } catch (ExecutionException e) {
       throw new SchemaResolverException("Failed to fetch schema information of ScalarDB", e);
+    }
+  }
+
+  private DistributedTransactionAdmin createAdmin() throws InvalidDataSourceConfigurationException {
+    try {
+      return TransactionFactory.create(configProperties).getTransactionAdmin();
+    } catch (IllegalArgumentException e) {
+      // ScalarDB validates the configuration here and throws IllegalArgumentException for values
+      // it rejects, such as an unsupported scalar.db.storage or a property that is not a number.
+      throw new InvalidDataSourceConfigurationException(
+          "ScalarDB rejected the configuration of the data source", e);
     }
   }
 

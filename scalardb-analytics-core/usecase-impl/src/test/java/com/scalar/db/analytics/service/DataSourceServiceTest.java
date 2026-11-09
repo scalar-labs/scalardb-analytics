@@ -23,6 +23,7 @@ import com.scalar.db.analytics.api.model.RegisterDataSourceResult;
 import com.scalar.db.analytics.api.model.Table;
 import com.scalar.db.analytics.api.model.TableInfo;
 import com.scalar.db.analytics.api.model.datasource.provider.DynamoDbProvider;
+import com.scalar.db.analytics.api.model.datasource.provider.ScalarDbProvider;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.PostgreSql;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.api.request.schema.ColumnSchema;
@@ -37,6 +38,7 @@ import com.scalar.db.analytics.repository.NamespaceRepository;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
+import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
 import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
 import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
 import com.scalar.db.analytics.service.datasource.SchemaResolverException;
@@ -213,6 +215,102 @@ class DataSourceServiceTest {
                           DATA_SOURCE_NAME,
                           "provider_type",
                           DynamoDbProvider.TYPE));
+            });
+
+    verify(dataSourceRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void registerDataSource_scalarDbProviderWithConfigRejectedByScalarDb_shouldThrowInvalidArgument()
+      throws Exception {
+    // ScalarDB throws IllegalArgumentException for a storage it does not know. The real
+    // ScalarDbSchemaResolver runs here, and fails before connecting to anything.
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            ScalarDbProvider.builder()
+                .configs(Map.of("scalar.db.storage", "no-such-storage"))
+                .build(),
+            null);
+
+    when(catalogRepository.findByName(ctx, CATALOG_NAME))
+        .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
+
+    assertThatThrownBy(() -> service.registerDataSource(ctx, request))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "field",
+                          "provider_payload_json",
+                          "reason",
+                          "invalid_configuration",
+                          "catalog_name",
+                          CATALOG_NAME,
+                          "data_source_name",
+                          DATA_SOURCE_NAME,
+                          "provider_type",
+                          ScalarDbProvider.TYPE));
+              assertThat(ex.getCause())
+                  .isInstanceOf(InvalidDataSourceConfigurationException.class)
+                  .hasCauseInstanceOf(IllegalArgumentException.class);
+              // The library's message is logged through the cause, not returned to the caller.
+              assertThat(ex.getMessage()).doesNotContain("no-such-storage");
+            });
+
+    verify(dataSourceRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void registerDataSource_scalarDbProviderWithNonNumericProperty_shouldThrowInvalidArgument()
+      throws Exception {
+    // ScalarDB throws IllegalArgumentException for a property that must be a number. The JDBC
+    // storage validates its configuration before opening any connection.
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            ScalarDbProvider.builder()
+                .configs(
+                    Map.of(
+                        "scalar.db.storage",
+                        "jdbc",
+                        "scalar.db.contact_points",
+                        "jdbc:postgresql://127.0.0.1:1/db",
+                        "scalar.db.jdbc.connection_pool.min_idle",
+                        "not-a-number"))
+                .build(),
+            null);
+
+    when(catalogRepository.findByName(ctx, CATALOG_NAME))
+        .thenReturn(Optional.of(Catalog.of(catalogId, CATALOG_NAME)));
+
+    assertThatThrownBy(() -> service.registerDataSource(ctx, request))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "field",
+                          "provider_payload_json",
+                          "reason",
+                          "invalid_configuration",
+                          "catalog_name",
+                          CATALOG_NAME,
+                          "data_source_name",
+                          DATA_SOURCE_NAME,
+                          "provider_type",
+                          ScalarDbProvider.TYPE));
+              assertThat(ex.getCause())
+                  .isInstanceOf(InvalidDataSourceConfigurationException.class)
+                  .hasCauseInstanceOf(IllegalArgumentException.class);
+              assertThat(ex.getMessage()).doesNotContain("not-a-number");
             });
 
     verify(dataSourceRepository, never()).create(any(), any());

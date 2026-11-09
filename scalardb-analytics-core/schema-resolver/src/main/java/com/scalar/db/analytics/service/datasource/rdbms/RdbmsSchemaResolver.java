@@ -10,6 +10,7 @@ import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.api.model.SkippedColumn;
 import com.scalar.db.analytics.api.model.TableDetail;
 import com.scalar.db.analytics.api.model.TableInfo;
+import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
 import com.scalar.db.analytics.service.datasource.ResolvedSchema;
 import com.scalar.db.analytics.service.datasource.ResolvedSchemaEntry;
 import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
@@ -193,8 +194,24 @@ public abstract class RdbmsSchemaResolver implements SchemaResolver, AutoCloseab
   protected void openConnection() throws SchemaResolverException {
     try {
       this.conn = DriverManager.getConnection(connectionUrl, connectionProperties);
+    } catch (SQLException e) {
+      throw new JdbcException(e);
+    } catch (IllegalArgumentException e) {
+      // Most drivers report a malformed URL or property as SQLException, but some throw
+      // IllegalArgumentException instead (e.g. the Databricks driver throws NumberFormatException
+      // for a non-numeric port).
+      throw new InvalidDataSourceConfigurationException(
+          "The JDBC driver rejected the connection URL or properties of the data source", e);
+    }
+    try {
       this.metaData = new JdbcMetaData(conn.getMetaData());
     } catch (SQLException e) {
+      // The caller never receives this resolver, so close the connection here.
+      try {
+        conn.close();
+      } catch (SQLException closeFailure) {
+        e.addSuppressed(closeFailure);
+      }
       throw new JdbcException(e);
     }
   }
