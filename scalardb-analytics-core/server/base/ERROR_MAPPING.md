@@ -102,7 +102,8 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `grantee_type`, `permission`, `backend` | `unspecified` | The enum is left at its zero (`*_UNSPECIFIED`) value |
 | `grantee_type`, `permission`, `backend` | `unrecognized` | The enum holds a value the server does not know, such as one sent by a newer client |
 | `provider_payload_json` | `required` | A data source registration has no provider JSON |
-| `provider_payload_json`, `schema_json` | `invalid` | The provider or schema JSON does not decode: malformed JSON, an unknown provider type or data type, or a value the provider rejects. The metadata also carries `catalog_name` and `data_source_name`; the decoder's message is logged on the server but not returned, since it can echo the payload |
+| `provider_payload_json`, `schema_json` | `invalid` | The provider or schema JSON does not decode: malformed JSON, an unknown provider type or data type, or a value the provider rejects. The metadata also carries `catalog_name` and `data_source_name`, and for an entry of `data_sources` in a catalog initialization, the catalog name of the initialization request and `data_source_index` (the 0-based index of the entry). The decoder's message is logged on the server but not returned, since it can echo the payload. A provider codec failure that does not come from the payload, such as a bug in a codec, is reported as `DB-ANALYTICS-30103` |
+| `provider_payload_json` | `invalid_configuration` | The provider JSON decodes, but the data source's client library rejects the configuration while the server sets up the client: ScalarDB rejects the `configs` of a ScalarDB data source (such as an unsupported `scalar.db.storage` or a non-numeric property), or a JDBC driver throws `IllegalArgumentException` for the connection URL or properties. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type`; the library's message is logged on the server but not returned |
 
 ### 105xx — Entity Not Found
 
@@ -154,7 +155,7 @@ Produced only by the SDK (`GrpcExceptionMapper`) when a request terminates befor
 |----------------|----------------|-------------|-------------|
 | Any other exception | `DB-ANALYTICS-30103` | `INTERNAL` | Unexpected error |
 
-A bare `IllegalArgumentException` is not treated as a caller error. Invalid input is reported as `AnalyticsException` before it reaches code with its own argument checks: the gRPC layer decodes request fields (`RequestFields`, `RequestMapper`), and the use cases validate the rest, mirroring the checks of the domain and API constructors (such as a blank role name). An `IllegalArgumentException` that reaches the interceptor therefore indicates a server-side defect and maps to `DB-ANALYTICS-30103`. New request-path validation must throw `AnalyticsException` with `field` and `reason` metadata.
+A bare `IllegalArgumentException` is not treated as a caller error. Invalid input is reported as `AnalyticsException` before it reaches code with its own argument checks: the gRPC layer decodes request fields (`RequestFields`, `RequestMapper`), and the use cases validate the rest, mirroring the checks of the domain and API constructors (such as a blank role name). An `IllegalArgumentException` that a data source's client library (ScalarDB or a JDBC driver) throws for the caller's configuration is converted where the library is called (`reason=invalid_configuration` above). An `IllegalArgumentException` that reaches the interceptor therefore indicates a server-side defect and maps to `DB-ANALYTICS-30103`. New request-path validation must throw `AnalyticsException` with `field` and `reason` metadata.
 
 ## Implementation Details
 
