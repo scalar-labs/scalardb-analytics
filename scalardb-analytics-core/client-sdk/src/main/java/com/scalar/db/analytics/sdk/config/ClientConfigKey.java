@@ -14,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  * scalar.db.analytics.client.auth.username}) and an environment variable name derived from it by
  * upper-casing it and replacing dots with underscores (for example {@code
  * SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME}). Integrations that use their own property names, such
- * as the Spark connector, can map keys through {@link #relativeKey()}.
+ * as the Spark connector, map each key to their own name explicitly with {@link
+ * ConfigSource#properties(java.util.Map, java.util.function.Function)}.
  */
 public enum ClientConfigKey {
   /** The username for password authentication. Blank values are treated as unset. */

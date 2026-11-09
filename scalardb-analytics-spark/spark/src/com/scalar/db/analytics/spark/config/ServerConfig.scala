@@ -93,7 +93,12 @@ object ServerConfig {
     resolved.passwordCredential.toScala.map(c => AuthCredential(c.getUsername, c.getPassword))
   }
 
-  private def optionKey(key: ClientConfigKey): String = s"$Prefix.${key.relativeKey}"
+  // Mapped explicitly rather than derived from the SDK's property key, since the catalog option
+  // names don't follow the CLI's key layout (for example, the CLI's `server.host` is `host` here).
+  private def optionKey(key: ClientConfigKey): String = key match {
+    case ClientConfigKey.AUTH_USERNAME => s"$Prefix.auth.username"
+    case ClientConfigKey.AUTH_PASSWORD => s"$Prefix.auth.password"
+  }
 
   // ConfigSource follows the Java convention of returning null for an unset variable.
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
