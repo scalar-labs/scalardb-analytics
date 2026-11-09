@@ -6,10 +6,9 @@
 import com.scalar.db.analytics.gradle.licenseText
 
 plugins {
-    id("build-logic.java-common-conventions")
+    id("build-logic.spring-boot-platform")
     id("build-logic.license-notices")
     alias(libs.plugins.spring.boot)
-    alias(libs.plugins.spring.dependency.management)
     application
 }
 

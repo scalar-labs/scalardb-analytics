@@ -4,10 +4,9 @@
  */
 
 plugins {
-    id("build-logic.java-common-conventions")
+    id("build-logic.spring-boot-platform")
     id("build-logic.publishing-maven-local")
     alias(libs.plugins.spring.boot)
-    alias(libs.plugins.spring.dependency.management)
 }
 
 java {
