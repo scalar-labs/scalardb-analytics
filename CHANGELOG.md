@@ -25,7 +25,7 @@ changes released from here, starting with the entries below.
 
 ### Bug fixes
 
-- Fixed an issue where catalog initialization registered each data source in the catalog named by `catalog_name` of its `data_sources` entry rather than the catalog being initialized, so an entry without it failed with `DB-ANALYTICS-10500` (`CATALOG_NOT_FOUND`) and an entry naming another catalog was registered there. The `catalog_name` of each entry is now ignored. Errors for an entry also carry `data_source_index` in their metadata (#79)
+- Fixed an issue where catalog initialization registered each data source in the catalog named by `catalog_name` of its `data_sources` entry rather than the catalog being initialized, so an entry without it failed with `DB-ANALYTICS-10400` (`INVALID_ARGUMENT`) and an entry naming another catalog was registered there. The `catalog_name` of each entry is now ignored. Errors for an entry also carry `data_source_index` in their metadata (#79)
 - Fixed an issue where registering a data source, or initializing a catalog, with provider JSON that the provider rejects, such as a DynamoDB provider without a region or an endpoint or a field of the wrong type, failed with gRPC `INTERNAL` and `DB-ANALYTICS-30103`. It now fails with `INVALID_ARGUMENT` and `DB-ANALYTICS-10400`, with `field` set to `provider_payload_json` and `reason` to `invalid` (#79)
 
 ## [v3.20.0] - 2026-11-06
