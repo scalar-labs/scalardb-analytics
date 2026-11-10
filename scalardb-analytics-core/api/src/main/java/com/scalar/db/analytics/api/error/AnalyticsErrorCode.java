@@ -27,7 +27,8 @@ import java.util.Optional;
  * <p>Each constant carries an {@link ErrorDescription} (message + cause + action) so that the
  * user-facing wording lives next to the code. Throw sites pass only {@code (code, metadata)};
  * caller-written messages are not part of the API. The text content of {@code ErrorDescription} is
- * not part of the API contract — see {@link ErrorDescription} and ADR-0010.
+ * not part of the API contract — see {@link ErrorDescription} and
+ * docs/design/drive-control-flow-from-the-error-code.md.
  *
  * <h3>Design Principle: Metadata is for context, not control</h3>
  *
@@ -555,8 +556,8 @@ public enum AnalyticsErrorCode {
    * AnalyticsException} carrying a retryable code surfaces to application code, the gRPC transport
    * has already exhausted its automatic retries; the code is reported for diagnostics, not as a
    * directive to retry again. Application code must not build a retry loop on {@code isRetryable()}
-   * — there is no SDK-side retry loop (see ADR-0010), and re-executing here would double-retry an
-   * operation the transport already gave up on.
+   * — there is no SDK-side retry loop (see docs/design/drive-control-flow-from-the-error-code.md),
+   * and re-executing here would double-retry an operation the transport already gave up on.
    */
   public boolean isRetryable() {
     return errorCategory == ErrorCategory.RETRYABLE_SERVER_ERROR;

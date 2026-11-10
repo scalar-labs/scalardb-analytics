@@ -14,6 +14,7 @@ See the [ScalarDB Analytics documentation](https://scalardb.scalar-labs.com/docs
 | --- | --- |
 | [`scalardb-analytics-core/`](scalardb-analytics-core/README.md) | Catalog server, Java client SDK, CLI, and shared APIs |
 | [`scalardb-analytics-spark/`](scalardb-analytics-spark/README.md) | Apache Spark connector |
+| [`docs/`](docs/architecture.md) | Developer documentation: architecture and design decisions |
 
 ## Build from source
 

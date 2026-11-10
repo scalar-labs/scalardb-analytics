@@ -14,7 +14,7 @@ import java.util.UUID;
  *
  * <p>Each user has at most one active access token (1:1 relationship). Re-authentication replaces
  * the existing token. This design bounds token count to the number of users and eliminates the need
- * for expired token purging. See ADR-0005 for rationale.
+ * for expired token purging. See docs/design/keep-one-access-token-per-user.md for rationale.
  */
 public interface AccessTokenRepository<T extends RepositoryTransactionContext> {
   Optional<IssuedToken> findByUserIdAndToken(T ctx, UUID userId, String token);
