@@ -115,6 +115,10 @@ def analyticsVersionFile: T[PathRef] =
   Task.Source(BuildCtx.workspaceRoot / os.up / "scalardb-analytics-core" / "VERSION")
 def analyticsVersion: T[String] = Task(os.read(analyticsVersionFile().path).trim)
 
+// This project's own license text, shipped in every assembly. Apache-2.0 section 4(a) requires
+// giving every recipient a copy of the License, and publishing to Maven Central is distribution.
+def projectLicenseFile: T[PathRef] = Task.Source(BuildCtx.workspaceRoot / os.up / "LICENSE")
+
 // Base module with shared functionality
 // Extends PublishingConfig to make all modules publishable, which allows them to be used
 // in moduleDeps of other PublishModules (like spark). This prevents TestModule from trying
@@ -586,8 +590,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     // content is preserved verbatim in META-INF/THIRD-PARTY-NOTICES.txt, so nothing is lost.
     // The match is case-insensitive because META-INF/license.txt is the same colliding path:
     // 53 dependencies ship it, and which one survives is an accident of resolution order.
-    // When this artifact ships its own LICENSE (scalardb-analytics#559), narrow these patterns
-    // or add that file after the rules are applied, or it will be stripped along with the rest.
+    // This artifact's own LICENSE sits at the archive root instead, outside these patterns.
     Rule.ExcludePattern("(?i)META-INF/LICENSE(\\..*)?"),
     Rule.ExcludePattern("(?i)META-INF/NOTICE(\\..*)?"),
     Rule.ExcludePattern("(?i)META-INF/(LICENSE|NOTICE)_binary(\\..*)?"),
@@ -607,10 +610,15 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     Rule.Relocate("com.fasterxml.jackson.**", "com.scalar.db.relocated.com.fasterxml.jackson.@1")
   )
 
-  /** Aggregate notice and Oracle FUTC text for exactly what this assembly variant bundles.
+  /** This project's own LICENSE, plus aggregate notice and Oracle FUTC text for exactly what this
+    * assembly variant bundles.
     *
     * Generation runs as part of the build rather than from a committed copy, so the text always
     * matches the dependencies that were just resolved.
+    *
+    * The LICENSE goes to the archive root rather than META-INF, matching the CLI fat JAR: the
+    * `assemblyRules` exclusions strip every META-INF/LICENSE entry, and no bundled dependency ships
+    * a root-level LICENSE for it to collide with.
     */
   def generateLicenseReport: T[PathRef] = Task {
     val inventory = ujson.read(os.read(dependencyLicenseInventory().path))
@@ -625,6 +633,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
       )
     )
     os.write.over(metaInf / "ORACLE-FUTC.txt", LicenseReportSupport.oracleFutc(inventory))
+    os.copy.over(projectLicenseFile().path, Task.dest / "LICENSE")
     PathRef(Task.dest)
   }
 
@@ -635,10 +644,13 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     * — a packaging-time invariant that has no business failing the unit tests.
     *
     * This mirrors `AssemblyModule.assembly`, adding the generated directory to `inputPaths`.
+    *
+    * The root LICENSE is checked after assembly: a dependency that starts shipping a root-level
+    * LICENSE would win the first-writer-wins merge and silently replace this project's own.
     */
   override def assembly: T[PathRef] = Task {
     val prependScript = Option(prependShellScript()).filter(_ != "")
-    Assembly
+    val jar = Assembly
       .create(
         destJar = Task.dest / "out.jar",
         inputPaths = localClasspath().map(_.path) :+ generateLicenseReport().path,
@@ -649,6 +661,16 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
         shader = mill.javalib.AssemblyModule.jarjarabramsWorker()
       )
       .pathRef
+    val bundledLicense = scala.util.Using.resource(new java.util.zip.ZipFile(jar.path.toIO)) {
+      zip =>
+        Option(zip.getEntry("LICENSE")).map(entry => zip.getInputStream(entry).readAllBytes())
+    }
+    if (!bundledLicense.exists(_.sameElements(os.read.bytes(projectLicenseFile().path))))
+      Task.fail(
+        "The assembly's root LICENSE is missing or is not this project's LICENSE; " +
+          "a bundled dependency probably ships its own root-level LICENSE"
+      )
+    jar
   }
 }
 
