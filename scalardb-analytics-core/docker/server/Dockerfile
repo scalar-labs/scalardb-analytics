@@ -2,7 +2,7 @@
 # - https://kubernetes.io/blog/2018/10/01/health-checking-grpc-servers-on-kubernetes/
 # The official image is a multi-platform index, so it serves both platforms that the Makefile
 # builds for. You can confirm the digest with:
-#   docker buildx imagetools inspect ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60
+#   docker buildx imagetools inspect ghcr.io/grpc-ecosystem/grpc-health-probe:<tag>
 FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60@sha256:2d433b978644e40eb2b2887dbd0af3a19e470514a2176a97cad1971f13bdb171 AS grpc-health-probe
 
 # Build stage

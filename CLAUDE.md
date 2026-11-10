@@ -74,4 +74,4 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | `ghcr.io/scalar-labs/scalardb-analytics-server` | Catalog server, built from the `server:app` distribution |
 | `ghcr.io/scalar-labs/scalardb-analytics-cli` | Command-line client |
 
-Base image: `eclipse-temurin:21.0.13_9-jdk-resolute` (server) / `21.0.13_9-jre-resolute` (CLI runtime), Ubuntu 26.04, pinned by digest in the Dockerfiles. Runs as non-root user `scalardb` (UID 201) with a nologin shell; the application files stay owned by root.
+Base image: `eclipse-temurin` 21 with the `-jdk-resolute` (server) / `-jre-resolute` (CLI runtime) tag suffix, Ubuntu 26.04, pinned by tag and digest in the Dockerfiles. Dependabot updates the pinned tag, so see the Dockerfiles for the exact version. Runs as non-root user `scalardb` (UID 201) with a nologin shell; the application files stay owned by root.

@@ -87,7 +87,7 @@ The window opens the moment the release PR lands on `main`, not when the tag is 
 
 ## 7. Dependabot
 
-This repository does not configure Dependabot yet, so no release branch receives dependency updates. When it is configured, each release branch will need its own entry on `main`: Dependabot reads `.github/dependabot.yml` only on the default branch.
+Dependabot is configured only for the `docker` ecosystem, and only for `main`: it proposes updates of the base images pinned in the Dockerfiles. No release branch receives Dependabot updates; base image updates reach a release branch by backporting the change merged into `main`. If a release branch ever needs its own updates, it needs its own entry on `main`: Dependabot reads `.github/dependabot.yml` only on the default branch.
 
 ## 8. What `release.yaml` does
 

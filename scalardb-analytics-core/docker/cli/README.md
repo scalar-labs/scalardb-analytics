@@ -82,7 +82,7 @@ Note: The CLI itself does not have an interactive mode. Each invocation runs a s
 
 ## Image Details
 
-- Base image: `eclipse-temurin:21.0.13_9-jre-resolute` (Ubuntu 26.04), pinned by digest in the Dockerfile
+- Base image: `eclipse-temurin` 21 with the `-jre-resolute` tag suffix (Ubuntu 26.04), pinned by tag and digest in the Dockerfile; see the Dockerfile for the exact version
 - User: `scalardb` (UID/GID 201) with a nologin shell
 - Working directory: `/scalardb-analytics-cli`
 - JAR location: `/scalardb-analytics-cli/scalardb-analytics-cli.jar`
