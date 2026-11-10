@@ -27,7 +27,7 @@ public interface RoleMapper {
   // protobuf-java 4.x exposes clearExtension on the Builder; this module resolves protobuf-java 4.x
   // via proto-google-common-protos, while the grpc module stays on 3.x, so the ignore is declared
   // here instead of in the shared IgnoreProtobufBuilderDefaults.
-  // TODO(#521): once the authz models are consolidated into the api module and this mapper moves to
+  // TODO(#37): once the authz models are consolidated into the api module and this mapper moves to
   // the grpc module (protobuf-java 3.x), remove this clearExtension ignore.
   @Mapping(target = "clearExtension", ignore = true)
   Role toProto(com.scalar.db.analytics.domain.authz.Role role);

@@ -83,7 +83,7 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               .putAllMetadata(ae.getMetadata())
               .build();
     } else if (exception instanceof IllegalArgumentException) {
-      // TODO(#499): Temporary bridge. Request-path validation / "not found" code still throws bare
+      // TODO(#34): Temporary bridge. Request-path validation / "not found" code still throws bare
       // IllegalArgumentException; map it to INVALID_ARGUMENT so client input errors are not
       // mislabeled as INTERNAL. Remove this branch once those sites throw AnalyticsException.
       errorCode = AnalyticsErrorCode.INVALID_ARGUMENT;

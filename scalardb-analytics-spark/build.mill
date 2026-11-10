@@ -586,7 +586,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     // content is preserved verbatim in META-INF/THIRD-PARTY-NOTICES.txt, so nothing is lost.
     // The match is case-insensitive because META-INF/license.txt is the same colliding path:
     // 53 dependencies ship it, and which one survives is an accident of resolution order.
-    // When this artifact ships its own LICENSE (scalardb-analytics#559), narrow these patterns
+    // When this artifact ships its own LICENSE (#16), narrow these patterns
     // or add that file after the rules are applied, or it will be stripped along with the rest.
     Rule.ExcludePattern("(?i)META-INF/LICENSE(\\..*)?"),
     Rule.ExcludePattern("(?i)META-INF/NOTICE(\\..*)?"),

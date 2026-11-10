@@ -232,9 +232,9 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
 
   // ---------------- Write operations: link ----------------
 
-  // TODO(#481): linkBackendUser/unlinkBackendUser throw raw IllegalArgumentException, which is
+  // TODO(#34): linkBackendUser/unlinkBackendUser throw raw IllegalArgumentException, which is
   // inconsistent with the structured AnalyticsException(AnalyticsErrorCode.*) style used elsewhere
-  // in this class. Reconcile when the server-side error-handling refactor (#481) migrates this
+  // in this class. Reconcile when the server-side error-handling refactor (#34) migrates this
   // layer onto the unified error codes.
   @Override
   public void linkBackendUser(
@@ -246,13 +246,13 @@ public class UserUseCaseImpl<T extends RepositoryTransactionContext> implements 
               authUserRepository
                   .findByUsername(ctx, username)
                   .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
-          // TODO(#508): Only INTERNAL backend users are verified to exist here. For non-INTERNAL
+          // TODO(#32): Only INTERNAL backend users are verified to exist here. For non-INTERNAL
           // backends (e.g. ScalarDB Cluster) the backend user is reference-only / managed
           // externally, so existence is not checked. Linking a non-existent user creates an inert
           // PasswordIdentity that does nothing until that backend user authenticates. Add an
           // existence check when a backend admin API is available. Relatedly, whether
           // external-backend login should require an explicit link (JIT-optional) is tracked in
-          // #507.
+          // #31.
           if (backend == PasswordBackendType.INTERNAL
               && internalCredentialRepository.findByUsername(ctx, backendUsername).isEmpty()) {
             throw new IllegalArgumentException(

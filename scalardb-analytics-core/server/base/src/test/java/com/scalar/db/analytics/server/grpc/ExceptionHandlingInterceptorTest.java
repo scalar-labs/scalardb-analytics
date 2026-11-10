@@ -427,7 +427,7 @@ class ExceptionHandlingInterceptorTest {
 
   @Test
   void mapToGrpcStatus_ShouldMapEveryRetryableCodeToRetryableStatus() {
-    // Guards #496: a code declared retryable must surface as a gRPC-retryable status (UNAVAILABLE),
+    // A code declared retryable must surface as a gRPC-retryable status (UNAVAILABLE),
     // so the gRPC transport actually retries it. Keeps the category and status axes consistent.
     for (AnalyticsErrorCode code : AnalyticsErrorCode.values()) {
       if (code.getErrorCategory() == AnalyticsErrorCode.ErrorCategory.RETRYABLE_SERVER_ERROR) {
