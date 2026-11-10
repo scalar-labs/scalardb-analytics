@@ -23,6 +23,7 @@ package com.scalar.db.analytics.spark.lib.port
 
 import java.util
 import scala.collection.JavaConverters._
+import com.scalar.db.analytics.compat.spark.JdbcUtilsCompat
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connector.catalog._
 import org.apache.spark.sql.connector.catalog.TableCapability._
@@ -38,7 +39,6 @@ import org.apache.spark.sql.execution.datasources.v2.jdbc.{
   JDBCScanBuilder,
   JDBCWriteBuilder
 }
-import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
@@ -47,10 +47,12 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
   * version 3.5.3. This is required to keep the original class in environments
   * where the providers modify the class implementation, which may lead to
   * runtime errors. So far, Databricks has modified the class.
+  * <p> Index errors are classified through [[JdbcUtilsCompat]] because the
+  * signature of `JdbcUtils.classifyException` changed in Spark 4.0.
   */
 case class ForkedJDBCTable(
     ident: Identifier,
-    schema: StructType,
+    override val schema: StructType,
     jdbcOptions: JDBCOptions
 ) extends Table
     with SupportsRead
@@ -88,9 +90,10 @@ case class ForkedJDBCTable(
       properties: util.Map[String, String]
   ): Unit = {
     JdbcUtils.withConnection(jdbcOptions) { conn =>
-      JdbcUtils.classifyException(
-        s"Failed to create index $indexName in $name",
-        JdbcDialects.get(jdbcOptions.url)
+      JdbcUtilsCompat.classifyCreateIndexException(
+        indexName,
+        name(),
+        jdbcOptions
       ) {
         JdbcUtils.createIndex(
           conn,
@@ -113,9 +116,10 @@ case class ForkedJDBCTable(
 
   override def dropIndex(indexName: String): Unit = {
     JdbcUtils.withConnection(jdbcOptions) { conn =>
-      JdbcUtils.classifyException(
-        s"Failed to drop index $indexName in $name",
-        JdbcDialects.get(jdbcOptions.url)
+      JdbcUtilsCompat.classifyDropIndexException(
+        indexName,
+        name(),
+        jdbcOptions
       ) {
         JdbcUtils.dropIndex(conn, indexName, ident, jdbcOptions)
       }

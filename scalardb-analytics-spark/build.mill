@@ -18,11 +18,15 @@ import mill.api.BuildCtx
 object ScalaVersions {
   val v212 = "2.12.20"
   val v213 = "2.13.16"
+  // Spark 4.1 is built with Scala 2.13.17 and calls scala-library methods that 2.13.16 lacks, so it
+  // fails with NoSuchMethodError on a 2.13.16 runtime.
+  val v213Spark41 = "2.13.17"
 }
 
 object SparkVersions {
-  val v34 = "3.4.4"
   val v35 = "3.5.6"
+  val v40 = "4.0.5"
+  val v41 = "4.1.4"
 }
 
 // Type-safe version representations
@@ -50,18 +54,39 @@ object ScalaVersion {
 sealed trait SparkVersion {
   def version: String
   def short: String
+
+  /** The Scala versions that Spark publishes this version for. */
+  def scalaVersions: Seq[ScalaVersion]
+
+  /** The full Scala version to build with for the given Scala binary version.
+    *
+    * A Spark version that needs a newer Scala patch than the default overrides this. The default is
+    * kept for the others: code compiled with a newer patch may call scala-library methods that the
+    * Scala runtime of an older Spark version lacks.
+    */
+  def scalaVersionFor(scalaVersion: ScalaVersion): String = scalaVersion.version
 }
 object SparkVersion {
-  case object V34 extends SparkVersion {
-    val version = SparkVersions.v34
-    val short   = "3.4"
-  }
   case object V35 extends SparkVersion {
-    val version = SparkVersions.v35
-    val short   = "3.5"
+    val version       = SparkVersions.v35
+    val short         = "3.5"
+    val scalaVersions = Seq(ScalaVersion.V212, ScalaVersion.V213)
+  }
+  // Spark 4 is published for Scala 2.13 only.
+  case object V40 extends SparkVersion {
+    val version       = SparkVersions.v40
+    val short         = "4.0"
+    val scalaVersions = Seq(ScalaVersion.V213)
+  }
+  case object V41 extends SparkVersion {
+    val version       = SparkVersions.v41
+    val short         = "4.1"
+    val scalaVersions = Seq(ScalaVersion.V213)
+
+    override def scalaVersionFor(scalaVersion: ScalaVersion): String = ScalaVersions.v213Spark41
   }
 
-  val all = Seq(V34, V35)
+  val all = Seq(V35, V40, V41)
 
   // Define Cross.ToSegments instance for SparkVersion
   implicit val sparkVersionToSegments: Cross.ToSegments[SparkVersion] =
@@ -74,7 +99,7 @@ object Versions {
 
   val scalapb          = "0.11.17"
   val scalatest        = "3.2.19"
-  val wartremover      = "3.2.2"
+  val wartremover      = "3.5.8"
   val slf4j            = "2.0.17"
   val testcontainers   = "2.0.2"
   val hikaricp         = "5.1.0"
@@ -103,7 +128,7 @@ object Versions {
   // Jackson (must match jackson-bom in core's Gradle build)
   val jacksonModuleScala = "2.22.0"
 
-  // Joda Time (required by emr-dynamodb-hadoop in Spark 3.4)
+  // Joda Time (a provided-scope dependency of emr-dynamodb-hadoop)
   val jodaTime = "2.12.5"
 }
 
@@ -202,6 +227,8 @@ trait BaseModule extends ScalaModule with ScalafmtModule with ScalafixModule wit
     baseOptions ++ scala213Options ++ wartRemoverOptions
   }
 
+  // WartRemover is published per full Scala version, so Versions.wartremover has to be a version
+  // that is published for every Scala version that a module builds with.
   def scalacPluginMvnDeps = Seq(
     mvn"org.wartremover::wartremover:${Versions.wartremover}"
   )
@@ -215,7 +242,7 @@ trait BaseModule extends ScalaModule with ScalafmtModule with ScalafixModule wit
 
 // Cross-build specific settings (Scala version first, Spark version second)
 trait CrossBuildModule extends Cross.Module2[ScalaVersion, SparkVersion] with BaseModule {
-  def scalaVersion = crossValue.version
+  def scalaVersion = crossValue2.scalaVersionFor(crossValue)
   def sparkVersion = crossValue2.version
 
   // Spark dependencies as compileOnly by default
@@ -255,10 +282,12 @@ trait PublishingConfig extends PublishModule {
   )
 }
 
-// Cross-build matrix for two axes (Scala version first, then Spark version)
+// Cross-build matrix for two axes (Scala version first, then Spark version). Only the
+// combinations that Spark itself is published for are built.
 lazy val crossMatrix = for {
   scalaVer <- ScalaVersion.all
   sparkVer <- SparkVersion.all
+  if sparkVer.scalaVersions.contains(scalaVer)
 } yield (scalaVer, sparkVer)
 
 // Define cross modules with new names (no spark- prefix)
@@ -279,10 +308,10 @@ trait CompatModule extends CrossBuildModule {
     case ScalaVersion.V213 => Task.Sources("src-2.13")
   }
 
-  // Spark version specific sources
+  // Spark version specific sources. Spark 4.0 and 4.1 share theirs.
   def sparkVersionSources = crossValue2 match {
-    case SparkVersion.V34 => Task.Sources("src-spark3.4")
-    case SparkVersion.V35 => Task.Sources("src-spark3.5")
+    case SparkVersion.V35                    => Task.Sources("src-spark3.5")
+    case SparkVersion.V40 | SparkVersion.V41 => Task.Sources("src-spark4")
   }
 
   // Combine all sources
@@ -415,6 +444,9 @@ trait SparkModule extends CrossBuildModule {
         // AsInstanceOf checks: Integration tests require type casting for dynamic data access
         // (e.g., row.get().asInstanceOf[Array[Byte]]).
         .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.AsInstanceOf"))
+        // MutableDataStructures checks: ScalaTest's assert macro expands comparisons of arrays
+        // (e.g. `sameElements`, `toSet`) into code that newer WartRemover versions report as mutable.
+        .filterNot(_.contains("wartremover:traverser:org.wartremover.warts.MutableDataStructures"))
 
     // JVM options for Spark on Java 17+
     def forkArgs = Seq(
@@ -476,7 +508,7 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     import scala.xml.transform._
 
     // Capture versions before transform to ensure they're available in XML literals
-    val scalaVer   = crossValue.version
+    val scalaVer   = scalaVersion()
     val sparkVer   = crossValue2.version
     val scalaShort = crossValue.short
 
@@ -718,7 +750,7 @@ object datasource extends Module {
       //   https://github.com/aws/aws-sdk-java-v2/pull/6964 (acknowledges the EMR / ApacheHttpClient break)
       //   https://github.com/aws/aws-sdk-java-v2/commit/faf0ded25c57c9183fc7dac986ab20d238c67db6
       mvn"software.amazon.awssdk:apache-client:${Versions.awsDynamodb}",
-      // Joda Time (transitive dependency of emr-dynamodb-hadoop, explicitly added for Spark 3.4)
+      // Joda Time (emr-dynamodb-hadoop declares it with provided scope, so it is not transitive)
       mvn"joda-time:joda-time:${Versions.jodaTime}"
     )
 
@@ -824,7 +856,7 @@ def collectTestReports() = Task.Command {
       val parts        = relativePath.segments.toSeq
 
       // Build destination path with version prefix
-      // Example: out/spark/2.12/3.4/test/testForked.dest -> {Task.dest}/2.12-3.4/spark/test/
+      // Example: out/spark/2.13/4.1/test/testForked.dest -> {Task.dest}/2.13-4.1/spark/test/
       val pathSegments = parts.dropRight(1) // Remove "testForked.dest" from path
       if (pathSegments.length >= 3) {
         // Extract components: [...module...]/scalaVer/sparkVer/testType
@@ -881,14 +913,14 @@ def checkLicense() = Task.Command {
   *   - Separate Oracle version tasks (to avoid disk space issues)
   *   - Separate tasks for cloud platform tests (Databricks, Snowflake)
   *
-  * Usage examples: ./mill 'ciTest[2.12,3.4].unitTest' # Run all unit tests ./mill
-  * 'ciTest[2.12,3.4].integrationTestLatest' # Regular CI (latest, Oracle excluded) ./mill
-  * 'ciTest[2.12,3.4].integrationTestAll' # Weekly CI (all versions, Oracle excluded) ./mill
-  * 'ciTest[2.12,3.4].integrationTestOracle23' # Oracle 23c only ./mill
-  * 'ciTest[2.12,3.4].integrationTestOracle21' # Oracle 21c only ./mill
-  * 'ciTest[2.12,3.4].integrationTestOracle19' # Oracle 19c only ./mill
-  * 'ciTest[2.12,3.4].integrationTestDatabricks' # Databricks only ./mill
-  * 'ciTest[2.12,3.4].integrationTestSnowflake' # Snowflake only
+  * Usage examples: ./mill 'ciTest[2.13,4.1].unitTest' # Run all unit tests ./mill
+  * 'ciTest[2.13,4.1].integrationTestLatest' # Regular CI (latest, Oracle excluded) ./mill
+  * 'ciTest[2.13,4.1].integrationTestAll' # Weekly CI (all versions, Oracle excluded) ./mill
+  * 'ciTest[2.13,4.1].integrationTestOracle23' # Oracle 23c only ./mill
+  * 'ciTest[2.13,4.1].integrationTestOracle21' # Oracle 21c only ./mill
+  * 'ciTest[2.13,4.1].integrationTestOracle19' # Oracle 19c only ./mill
+  * 'ciTest[2.13,4.1].integrationTestDatabricks' # Databricks only ./mill
+  * 'ciTest[2.13,4.1].integrationTestSnowflake' # Snowflake only
   *
   * Note: When adding new modules, update the test lists in runUnitTest.
   */

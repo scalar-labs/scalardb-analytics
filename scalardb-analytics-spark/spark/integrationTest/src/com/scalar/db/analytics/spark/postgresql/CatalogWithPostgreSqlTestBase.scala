@@ -184,43 +184,22 @@ trait CatalogWithPostgreSqlTestBase extends BaseSpec with CatalogTestBase with B
       val byteaCol = row.get(13).asInstanceOf[Array[Byte]]
       assert(byteaCol sameElements Array[Byte](0x48, 0x65, 0x6c, 0x6c, 0x6f)) // bytea_col ('Hello')
       assert(row.getDate(14).toLocalDate == LocalDate.parse("2024-10-27"))    // date_col
-      // Spark 3.4 vs 3.5 behavior difference for TIME and TIMESTAMP types:
-      //
-      // Spark 3.4:
-      //   - TIME and TIMESTAMP WITHOUT TIMEZONE types are converted from system timezone (JST) to UTC
-      //   - Example: 15:30:00 JST -> 06:30:00 UTC (9 hours difference)
-      //   - This affects: TIME, TIME WITHOUT TIMEZONE, TIMESTAMP, TIMESTAMP WITHOUT TIMEZONE
-      //
-      // Spark 3.5:
-      //   - TIME and TIMESTAMP WITHOUT TIMEZONE types are NOT converted (kept as-is)
-      //   - Example: 15:30:00 JST -> 15:30:00 (no conversion)
-      //
-      // Note: TIMESTAMP WITH TIMEZONE is always converted to UTC in both versions
+      // TIME and TIMESTAMP WITHOUT TIMEZONE values are kept as-is, without conversion from the
+      // system timezone (e.g. 15:30:00 JST stays 15:30:00). TIMESTAMP WITH TIMEZONE is converted
+      // to UTC.
       val (
         expectedTimeCol,
         expectedTimeWithTimezoneCol,
         expectedTimeWithoutTimezoneCol,
         expectedTimestampCol,
         expectedTimestampWithoutTimezoneCol
-      ) = if (org.apache.spark.SPARK_VERSION.startsWith("3.4")) {
-        // Spark 3.4: Convert to UTC
-        (
-          DateTimeUtil.localToUtc(DateTimeUtil.parseLocalTime("15:30:00")),
-          DateTimeUtil.localToUtc(parseOffsetTime("15:30:00+00:00")),
-          DateTimeUtil.localToUtc(DateTimeUtil.parseLocalTime("15:30:00")),
-          DateTimeUtil.localToUtc(LocalDateTime.parse("2024-10-27T15:30:00")),
-          DateTimeUtil.localToUtc(LocalDateTime.parse("2024-10-27T15:30:00"))
-        )
-      } else {
-        // Spark 3.5: Keep as-is
-        (
-          DateTimeUtil.parseLocalTime("15:30:00"),
-          parseOffsetTime("15:30:00+00:00"),
-          DateTimeUtil.parseLocalTime("15:30:00"),
-          LocalDateTime.parse("2024-10-27T15:30:00"),
-          LocalDateTime.parse("2024-10-27T15:30:00")
-        )
-      }
+      ) = (
+        DateTimeUtil.parseLocalTime("15:30:00"),
+        parseOffsetTime("15:30:00+00:00"),
+        DateTimeUtil.parseLocalTime("15:30:00"),
+        LocalDateTime.parse("2024-10-27T15:30:00"),
+        LocalDateTime.parse("2024-10-27T15:30:00")
+      )
 
       // Assertions
       val timeCol = row.get(15).asInstanceOf[LocalDateTime]

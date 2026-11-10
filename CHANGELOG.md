@@ -13,6 +13,14 @@ changes released from here, starting with the entries below.
 
 ## [Unreleased]
 
+### Enhancements
+
+- Added Spark 4.1 and Spark 4.0 support. The Spark connector is published for Spark 4.1.4 and 4.0.5 with Scala 2.13, as `scalardb-analytics-spark-all-4.1_2.13` and `scalardb-analytics-spark-all-4.0_2.13`. Spark 4 is not published for Scala 2.12, so there are no Scala 2.12 artifacts for these versions. On Spark 4, the connector uses the Databricks JDBC dialect built into Spark (#85)
+
+### Improvements
+
+- [BREAKING] Dropped Spark 3.4 support. The `scalardb-analytics-spark-all-3.4_2.12` and `scalardb-analytics-spark-all-3.4_2.13` artifacts are no longer published; use Spark 3.5, 4.0, or 4.1 instead (#85)
+
 ## [v3.20.0] - 2026-11-06
 
 ### Enhancements

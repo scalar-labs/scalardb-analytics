@@ -6,7 +6,8 @@
 package com.scalar.db.analytics.compat.spark
 
 // The implementations are copied from org.apache.spark.sql.catalyst.util.QuotingUtils of Spark 3.5
-// to make it compatible with Spark 3.4.
+// rather than delegating to it, so that the result does not depend on the Spark version: from
+// Spark 4.0, QuotingUtils also quotes identifiers that start with a digit, such as `123table`.
 object QuotingUtil {
   def quoted(namespace: Array[String]): String =
     namespace.map(quoteIfNeeded).mkString(".")

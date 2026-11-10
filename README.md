@@ -41,10 +41,11 @@ These tasks publish the artifacts to Maven Local, where the Spark build resolves
 cd ../scalardb-analytics-spark
 ./mill __.compile
 ./mill __.test
-./mill 'sparkAll[2.13,3.5].assembly'
+./mill 'sparkAll[2.13,4.1].assembly'
 ```
 
-The last command builds the Spark 3.5 and Scala 2.13 assembly.
+The last command builds the Spark 4.1 and Scala 2.13 assembly.
+The connector is built for Spark 4.1 and 4.0 with Scala 2.13, and for Spark 3.5 with Scala 2.12 and 2.13.
 See the [Spark module README](scalardb-analytics-spark/README.md) for the complete cross-build matrix.
 
 ## Documentation

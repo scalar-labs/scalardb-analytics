@@ -80,7 +80,7 @@ that artifact's own runtime classpath.
 | --- | --- | --- |
 | CLI fat JAR | `META-INF/THIRD-PARTY-NOTICES.txt` | The `client:cli` runtime classpath |
 | Server distribution (`server:app`) | `THIRD-PARTY-NOTICES.txt` and `ORACLE-FUTC.txt` at the distribution root | The distribution's own runtime classpath |
-| Spark assemblies (`scalardb-analytics-spark-all-3.x`) | `META-INF/THIRD-PARTY-NOTICES.txt` and `META-INF/ORACLE-FUTC.txt` | Each assembly's own runtime classpath |
+| Spark assemblies (`scalardb-analytics-spark-all-<spark>`) | `META-INF/THIRD-PARTY-NOTICES.txt` and `META-INF/ORACLE-FUTC.txt` | Each assembly's own runtime classpath |
 | Gradle modules published to Maven Central | Nothing | Not applicable |
 
 The Gradle modules bundle no third-party code, so no attribution travels with them. The CLI fat JAR
