@@ -24,7 +24,7 @@ object ScalaVersions {
 }
 
 object SparkVersions {
-  val v35 = "3.5.6"
+  val v35 = "3.5.9"
   val v40 = "4.0.5"
   val v41 = "4.1.4"
 }

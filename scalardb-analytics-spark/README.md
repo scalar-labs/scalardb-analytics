@@ -40,8 +40,8 @@ The notices are generated into the assembly at packaging time and are not commit
 
 | Scala | Spark |
 | --- | --- |
-| 2.12.20 | 3.5.6 |
-| 2.13.16 | 3.5.6 |
+| 2.12.20 | 3.5.9 |
+| 2.13.16 | 3.5.9 |
 | 2.13.16 | 4.0.5 |
 | 2.13.17 | 4.1.4 |
 
