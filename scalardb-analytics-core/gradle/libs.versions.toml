@@ -4,7 +4,7 @@ guava = "33.6.0-jre"
 mybatis = "3.5.19"
 hikaricp = "4.0.3"
 grpc = "1.85.1"
-hikaricp5 = "5.1.0"          # For Spring Data JDBC module (Java 21)
+hikaricp5 = "5.1.0"          # For Spring Data JDBC module (Java 25)
 javax-annotation = "1.3.2"
 jakarta-annotation = "3.0.0"
 jackson-bom = "2.22.1"            # Jackson 2; the highest of this and Spring Boot's jackson-2-bom wins
@@ -23,9 +23,9 @@ h2 = "2.4.240"
 postgresql = "42.7.14"
 mariadb = "3.5.11"
 sqlserver = "13.6.0.jre11"
-sqlserver11 = "13.6.0.jre11" # For Spring Data JDBC module (Java 21)
+sqlserver11 = "13.6.0.jre11" # For Spring Data JDBC module (Java 25)
 oracle = "23.26.3.0.0"
-oracle11 = "23.26.3.0.0"    # ojdbc11 for Spring Data JDBC module (Java 21)
+oracle11 = "23.26.3.0.0"    # ojdbc11 for Spring Data JDBC module (Java 25)
 
 # Data Sources
 scalardb = "3.20.0"
@@ -61,12 +61,12 @@ shadow-plugin = "8.3.11"
 license-report-plugin = "3.1.2"
 errorprone-plugin = "4.2.0"
 spotless-plugin = "6.25.0"
-detekt-plugin = "1.23.8"
+detekt-plugin = "2.0.0-alpha.6"  # 1.23.x cannot run on JDK 25 and will not get support for it (detekt/detekt#9772)
 
 # Tool versions
-lombok = "1.18.34"
-spotbugs = "4.8.6"
-googleJavaFormat = "1.23.0"
+lombok = "1.18.42"
+spotbugs = "4.9.8"
+googleJavaFormat = "1.30.0"
 ktfmt = "0.46"
 buf-tool = "1.39.0"
 
@@ -185,7 +185,7 @@ lombok-plugin = { module = "io.freefair.gradle:lombok-plugin", version.ref = "lo
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless-plugin" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt-plugin" }
+detekt = { id = "dev.detekt", version.ref = "detekt-plugin" }
 buf-gradle-plugin = { id = "build.buf", version.ref = "buf-gradle-plugin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow-plugin" }

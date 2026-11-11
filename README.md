@@ -21,7 +21,7 @@ The core build publishes its artifacts to Maven Local, and the Spark build resol
 
 ### Prerequisites
 
-- JDK 21 for the core Gradle build
+- JDK 25 for the core Gradle build
 
 The repository includes the Gradle wrapper.
 Mill downloads its configured JDK 17 toolchain and build tool version when needed.
