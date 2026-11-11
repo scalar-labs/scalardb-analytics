@@ -56,7 +56,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 
 **Client-side modules (Java 8 target)**: `api`, `lib`, `client-sdk`, `client/cli`, `grpc`, `grpc-common`. These are compiled with a modern JDK using `--release 8` (so current Error Prone / NullAway tooling can run) and have their tests executed on a real Java 8 runtime — see `build-logic.java8-conventions`.
 
-**Server-side modules (Java 21)**: `domain`, `usecase`, `usecase-impl`, `service`, `repository`, `repository-impl-spring-data-jdbc`, `server/*`, `tools/*`, `schema-resolver`, `datasource-scalardb`. The `build-logic.java-common-conventions` default toolchain is Java 21; modules fall through to it unless they opt into `java8-conventions`.
+**Server-side modules (Java 25)**: `domain`, `usecase`, `usecase-impl`, `service`, `repository`, `repository-impl-spring-data-jdbc`, `server/*`, `tools/*`, `schema-resolver`, `datasource-scalardb`. The `build-logic.java-common-conventions` default toolchain is Java 25; modules fall through to it unless they opt into `java8-conventions`.
 
 **Spark module (Java 17)**: Mill build uses `temurin:17`.
 
@@ -74,4 +74,4 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | `ghcr.io/scalar-labs/scalardb-analytics-server` | Catalog server, built from the `server:app` distribution |
 | `ghcr.io/scalar-labs/scalardb-analytics-cli` | Command-line client |
 
-Base image: `eclipse-temurin:21.0.13_9-jdk-resolute` (server) / `21.0.13_9-jre-resolute` (CLI runtime), Ubuntu 26.04, pinned by digest in the Dockerfiles. Runs as non-root user `scalardb` (UID 201) with a nologin shell; the application files stay owned by root.
+Base image: `eclipse-temurin:25.0.5_8-jdk-resolute` (server) / `25.0.5_8-jre-resolute` (CLI runtime), Ubuntu 26.04, pinned by digest in the Dockerfiles. Runs as non-root user `scalardb` (UID 201) with a nologin shell; the application files stay owned by root.
