@@ -19,6 +19,7 @@ changes released from here, starting with the entries below.
 
 ### Improvements
 
+- [BREAKING] Raised the JDK of the server-side modules and the core Gradle build from Java 21 to Java 25. The server-side modules are compiled for Java 25, the server and CLI images run on Java 25 (`eclipse-temurin:25.0.5_8-jdk-resolute` and `eclipse-temurin:25.0.5_8-jre-resolute` instead of `eclipse-temurin:21.0.13_9-jdk-resolute` and `eclipse-temurin:21.0.13_9-jre-resolute`), and building `scalardb-analytics-core` from source requires JDK 25. The client-facing modules (`api`, `lib`, `grpc`, `grpc-common`, the Java client SDK, and the CLI) still target Java 8 (#84)
 - The CLI and the Spark connector now resolve the authentication credential with the same rules (#78)
 
 ### Bug fixes

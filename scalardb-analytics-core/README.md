@@ -5,7 +5,7 @@ For product concepts and usage, see the [official documentation](https://scalard
 
 ## Build
 
-Use JDK 21 and the included Gradle wrapper:
+Use JDK 25 and the included Gradle wrapper:
 
 ```bash
 ./gradlew check
