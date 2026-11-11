@@ -129,11 +129,11 @@ copy against a generated one. Restoring either would reintroduce a check that ca
 Such a comparison assumes the resolved dependency graph is a function of the commit. The ScalarDB
 dependency is a SNAPSHOT during a development cycle, which breaks that assumption: the resolved
 graph changes without any change to this repository's own sources. Automated dependency updates
-would break the check as well. Dependabot currently updates only the container base images on
-`main` (see [`.github/dependabot.yml`](../.github/dependabot.yml)), which does not touch the
-dependency graph. If it is extended to the Gradle or Mill dependencies, it cannot regenerate a
-notice file, so every one of its pull requests would fail until someone regenerated the file by
-hand.
+would break the check as well. Dependabot currently updates only the container base images, on
+`main` and on each release branch (see [`.github/dependabot.yml`](../.github/dependabot.yml)),
+which does not touch the dependency graph. If it is extended to the Gradle or Mill dependencies, it
+cannot regenerate a notice file, so every one of its pull requests would fail until someone
+regenerated the file by hand on each branch.
 
 Generating at packaging time removes the question. Nothing has to be kept in sync, and the notice
 in a published artifact is correct by construction rather than by discipline.

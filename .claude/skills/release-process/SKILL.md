@@ -87,7 +87,11 @@ The window opens the moment the release PR lands on `main`, not when the tag is 
 
 ## 7. Dependabot
 
-Dependabot is configured only for the `docker` ecosystem, and only for `main`: it proposes updates of the base images pinned in the Dockerfiles. No release branch receives Dependabot updates; base image updates reach a release branch by backporting the change merged into `main`. If a release branch ever needs its own updates, it needs its own entry on `main`: Dependabot reads `.github/dependabot.yml` only on the default branch.
+Dependabot is configured only for the `docker` ecosystem: it proposes updates of the base images pinned in the Dockerfiles, on `main` and on each release branch. Dependabot reads `.github/dependabot.yml` only on the default branch, so a release branch receives updates only if `main` carries a block for it.
+
+After creating `release/X.Y` (section 4, step 5), open a PR against `main` that copies the `docker` block in `.github/dependabot.yml`, adds `target-branch: "release/X.Y"` to the copy, and renames its group to `container images on branch X.Y`. Add the block only once the branch exists on the remote. Remove the block when the release branch is no longer maintained.
+
+**Skipping this does not break anything loudly.** A release branch without a block simply stops receiving base image updates, and nothing reports it.
 
 ## 8. What `release.yaml` does
 
