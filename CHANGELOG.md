@@ -19,6 +19,7 @@ changes released from here, starting with the entries below.
 
 ### Improvements
 
+- The Spark 3.5 connector is now compiled with Scala 2.12.18 and 2.13.8, the versions that Spark 3.5 is built with and runs on, instead of 2.12.20 and 2.13.16, so it cannot call `scala-library` methods that the Spark 3.5 runtime lacks (#85)
 - [BREAKING] Dropped Spark 3.4 support. The `scalardb-analytics-spark-all-3.4_2.12` and `scalardb-analytics-spark-all-3.4_2.13` artifacts are no longer published; use Spark 3.5, 4.0, or 4.1 instead (#85)
 
 ## [v3.20.0] - 2026-11-06

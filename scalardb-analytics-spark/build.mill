@@ -15,14 +15,6 @@ import com.goyeau.mill.scalafix.ScalafixModule
 import mill.api.BuildCtx
 
 // Version constants
-object ScalaVersions {
-  val v212 = "2.12.20"
-  val v213 = "2.13.16"
-  // Spark 4.1 is built with Scala 2.13.17 and calls scala-library methods that 2.13.16 lacks, so it
-  // fails with NoSuchMethodError on a 2.13.16 runtime.
-  val v213Spark41 = "2.13.17"
-}
-
 object SparkVersions {
   val v35 = "3.5.9"
   val v40 = "4.0.5"
@@ -31,17 +23,14 @@ object SparkVersions {
 
 // Type-safe version representations
 sealed trait ScalaVersion {
-  def version: String
   def short: String
 }
 object ScalaVersion {
   case object V212 extends ScalaVersion {
-    val version = ScalaVersions.v212
-    val short   = "2.12"
+    val short = "2.12"
   }
   case object V213 extends ScalaVersion {
-    val version = ScalaVersions.v213
-    val short   = "2.13"
+    val short = "2.13"
   }
 
   val all = Seq(V212, V213)
@@ -55,35 +44,36 @@ sealed trait SparkVersion {
   def version: String
   def short: String
 
-  /** The Scala versions that Spark publishes this version for. */
-  def scalaVersions: Seq[ScalaVersion]
-
-  /** The full Scala version to build with for the given Scala binary version.
+  /** The full Scala version that Spark builds this release line with, per Scala binary version it
+    * is published for (`scala.version` in the Spark parent POM).
     *
-    * A Spark version that needs a newer Scala patch than the default overrides this. The default is
-    * kept for the others: code compiled with a newer patch may call scala-library methods that the
-    * Scala runtime of an older Spark version lacks.
+    * Each variant compiles with exactly this version because it is the scala-library that the
+    * connector runs on in a cluster. Scala patch releases are only backward compatible: code
+    * compiled with a newer patch can call scala-library methods that an older runtime lacks, and
+    * Spark compiled with a newer patch fails on an older one (Spark 4.1 on 2.13.16 aborts with
+    * `NoSuchMethodError: scala.util.hashing.MurmurHash3$.caseClassHash$default$2()`).
     */
-  def scalaVersionFor(scalaVersion: ScalaVersion): String = scalaVersion.version
+  def scalaVersions: Map[ScalaVersion, String]
 }
 object SparkVersion {
   case object V35 extends SparkVersion {
-    val version       = SparkVersions.v35
-    val short         = "3.5"
-    val scalaVersions = Seq(ScalaVersion.V212, ScalaVersion.V213)
+    val version = SparkVersions.v35
+    val short   = "3.5"
+    val scalaVersions = Map[ScalaVersion, String](
+      ScalaVersion.V212 -> "2.12.18",
+      ScalaVersion.V213 -> "2.13.8"
+    )
   }
   // Spark 4 is published for Scala 2.13 only.
   case object V40 extends SparkVersion {
     val version       = SparkVersions.v40
     val short         = "4.0"
-    val scalaVersions = Seq(ScalaVersion.V213)
+    val scalaVersions = Map[ScalaVersion, String](ScalaVersion.V213 -> "2.13.16")
   }
   case object V41 extends SparkVersion {
     val version       = SparkVersions.v41
     val short         = "4.1"
-    val scalaVersions = Seq(ScalaVersion.V213)
-
-    override def scalaVersionFor(scalaVersion: ScalaVersion): String = ScalaVersions.v213Spark41
+    val scalaVersions = Map[ScalaVersion, String](ScalaVersion.V213 -> "2.13.17")
   }
 
   val all = Seq(V35, V40, V41)
@@ -93,13 +83,49 @@ object SparkVersion {
     Cross.ToSegments[SparkVersion](v => List(v.short))
 }
 
+// WartRemover is a compiler plugin published per full Scala version, and no single release covers
+// every Scala version above (2.13.8 stops at 3.1.8). It is a source-level lint, so it runs on one
+// variant only: the newest, with the latest WartRemover release for its Scala version.
+object WartRemover {
+  val version                               = "3.6.3"
+  val variant: (ScalaVersion, SparkVersion) = (ScalaVersion.V213, SparkVersion.V41)
+
+  val rules = Seq(
+    // Type safety
+    "AsInstanceOf",
+    "IsInstanceOf",
+    "Null",
+    "Product",
+    "Serializable",
+    // Code quality
+    "DefaultArguments",
+    "ExplicitImplicitTypes",
+    "FinalVal",
+    "ImplicitConversion",
+    "JavaConversions",
+    "JavaSerializable",
+    "LeakingSealed",
+    "MutableDataStructures",
+    "Nothing",
+    "PublicInference",
+    "Recursion",
+    "Return",
+    "StringPlusAny",
+    "Var",
+    // Partial functions
+    "EitherProjectionPartial",
+    "Option2Iterable",
+    "OptionPartial",
+    "TryPartial"
+  )
+}
+
 object Versions {
   // External ScalarDB dependencies
   val scalardb = "3.20.0"
 
   val scalapb          = "0.11.17"
   val scalatest        = "3.2.19"
-  val wartremover      = "3.5.8"
   val slf4j            = "2.0.17"
   val testcontainers   = "2.0.2"
   val hikaricp         = "5.1.0"
@@ -191,47 +217,21 @@ trait BaseModule extends ScalaModule with ScalafmtModule with ScalafixModule wit
       )
     }
 
-    // WartRemover options - all rules are now in error mode
-    val wartRemoverRules = Seq(
-      // Type safety
-      "AsInstanceOf",
-      "IsInstanceOf",
-      "Null",
-      "Product",
-      "Serializable",
-      // Code quality
-      "DefaultArguments",
-      "ExplicitImplicitTypes",
-      "FinalVal",
-      "ImplicitConversion",
-      "JavaConversions",
-      "JavaSerializable",
-      "LeakingSealed",
-      "MutableDataStructures",
-      "Nothing",
-      "PublicInference",
-      "Recursion",
-      "Return",
-      "StringPlusAny",
-      "Var",
-      // Partial functions
-      "EitherProjectionPartial",
-      "Option2Iterable",
-      "OptionPartial",
-      "TryPartial"
-    )
-
+    // WartRemover reports every rule as an error.
     val wartRemoverOptions =
-      wartRemoverRules.map(rule => s"-P:wartremover:traverser:org.wartremover.warts.$rule")
+      if (wartRemoverEnabled)
+        WartRemover.rules.map(rule => s"-P:wartremover:traverser:org.wartremover.warts.$rule")
+      else Seq.empty
 
     baseOptions ++ scala213Options ++ wartRemoverOptions
   }
 
-  // WartRemover is published per full Scala version, so Versions.wartremover has to be a version
-  // that is published for every Scala version that a module builds with.
-  def scalacPluginMvnDeps = Seq(
-    mvn"org.wartremover::wartremover:${Versions.wartremover}"
-  )
+  /** Whether this module is compiled with WartRemover (see `WartRemover`). */
+  def wartRemoverEnabled: Boolean
+
+  def scalacPluginMvnDeps =
+    if (wartRemoverEnabled) Seq(mvn"org.wartremover:::wartremover:${WartRemover.version}")
+    else Seq.empty[Dep]
 
   trait TestBaseModule extends ScalaTests with TestModule.ScalaTest {
     def mvnDeps = Seq(
@@ -242,8 +242,16 @@ trait BaseModule extends ScalaModule with ScalafmtModule with ScalafixModule wit
 
 // Cross-build specific settings (Scala version first, Spark version second)
 trait CrossBuildModule extends Cross.Module2[ScalaVersion, SparkVersion] with BaseModule {
-  def scalaVersion = crossValue2.scalaVersionFor(crossValue)
+  def scalaVersion = crossValue2.scalaVersions(crossValue)
   def sparkVersion = crossValue2.version
+
+  def wartRemoverEnabled = (crossValue, crossValue2) == WartRemover.variant
+
+  // The SemanticDB compiler plugin (used by Scalafix and IDEs) is published per full Scala version,
+  // and its releases for Scala 2.13.8 stop at 4.8.10.
+  override def semanticDbVersion = Task {
+    if (scalaVersion() == "2.13.8") "4.8.10" else super.semanticDbVersion()
+  }
 
   // Spark dependencies as compileOnly by default
   override def compileMvnDeps = super.compileMvnDeps() ++ Seq(

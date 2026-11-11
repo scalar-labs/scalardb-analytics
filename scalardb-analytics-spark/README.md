@@ -40,13 +40,14 @@ The notices are generated into the assembly at packaging time and are not commit
 
 | Scala | Spark |
 | --- | --- |
-| 2.12.20 | 3.5.9 |
-| 2.13.16 | 3.5.9 |
+| 2.12.18 | 3.5.9 |
+| 2.13.8 | 3.5.9 |
 | 2.13.16 | 4.0.5 |
 | 2.13.17 | 4.1.4 |
 
 Spark 4 is published for Scala 2.13 only, so the build has no Scala 2.12 variant for Spark 4.0 or 4.1.
-Spark 4.1 is built with Scala 2.13.17, which it also requires at runtime, so its variant uses 2.13.17 instead of 2.13.16.
+Each variant compiles with the Scala version that its Spark release line is built with, because that is the `scala-library` the connector runs on: Scala patch releases are only backward compatible, so code compiled with a newer patch can call library methods that the Spark runtime lacks.
+WartRemover runs only on the `[2.13,4.1]` variant, because it is published per full Scala version and no release covers all of the versions above.
 Version-specific sources live in `compat/src-spark3.5` and `compat/src-spark4`, which Spark 4.0 and 4.1 share.
 
 ## Submodules
