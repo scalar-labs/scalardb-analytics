@@ -967,9 +967,9 @@ trait CiTestModule extends Cross.Module2[ScalaVersion, SparkVersion] {
       "com.scalar.db.analytics.spark.postgresql.CatalogWithPostgreSql18Test",
       "com.scalar.db.analytics.spark.sqlserver.CatalogWithSqlServer2022Test",
       "com.scalar.db.analytics.spark.dynamodb.CatalogWithDynamoDbTest",
-      "com.scalar.db.analytics.spark.scalardb.mysql.ScalarDbWithMySqlTest",
-      "com.scalar.db.analytics.spark.scalardb.postgresql.ScalarDbWithPostgreSqlTest",
-      "com.scalar.db.analytics.spark.scalardb.sqlserver.ScalarDbWithSqlServerTest",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithMySqlTest",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithPostgreSqlTest",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithSqlServerTest",
       "com.scalar.db.analytics.spark.scalardb.dynamodb.ScalarDbWithDynamoDbTest"
     )()
   }
@@ -992,9 +992,9 @@ trait CiTestModule extends Cross.Module2[ScalaVersion, SparkVersion] {
       "com.scalar.db.analytics.spark.postgresql.*",
       "com.scalar.db.analytics.spark.sqlserver.*",
       "com.scalar.db.analytics.spark.dynamodb.*",
-      "com.scalar.db.analytics.spark.scalardb.mysql.*",
-      "com.scalar.db.analytics.spark.scalardb.postgresql.*",
-      "com.scalar.db.analytics.spark.scalardb.sqlserver.*",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithMySqlTest",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithPostgreSqlTest",
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithSqlServerTest",
       "com.scalar.db.analytics.spark.scalardb.dynamodb.*"
     )()
   }
@@ -1006,7 +1006,7 @@ trait CiTestModule extends Cross.Module2[ScalaVersion, SparkVersion] {
   def integrationTestOracle23(args: String*) = Task.Command {
     spark(scalaVer, sparkVer).integrationTest.testOnly(
       "com.scalar.db.analytics.spark.oracle.CatalogWithOracle23Test",
-      "com.scalar.db.analytics.spark.scalardb.oracle.ScalarDbWithOracleTest"
+      "com.scalar.db.analytics.spark.scalardb.ScalarDbWithOracleTest"
     )()
   }
 
