@@ -19,7 +19,7 @@ changes released from here, starting with the entries below.
 
 ### Bug fixes
 
-- Fixed an issue where a user who had ended up with more than one access token, which concurrent logins of a user who held no token could cause, could no longer log in, be deleted, be unlinked from a backend user, or have their internal backend user deleted with cascade; these operations failed with `DB-ANALYTICS-30104` (`ANALYTICS_DB_OPERATION_FAILED`). They now remove every token of the user (#PR)
+- Fixed an issue where a user who had ended up with more than one access token, which concurrent logins of a user who held no token could cause, could no longer log in, be deleted, be unlinked from a backend user, or have their internal backend user deleted with cascade; these operations failed with `DB-ANALYTICS-30104` (`ANALYTICS_DB_OPERATION_FAILED`). They now remove every token of the user (#93)
 
 ## [v3.20.0] - 2026-11-06
 
