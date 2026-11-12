@@ -17,6 +17,10 @@ changes released from here, starting with the entries below.
 
 - [BREAKING] Raised the JDK of the server-side modules and the core Gradle build from Java 21 to Java 25. The server-side modules are compiled for Java 25, the server and CLI images run on Java 25 (`eclipse-temurin:25.0.5_8-jdk-resolute` and `eclipse-temurin:25.0.5_8-jre-resolute` instead of `eclipse-temurin:21.0.13_9-jdk-resolute` and `eclipse-temurin:21.0.13_9-jre-resolute`), and building `scalardb-analytics-core` from source requires JDK 25. The client-facing modules (`api`, `lib`, `grpc`, `grpc-common`, the Java client SDK, and the CLI) still target Java 8 (#84)
 
+### Bug fixes
+
+- Fixed an issue where a user who had ended up with more than one access token, which concurrent logins of a user who held no token could cause, could no longer log in, be deleted, be unlinked from a backend user, or have their internal backend user deleted with cascade; these operations failed with `DB-ANALYTICS-30104` (`ANALYTICS_DB_OPERATION_FAILED`). They now remove every token of the user (#PR)
+
 ## [v3.20.0] - 2026-11-06
 
 ### Enhancements

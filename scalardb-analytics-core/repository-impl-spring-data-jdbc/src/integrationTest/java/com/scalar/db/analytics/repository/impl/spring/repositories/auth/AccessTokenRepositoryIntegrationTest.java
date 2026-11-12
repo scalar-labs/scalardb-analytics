@@ -68,6 +68,22 @@ class AccessTokenRepositoryIntegrationTest extends AbstractScalarDbIntegrationTe
   }
 
   @Test
+  void deleteByUserIdShouldRemoveEveryTokenWhenUserHasMoreThanOne() {
+    // A user is meant to hold one token, but two concurrent logins of a user who holds no token can
+    // both commit under SNAPSHOT isolation and leave two. Deleting must still clear every token.
+    Instant expiresAt = Instant.now().plus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MILLIS);
+    accessTokenRepository.create(ctx, new IssuedToken("token1", testUser.getUserId(), expiresAt));
+    accessTokenRepository.create(ctx, new IssuedToken("token2", testUser.getUserId(), expiresAt));
+
+    accessTokenRepository.deleteByUserId(ctx, testUser.getUserId());
+
+    assertThat(accessTokenRepository.findByUserIdAndToken(ctx, testUser.getUserId(), "token1"))
+        .isEmpty();
+    assertThat(accessTokenRepository.findByUserIdAndToken(ctx, testUser.getUserId(), "token2"))
+        .isEmpty();
+  }
+
+  @Test
   void deleteByUserIdShouldNotThrowWhenNoTokensExist() {
     assertThatCode(() -> accessTokenRepository.deleteByUserId(ctx, UUID.randomUUID()))
         .doesNotThrowAnyException();
