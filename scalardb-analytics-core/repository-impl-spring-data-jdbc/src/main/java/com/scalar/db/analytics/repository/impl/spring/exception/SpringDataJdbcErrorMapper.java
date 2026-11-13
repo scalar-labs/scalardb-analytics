@@ -43,7 +43,13 @@ public class SpringDataJdbcErrorMapper {
   public AnalyticsException mapException(
       DataAccessException e, String entityType, @Nullable String identifier) {
 
-    // First, try database-specific error categorization
+    // A transaction conflict aborts the whole transaction, so it is reported as retryable before
+    // any other categorization (the analyzer would report it as a generic operation failure).
+    if (TransactionConflicts.isConflict(e)) {
+      return TransactionConflicts.toAnalyticsException(e);
+    }
+
+    // Try database-specific error categorization
     Optional<AnalyticsException> specificError =
         errorAnalyzer.categorizeError(e, entityType, identifier);
     if (specificError.isPresent()) {
@@ -71,6 +77,10 @@ public class SpringDataJdbcErrorMapper {
         return mapException(dataAccessException, entityType, identifier);
       }
       current = current.getCause();
+    }
+
+    if (TransactionConflicts.isConflict(e)) {
+      return TransactionConflicts.toAnalyticsException(e);
     }
 
     // For non-DataAccessException, create a generic database error

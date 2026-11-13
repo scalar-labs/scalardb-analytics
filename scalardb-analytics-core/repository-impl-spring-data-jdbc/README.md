@@ -62,6 +62,8 @@ repository/impl/spring/
    - Context objects from `single()` must not be reused
    - Repository / query implementations annotate the class with `@Transactional(readOnly = true)` so that `single()` calls still execute inside a Spring-managed read-only transaction.
    - Methods that mutate state override this default with `@Transactional(readOnly = false)` to obtain a write-capable boundary.
+   - Transactions run at the `SERIALIZABLE` isolation level, which `ScalarDbSqlProperties` always sets (see [Isolation Level](#isolation-level)).
+   - A transaction conflict is reported as the retryable `DB-ANALYTICS-30003` (`ANALYTICS_DB_TRANSACTION_CONFLICT`) wherever it surfaces: in a repository method (`SpringDataJdbcErrorMapper`), at the commit of `withTransaction()`, and at the commit of a `single()` call (`ConflictTranslatingTransactionManager`, the annotation-driven transaction manager). An unknown transaction status is not a conflict and is not retryable.
 
 ## Database Type Compatibility
 
@@ -231,6 +233,14 @@ scalar.db.analytics.server.db.pool.connection-timeout=30000
 scalar.db.analytics.server.db.pool.minimum-idle=5
 scalar.db.analytics.server.db.pool.idle-timeout=600000
 ```
+
+Other ScalarDB properties for the server database can be passed as `scalar.db.analytics.server.db.parameters[<ScalarDB property>]=<value>`.
+
+### Isolation Level
+
+The server always runs its database transactions at the `SERIALIZABLE` isolation level (`scalar.db.consensus_commit.isolation_level=SERIALIZABLE`). The create operations check that a name is free and then insert in the same transaction. Under `SNAPSHOT` (the ScalarDB default) or `READ_COMMITTED`, two concurrent creates of the same name could both commit and leave a duplicate, which then fails every lookup by that name. Under `SERIALIZABLE`, at most one commits, and each one that does not fails with `DB-ANALYTICS-30003`. The client SDK retries that error, and the retry either creates the entity or reports its `*_ALREADY_EXISTS` error.
+
+An isolation level set through `scalar.db.analytics.server.db.parameters` (`scalar.db.consensus_commit.isolation_level`, or the deprecated `scalar.db.isolation_level`) is ignored with a warning at startup.
 
 ### Supported Databases
 

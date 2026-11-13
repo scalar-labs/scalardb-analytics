@@ -358,6 +358,25 @@ public enum AnalyticsErrorCode {
           "Analytics could not reach the ScalarDB Cluster (network failure, deadline exceeded, or the cluster is down).",
           "Retry the request. If the failure persists, check the ScalarDB Cluster health and contact your administrator.")),
 
+  /**
+   * A transaction on the Analytics database conflicted with a concurrent transaction and was
+   * aborted.
+   *
+   * <p>Raised when ScalarDB reports a transaction conflict, for example when two requests create an
+   * entity with the same name at the same time, or update the same record. The transaction is
+   * aborted as a whole, so none of its changes are applied and the request can be retried. Retrying
+   * a create that lost the race reports the entity's {@code *_ALREADY_EXISTS} code.
+   *
+   * <p>Expected metadata keys: none (detail in message or cause).
+   */
+  ANALYTICS_DB_TRANSACTION_CONFLICT(
+      "DB-ANALYTICS-30003",
+      ErrorCategory.RETRYABLE_SERVER_ERROR,
+      new ErrorDescription(
+          "Analytics database transaction conflict",
+          "The request's transaction on the Analytics internal database conflicted with a concurrent request and was aborted. None of its changes were applied.",
+          "Retry the request. The client SDK retries it automatically. If the failure persists, reduce concurrent changes to the same entities.")),
+
   // 301xx - Non-retryable Internal Errors
 
   /**

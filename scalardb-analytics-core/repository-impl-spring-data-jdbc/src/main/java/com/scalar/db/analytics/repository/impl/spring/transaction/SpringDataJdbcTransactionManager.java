@@ -4,8 +4,10 @@
  */
 package com.scalar.db.analytics.repository.impl.spring.transaction;
 
+import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.lib.functional.ThrowableFunction;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
+import com.scalar.db.analytics.repository.impl.spring.exception.TransactionConflicts;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -20,6 +22,14 @@ public class SpringDataJdbcTransactionManager
     this.transactionTemplate = transactionTemplate;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>An exception thrown by {@code f} is rethrown unchanged after the rollback. A transaction
+   * conflict reported by the commit is thrown as {@link
+   * com.scalar.db.analytics.api.error.AnalyticsErrorCode#ANALYTICS_DB_TRANSACTION_CONFLICT}; any
+   * other failure of the transaction manager itself is rethrown unchanged.
+   */
   @Override
   public <R extends @Nullable Object, E extends Throwable> R withTransaction(
       ThrowableFunction<SpringDataJdbcTransactionContext, R, E> f) throws E {
@@ -32,14 +42,19 @@ public class SpringDataJdbcTransactionManager
               return f.apply(context);
             } catch (Throwable e) {
               status.setRollbackOnly();
-              throw new RuntimeException(e);
+              throw new FunctionFailure(e);
             }
           });
+    } catch (FunctionFailure e) {
+      @SuppressWarnings("unchecked")
+      E failure = (E) e.failure;
+      throw failure;
     } catch (RuntimeException e) {
-      if (e.getCause() != null) {
-        @SuppressWarnings("unchecked")
-        E cause = (E) e.getCause();
-        throw cause;
+      // Thrown by the transaction manager itself, typically by the commit. Only the function's own
+      // exceptions are unwrapped above: unwrapping these too would replace Spring's exception with
+      // its JDBC cause.
+      if (!(e instanceof AnalyticsException) && TransactionConflicts.isConflict(e)) {
+        throw TransactionConflicts.toAnalyticsException(e);
       }
       throw e;
     }
@@ -51,5 +66,17 @@ public class SpringDataJdbcTransactionManager
     // The actual transaction boundary will be managed by Spring's @Transactional annotation
     // on the repository methods.
     return new SpringDataJdbcTransactionContext();
+  }
+
+  /** Carries an exception thrown by the function out of the transaction callback. */
+  private static final class FunctionFailure extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    private final Throwable failure;
+
+    FunctionFailure(Throwable failure) {
+      super(failure);
+      this.failure = failure;
+    }
   }
 }
