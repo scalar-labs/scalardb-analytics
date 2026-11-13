@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -350,6 +351,29 @@ class AuthenticationUseCaseImplTest {
       assertThat(result.getToken()).isNotBlank();
       assertThat(result.getUserId()).isEqualTo(userId.toString());
       // The backend is not asked again: only the database transaction is retried.
+      verify(jitBackend).verifyCredential(username, password);
+    }
+
+    @Test
+    void authenticateWithPassword_shouldGiveUpAfterRepeatedTransactionConflicts() throws Exception {
+      String username = "alice";
+      String password = "secret123";
+
+      when(jitBackend.verifyCredential(username, password))
+          .thenReturn(BackendAuthResult.of(username));
+      when(txManager.withTransaction(any()))
+          .thenThrow(new AnalyticsException(AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT));
+
+      assertThatThrownBy(
+              () -> jitUseCase.authenticateWithPassword(new PasswordCredential(username, password)))
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              e ->
+                  assertThat(e.getErrorCode())
+                      .isEqualTo(AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT));
+
+      // One attempt plus three retries, each in a new transaction; the backend is asked once.
+      verify(txManager, times(4)).withTransaction(any());
       verify(jitBackend).verifyCredential(username, password);
     }
 

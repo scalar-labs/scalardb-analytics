@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +98,11 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
     this.backendTokenStore = backendTokenStore;
   }
 
-  private static final int MAX_JIT_RETRIES = 1;
+  // Concurrent first sign-ins under SERIALIZABLE often abort each other, so the retries back off
+  // by a random delay to avoid colliding again.
+  private static final int MAX_JIT_RETRIES = 3;
+  private static final long MIN_JIT_RETRY_DELAY_MILLIS = 10;
+  private static final long MAX_JIT_RETRY_DELAY_MILLIS = 50;
 
   @Override
   public AccessToken authenticateWithPassword(PasswordCredential credential) {
@@ -139,12 +144,27 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
               authResult.backendUserId(),
               attempt + 1,
               MAX_JIT_RETRIES + 1);
+          if (attempt < MAX_JIT_RETRIES) {
+            backOffBeforeJitRetry(e);
+          }
         } else {
           throw e;
         }
       }
     }
     throw lastException;
+  }
+
+  private static void backOffBeforeJitRetry(AnalyticsException conflict) {
+    try {
+      Thread.sleep(
+          ThreadLocalRandom.current()
+              .nextLong(MIN_JIT_RETRY_DELAY_MILLIS, MAX_JIT_RETRY_DELAY_MILLIS + 1));
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      conflict.addSuppressed(interrupted);
+      throw conflict;
+    }
   }
 
   private ResolvedIdentity resolveIdentity(T ctx, String backendUserId) {
