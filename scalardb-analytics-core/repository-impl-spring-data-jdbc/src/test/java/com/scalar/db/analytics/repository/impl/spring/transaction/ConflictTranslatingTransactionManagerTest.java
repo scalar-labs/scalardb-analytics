@@ -29,8 +29,16 @@ class ConflictTranslatingTransactionManagerTest {
 
   private final PlatformTransactionManager delegate = mock(PlatformTransactionManager.class);
   private final ConflictTranslatingTransactionManager transactionManager =
-      new ConflictTranslatingTransactionManager(delegate);
+      new ConflictTranslatingTransactionManager(() -> delegate);
   private final TransactionStatus status = new SimpleTransactionStatus();
+
+  @Test
+  void constructor_shouldNotResolveDelegate() {
+    new ConflictTranslatingTransactionManager(
+        () -> {
+          throw new AssertionError("resolved at construction");
+        });
+  }
 
   @Test
   void getTransactionAndRollback_shouldDelegate() {

@@ -63,7 +63,7 @@ repository/impl/spring/
    - Repository / query implementations annotate the class with `@Transactional(readOnly = true)` so that `single()` calls still execute inside a Spring-managed read-only transaction.
    - Methods that mutate state override this default with `@Transactional(readOnly = false)` to obtain a write-capable boundary.
    - Transactions run at the `SERIALIZABLE` isolation level, which `ScalarDbSqlProperties` always sets (see [Isolation Level](#isolation-level)).
-   - A transaction conflict is reported as the retryable `DB-ANALYTICS-30003` (`ANALYTICS_DB_TRANSACTION_CONFLICT`) wherever it surfaces: in a repository method (`SpringDataJdbcErrorMapper`), at the commit of `withTransaction()`, and at the commit of a `single()` call (`ConflictTranslatingTransactionManager`, the annotation-driven transaction manager). An unknown transaction status is not a conflict and is not retryable.
+   - A transaction conflict is reported as the retryable `DB-ANALYTICS-30003` (`ANALYTICS_DB_TRANSACTION_CONFLICT`) in a repository method (`SpringDataJdbcErrorMapper`), at the commit of `withTransaction()`, and at the commit of a `single()` call (`ConflictTranslatingTransactionManager`, the annotation-driven transaction manager). An unknown transaction status is not a conflict and is not retryable. The Spring Data JDBC repository interfaces commit through the primary transaction manager when called outside these paths (only the startup master-data seeding does so), and a conflict there surfaces as Spring's `PessimisticLockingFailureException`.
 
 ## Database Type Compatibility
 

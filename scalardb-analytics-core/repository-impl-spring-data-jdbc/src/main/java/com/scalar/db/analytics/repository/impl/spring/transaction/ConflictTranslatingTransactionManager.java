@@ -6,10 +6,12 @@ package com.scalar.db.analytics.repository.impl.spring.transaction;
 
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.repository.impl.spring.exception.TransactionConflicts;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.util.function.SingletonSupplier;
 
 /**
  * A {@link PlatformTransactionManager} that reports a transaction conflict at commit as {@link
@@ -23,21 +25,25 @@ import org.springframework.transaction.TransactionStatus;
  */
 public final class ConflictTranslatingTransactionManager implements PlatformTransactionManager {
 
-  private final PlatformTransactionManager delegate;
+  private final Supplier<PlatformTransactionManager> delegate;
 
-  public ConflictTranslatingTransactionManager(PlatformTransactionManager delegate) {
-    this.delegate = delegate;
+  /**
+   * Creates the decorator. The delegate is resolved on first use, so that registering the decorator
+   * does not create the transaction manager (and its data source) early.
+   */
+  public ConflictTranslatingTransactionManager(Supplier<PlatformTransactionManager> delegate) {
+    this.delegate = SingletonSupplier.of(delegate);
   }
 
   @Override
   public TransactionStatus getTransaction(@Nullable TransactionDefinition definition) {
-    return delegate.getTransaction(definition);
+    return delegate.get().getTransaction(definition);
   }
 
   @Override
   public void commit(TransactionStatus status) {
     try {
-      delegate.commit(status);
+      delegate.get().commit(status);
     } catch (RuntimeException e) {
       if (!(e instanceof AnalyticsException) && TransactionConflicts.isConflict(e)) {
         throw TransactionConflicts.toAnalyticsException(e);
@@ -48,6 +54,6 @@ public final class ConflictTranslatingTransactionManager implements PlatformTran
 
   @Override
   public void rollback(TransactionStatus status) {
-    delegate.rollback(status);
+    delegate.get().rollback(status);
   }
 }

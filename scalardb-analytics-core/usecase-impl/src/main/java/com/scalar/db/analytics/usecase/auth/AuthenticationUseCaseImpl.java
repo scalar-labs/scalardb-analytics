@@ -107,8 +107,10 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
 
     // Step 2: Resolve user via PasswordIdentity and issue token.
     // Retry the entire transaction on conflict to handle concurrent JIT provisioning:
-    // on the first attempt, JIT provisioning may fail due to a duplicate identity created by
-    // a concurrent request; on retry, the existing identity is found and used.
+    // on the first attempt, JIT provisioning may fail because a concurrent request created the
+    // identity (a duplicate, or a transaction conflict at commit); on retry, the existing
+    // identity is found and used. Retrying here, rather than leaving the retryable conflict to
+    // the client, avoids repeating the backend credential check above.
     AnalyticsException lastException = null;
     for (int attempt = 0; attempt <= MAX_JIT_RETRIES; attempt++) {
       try {
@@ -235,6 +237,7 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
   }
 
   private static boolean isConflictError(AnalyticsException e) {
-    return e.getErrorCode() == AnalyticsErrorCode.USER_ALREADY_EXISTS;
+    return e.getErrorCode() == AnalyticsErrorCode.USER_ALREADY_EXISTS
+        || e.getErrorCode() == AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT;
   }
 }

@@ -364,8 +364,8 @@ public enum AnalyticsErrorCode {
    *
    * <p>Raised when ScalarDB reports a transaction conflict, for example when two requests create an
    * entity with the same name at the same time, or update the same record. The transaction is
-   * aborted as a whole, so none of its changes are applied and the request can be retried. Retrying
-   * a create that lost the race reports the entity's {@code *_ALREADY_EXISTS} code.
+   * aborted as a whole, so none of its changes are applied and the request can be retried. A
+   * retried create either creates the entity or reports its {@code *_ALREADY_EXISTS} code.
    *
    * <p>Expected metadata keys: none (detail in message or cause).
    */

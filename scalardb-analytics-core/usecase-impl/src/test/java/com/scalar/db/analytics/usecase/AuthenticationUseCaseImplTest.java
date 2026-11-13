@@ -43,6 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -304,9 +306,12 @@ class AuthenticationUseCaseImplTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Test
-    void authenticateWithPassword_shouldRetryTransactionOnConcurrentJitProvisioning()
-        throws Exception {
+    @ParameterizedTest
+    @EnumSource(
+        value = AnalyticsErrorCode.class,
+        names = {"USER_ALREADY_EXISTS", "ANALYTICS_DB_TRANSACTION_CONFLICT"})
+    void authenticateWithPassword_shouldRetryTransactionOnConcurrentJitProvisioning(
+        AnalyticsErrorCode conflict) throws Exception {
       String username = "alice";
       String password = "secret123";
       UUID userId = UUID.randomUUID();
@@ -323,7 +328,7 @@ class AuthenticationUseCaseImplTest {
       // First TX call: JIT provisioning fails with AnalyticsException (simulating constraint
       // violation causing TX rollback). Second TX call: existing identity found, token issued.
       when(txManager.withTransaction(any()))
-          .thenThrow(new AnalyticsException(AnalyticsErrorCode.USER_ALREADY_EXISTS))
+          .thenThrow(new AnalyticsException(conflict))
           .thenAnswer(
               invocation -> {
                 var function =
@@ -344,6 +349,8 @@ class AuthenticationUseCaseImplTest {
 
       assertThat(result.getToken()).isNotBlank();
       assertThat(result.getUserId()).isEqualTo(userId.toString());
+      // The backend is not asked again: only the database transaction is retried.
+      verify(jitBackend).verifyCredential(username, password);
     }
 
     @SuppressWarnings("unchecked")

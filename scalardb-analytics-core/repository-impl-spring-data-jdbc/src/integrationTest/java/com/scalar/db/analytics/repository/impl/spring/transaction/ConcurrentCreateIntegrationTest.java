@@ -15,6 +15,7 @@ import com.scalar.db.analytics.repository.impl.spring.support.AbstractScalarDbIn
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
@@ -132,6 +133,50 @@ class ConcurrentCreateIntegrationTest extends AbstractScalarDbIntegrationTest {
         create,
         AnalyticsErrorCode.ROLE_ALREADY_EXISTS,
         () -> roleRepository.findByName(transactionManager.single(), "dup"));
+  }
+
+  @Test
+  void concurrentCatalogCreatesWithDifferentNames_shouldBothSucceed() throws Exception {
+    List<@Nullable AnalyticsErrorCode> raced =
+        race(
+            () ->
+                transactionManager.withTransaction(
+                    ctx -> {
+                      catalogRepository.create(ctx, Catalog.create("first"));
+                      return null;
+                    }),
+            () ->
+                transactionManager.withTransaction(
+                    ctx -> {
+                      catalogRepository.create(ctx, Catalog.create("second"));
+                      return null;
+                    }));
+
+    assertThat(raced).containsExactly(null, null);
+    assertThat(catalogRepository.list(transactionManager.single())).hasSize(2);
+  }
+
+  @Test
+  void concurrentDataSourceCreatesWithDifferentNamesInOneCatalog_shouldBothSucceed()
+      throws Exception {
+    // The lookup scans the catalog's data sources by the catalog_id index and filters by name, so
+    // a sibling inserted concurrently must not be treated as an anti-dependency.
+    UUID catalogId = createCatalog("parent");
+
+    List<@Nullable AnalyticsErrorCode> raced =
+        race(
+            () -> createPostgresDataSource(catalogId, "first"),
+            () -> createPostgresDataSource(catalogId, "second"));
+
+    assertThat(raced).containsExactly(null, null);
+    assertThat(
+            dataSourceRepository.findByCatalogIdAndName(
+                transactionManager.single(), catalogId, "first"))
+        .isPresent();
+    assertThat(
+            dataSourceRepository.findByCatalogIdAndName(
+                transactionManager.single(), catalogId, "second"))
+        .isPresent();
   }
 
   /**
