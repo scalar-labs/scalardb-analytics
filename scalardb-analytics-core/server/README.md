@@ -14,7 +14,7 @@ The server distribution, packaged as an installable archive.
 
 ## Build
 
-Use JDK 21 and the Gradle wrapper in [`scalardb-analytics-core/`](../README.md):
+Use JDK 25 and the Gradle wrapper in [`scalardb-analytics-core/`](../README.md):
 
 ```bash
 ./gradlew :server:app:build

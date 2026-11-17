@@ -8,7 +8,7 @@ FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60@sha256:2d433b978644e40eb2b
 # Build stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:21.0.13_9-jdk-resolute@sha256:7d760d0aecb9f6dc319583802bdb32ed55234e6c79a0e8ae56077ec4da382f22 AS builder
+FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:422bf3f42dc7f967f36eb4196f6d7b683c415cb541583571833d865c807c2ea2 AS builder
 
 WORKDIR /workspace
 
@@ -26,7 +26,7 @@ RUN --mount=type=secret,id=gpr_username \
 # Runtime stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:21.0.13_9-jdk-resolute@sha256:7d760d0aecb9f6dc319583802bdb32ed55234e6c79a0e8ae56077ec4da382f22
+FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:422bf3f42dc7f967f36eb4196f6d7b683c415cb541583571833d865c807c2ea2
 
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
