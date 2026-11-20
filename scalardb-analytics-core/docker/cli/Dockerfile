@@ -1,7 +1,7 @@
 # Build stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:422bf3f42dc7f967f36eb4196f6d7b683c415cb541583571833d865c807c2ea2 AS builder
+FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:1ba05eab8e59bad9cbc9c6294b5c4a1d71150cfd00a5cdf04e67bb36a0a10916 AS builder
 
 WORKDIR /workspace
 
@@ -14,7 +14,7 @@ RUN ./gradlew :client:cli:shadowJar --no-daemon
 # Runtime stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:25.0.5_8-jre-resolute@sha256:b6e00330337143a2c1a20f1c1c693d4b6ce9a3c30ade8b9d03fc68cc9e3871e7
+FROM eclipse-temurin:25.0.5_8-jre-resolute@sha256:480ef64e4540d45b0301e8afb7873bd3fa61ce93c5f66273eb569420718f38e2
 
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
