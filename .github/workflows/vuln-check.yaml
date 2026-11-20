@@ -1,0 +1,41 @@
+name: Vulnerability Check
+
+on:
+  workflow_call:
+    inputs:
+      target-ref:
+        description: 'Target ref (branch, tag, release) to scan'
+        required: true
+        type: string
+      find-latest-release:
+        description: 'Flag to find the latest version for specified `target-ref`'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CR_PAT:
+        description: 'Personal access token used to resolve the private dependencies of the Server image from GitHub Package Registry (GPR)'
+        required: true
+      SLACK_SECURITY_WEBHOOK_URL:
+        required: false
+
+jobs:
+  call-vuln-check:
+    uses: scalar-labs/actions/.github/workflows/vuln-check-reusable.yaml@main
+    with:
+      target-ref: ${{ inputs.target-ref }}
+      find-latest-release: ${{ inputs.find-latest-release }}
+      images: '[["ScalarDB Analytics Server", "scalardb-analytics-server"], ["ScalarDB Analytics CLI", "scalardb-analytics-cli"]]'
+      working-directory: scalardb-analytics-core
+      # The images are built by the Makefiles next to the Dockerfiles, not by `./gradlew docker`.
+      # `make build` tags them only as `latest`, so `version-command` returns that tag instead of
+      # the project version. Gradle runs inside the Docker build, so the JDK that the reusable
+      # workflow installs on the runner is not used and `java-versions` is left at its default.
+      docker-build-command: |
+        make -C docker/server build
+        make -C docker/cli build
+      version-command: echo latest
+    secrets:
+      GPR_USERNAME: ${{ github.repository_owner }}
+      GPR_PASSWORD: ${{ secrets.CR_PAT }}
+      SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
