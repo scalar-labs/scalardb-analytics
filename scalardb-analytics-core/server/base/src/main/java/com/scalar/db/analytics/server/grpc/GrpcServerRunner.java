@@ -54,21 +54,37 @@ public class GrpcServerRunner {
   }
 
   private void stopStartedServers(Deque<ManagedGrpcServer> startedServers, Exception cause) {
+    // The interrupt status is restored only after every server is stopped. Restoring it earlier
+    // would make the termination waits of the remaining servers fail immediately.
+    boolean interrupted = false;
     for (ManagedGrpcServer server : startedServers) {
       try {
         server.stop();
         logger.info("{} shut down after a startup failure", server.getServerName());
       } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+        interrupted = true;
         cause.addSuppressed(e);
       } catch (RuntimeException e) {
         cause.addSuppressed(e);
       }
     }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @PreDestroy
   public void stop() {
+    // The interrupt status is restored only after every server is stopped. Restoring it earlier
+    // would make the termination waits of the remaining servers fail immediately.
+    if (stopAll()) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  /** Returns whether the thread was interrupted while stopping the servers. */
+  private boolean stopAll() {
+    boolean interrupted = false;
     logger.info("Shutting down all gRPC servers...");
 
     // Decommission all health services first
@@ -87,7 +103,7 @@ public class GrpcServerRunner {
         logger.info("Waiting {} ms for graceful shutdown...", gracefulShutdownDelayMillis);
         Thread.sleep(gracefulShutdownDelayMillis);
       } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+        interrupted = true;
         logger.warn("Graceful shutdown delay interrupted", e);
       }
     }
@@ -98,10 +114,11 @@ public class GrpcServerRunner {
         server.stop();
         logger.info("{} shut down", server.getServerName());
       } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+        interrupted = true;
         logger.error("Interrupted while stopping {}", server.getServerName(), e);
       }
     }
+    return interrupted;
   }
 
   public void blockUntilShutdown() throws InterruptedException {

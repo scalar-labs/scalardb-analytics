@@ -6,6 +6,7 @@ package com.scalar.db.analytics.server.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -18,7 +19,9 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -80,8 +83,64 @@ class GrpcServerRunnerTest {
     verify(first).stop();
   }
 
+  @Test
+  void start_StopInterruptedDuringCleanup_StopsRemainingServersBeforeRestoringInterrupt()
+      throws Exception {
+    ManagedGrpcServer first = mock(ManagedGrpcServer.class);
+    ManagedGrpcServer second = mock(ManagedGrpcServer.class);
+    ManagedGrpcServer failing = mock(ManagedGrpcServer.class);
+    IOException failure = new IOException("bind failed");
+    InterruptedException interruption = new InterruptedException("interrupted");
+    AtomicBoolean firstStoppedWhileInterrupted = new AtomicBoolean(true);
+    doThrow(failure).when(failing).start();
+    doThrow(interruption).when(second).stop();
+    doAnswer(
+            invocation -> {
+              firstStoppedWhileInterrupted.set(Thread.currentThread().isInterrupted());
+              return null;
+            })
+        .when(first)
+        .stop();
+
+    try {
+      assertThatThrownBy(() -> runner(first, second, failing).start())
+          .isSameAs(failure)
+          .hasSuppressedException(interruption);
+
+      assertThat(firstStoppedWhileInterrupted).isFalse();
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void stop_StopInterrupted_StopsRemainingServersBeforeRestoringInterrupt() throws Exception {
+    ManagedGrpcServer first = mock(ManagedGrpcServer.class);
+    ManagedGrpcServer second = mock(ManagedGrpcServer.class);
+    AtomicBoolean secondStoppedWhileInterrupted = new AtomicBoolean(true);
+    doThrow(new InterruptedException("interrupted")).when(first).stop();
+    doAnswer(
+            invocation -> {
+              secondStoppedWhileInterrupted.set(Thread.currentThread().isInterrupted());
+              return null;
+            })
+        .when(second)
+        .stop();
+
+    try {
+      runner(first, second).stop();
+
+      assertThat(secondStoppedWhileInterrupted).isFalse();
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
   private static final class NetworkServer implements ManagedGrpcServer {
-    private final Server server = ServerBuilder.forPort(0).build();
+    private final ExecutorService executor = CatalogGrpcServer.newCallExecutor();
+    private final Server server = ServerBuilder.forPort(0).executor(executor).build();
     private int port;
 
     @Override
@@ -92,7 +151,7 @@ class GrpcServerRunnerTest {
 
     @Override
     public void stop() throws InterruptedException {
-      CatalogGrpcServer.shutdownAndAwaitTermination(server, 10, TimeUnit.SECONDS);
+      CatalogGrpcServer.shutdownAndAwaitTermination(server, executor, 10, TimeUnit.SECONDS);
     }
 
     @Override

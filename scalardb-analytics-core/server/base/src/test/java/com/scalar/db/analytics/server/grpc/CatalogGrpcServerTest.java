@@ -24,7 +24,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,16 +57,23 @@ class CatalogGrpcServerTest {
           .setResponseMarshaller(MARSHALLER)
           .build();
 
+  private static final long HANDLER_WORK_AFTER_RELEASE_MILLIS = 200;
+
   private final CountDownLatch handlerEntered = new CountDownLatch(1);
   private final CountDownLatch releaseHandler = new CountDownLatch(1);
+  private final CountDownLatch handlerInterrupted = new CountDownLatch(1);
+  private final AtomicBoolean handlerCompleted = new AtomicBoolean();
+  private ExecutorService executor;
   private Server server;
   private ManagedChannel channel;
 
   @BeforeEach
   void setUp() throws Exception {
     String name = InProcessServerBuilder.generateName();
+    executor = CatalogGrpcServer.newCallExecutor();
     server =
         InProcessServerBuilder.forName(name)
+            .executor(executor)
             .addService(
                 ServerServiceDefinition.builder("test.Hang")
                     .addMethod(HANG_METHOD, ServerCalls.asyncUnaryCall(this::hang))
@@ -79,14 +88,21 @@ class CatalogGrpcServerTest {
     releaseHandler.countDown();
     channel.shutdownNow();
     server.shutdownNow();
+    executor.shutdownNow();
   }
 
+  /**
+   * Blocks until released, ignoring the call's cancellation, then keeps working for a while as a
+   * handler that does not check for cancellation would.
+   */
   private void hang(byte[] request, StreamObserver<byte[]> responseObserver) {
     handlerEntered.countDown();
     try {
       releaseHandler.await();
+      Thread.sleep(HANDLER_WORK_AFTER_RELEASE_MILLIS);
+      handlerCompleted.set(true);
     } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+      handlerInterrupted.countDown();
     }
   }
 
@@ -108,13 +124,38 @@ class CatalogGrpcServerTest {
   }
 
   @Test
-  void shutdownAndAwaitTermination_GracefulTimeoutExpires_ForcesShutdownAndAwaitsTermination()
+  void shutdownAndAwaitTermination_GracefulTimeoutExpires_WaitsForCancelledHandlerToFinish()
       throws Exception {
     startHangingCall();
+    // Release the handler only once the forced shutdown has terminated the server, so that the
+    // handler is still running when the server reports termination.
+    Thread releaser =
+        new Thread(
+            () -> {
+              try {
+                server.awaitTermination();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              releaseHandler.countDown();
+            });
+    releaser.start();
 
-    CatalogGrpcServer.shutdownAndAwaitTermination(server, 200, TimeUnit.MILLISECONDS);
+    CatalogGrpcServer.shutdownAndAwaitTermination(server, executor, 1, TimeUnit.SECONDS);
 
     assertThat(server.isTerminated()).isTrue();
+    assertThat(handlerCompleted).isTrue();
+    releaser.join();
+  }
+
+  @Test
+  void shutdownAndAwaitTermination_HandlerDoesNotFinish_InterruptsHandler() throws Exception {
+    startHangingCall();
+
+    CatalogGrpcServer.shutdownAndAwaitTermination(server, executor, 200, TimeUnit.MILLISECONDS);
+
+    assertThat(server.isTerminated()).isTrue();
+    assertThat(handlerInterrupted.await(10, TimeUnit.SECONDS)).isTrue();
   }
 
   @Test
@@ -124,7 +165,8 @@ class CatalogGrpcServerTest {
     when(neverTerminating.shutdown()).thenReturn(neverTerminating);
     when(neverTerminating.awaitTermination(1, TimeUnit.MILLISECONDS)).thenReturn(false);
 
-    CatalogGrpcServer.shutdownAndAwaitTermination(neverTerminating, 1, TimeUnit.MILLISECONDS);
+    CatalogGrpcServer.shutdownAndAwaitTermination(
+        neverTerminating, executor, 1, TimeUnit.MILLISECONDS);
 
     InOrder inOrder = inOrder(neverTerminating);
     inOrder.verify(neverTerminating).awaitTermination(1, TimeUnit.MILLISECONDS);
@@ -134,9 +176,10 @@ class CatalogGrpcServerTest {
 
   @Test
   void shutdownAndAwaitTermination_NoRunningCall_Terminates() throws Exception {
-    CatalogGrpcServer.shutdownAndAwaitTermination(server, 10, TimeUnit.SECONDS);
+    CatalogGrpcServer.shutdownAndAwaitTermination(server, executor, 10, TimeUnit.SECONDS);
 
     assertThat(server.isTerminated()).isTrue();
+    assertThat(executor.isTerminated()).isTrue();
   }
 
   @Test
@@ -145,9 +188,12 @@ class CatalogGrpcServerTest {
 
     Thread.currentThread().interrupt();
     assertThatThrownBy(
-            () -> CatalogGrpcServer.shutdownAndAwaitTermination(server, 10, TimeUnit.SECONDS))
+            () ->
+                CatalogGrpcServer.shutdownAndAwaitTermination(
+                    server, executor, 10, TimeUnit.SECONDS))
         .isInstanceOf(InterruptedException.class);
 
     assertThat(server.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+    assertThat(handlerInterrupted.await(10, TimeUnit.SECONDS)).isTrue();
   }
 }
