@@ -20,21 +20,34 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.utility.MountableFile;
 
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SchemaResolverOracleTest extends RdbmsSchemaResolverTestBase {
+  private static final String WAIT_SCRIPT = "sql/wait_for_freepdb1.sh";
   private static final String INIT_SCRIPT = "sql/init_oracle.sql";
+  private static final String ORACLE_USERNAME = "testuser";
+  private static final String ORACLE_PASSWORD = "test";
 
   @Container
-  private static final OracleContainer container =
-      new OracleContainer(TestImages.ORACLE_23)
-          .withInitScript(INIT_SCRIPT)
-          .withUsername("testuser")
-          .withStartupTimeout(TestImages.ORACLE_STARTUP_TIMEOUT);
+  private static final GenericContainer<?> container =
+      new GenericContainer<>(TestImages.ORACLE_23)
+          .withExposedPorts(1521)
+          .withEnv("ORACLE_PASSWORD", "Oracle")
+          .withCopyFileToContainer(
+              MountableFile.forClasspathResource(WAIT_SCRIPT, 0755),
+              "/container-entrypoint-startdb.d/001_wait_for_freepdb1.sh")
+          .withCopyFileToContainer(
+              MountableFile.forClasspathResource(INIT_SCRIPT),
+              "/container-entrypoint-startdb.d/002_init.sql")
+          .waitingFor(
+              Wait.forLogMessage(".*DATABASE IS READY TO USE!.*\\s", 1)
+                  .withStartupTimeout(TestImages.ORACLE_STARTUP_TIMEOUT));
 
   @BeforeAll
   void beforeAll() {
@@ -44,9 +57,15 @@ class SchemaResolverOracleTest extends RdbmsSchemaResolverTestBase {
   @Override
   protected RdbmsSchemaResolver getSchemaResolver(RdbmsSchemaResolverOption option) {
     Properties properties = new Properties();
-    properties.put("user", container.getUsername());
-    properties.put("password", container.getPassword());
-    return SchemaResolverOracle.open(DUMMY_SOURCE_ID, container.getJdbcUrl(), properties, option);
+    properties.put("user", ORACLE_USERNAME);
+    properties.put("password", ORACLE_PASSWORD);
+    String jdbcUrl =
+        "jdbc:oracle:thin:@"
+            + container.getHost()
+            + ":"
+            + container.getMappedPort(1521)
+            + "/FREEPDB1";
+    return SchemaResolverOracle.open(DUMMY_SOURCE_ID, jdbcUrl, properties, option);
   }
 
   @Override

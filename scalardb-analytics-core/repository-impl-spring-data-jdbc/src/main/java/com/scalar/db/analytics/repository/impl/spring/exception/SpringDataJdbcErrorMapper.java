@@ -6,9 +6,9 @@ package com.scalar.db.analytics.repository.impl.spring.exception;
 
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.sql.exception.SqlException;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,12 +26,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class SpringDataJdbcErrorMapper {
 
-  private final DatabaseSpecificErrorAnalyzer errorAnalyzer;
-
-  public SpringDataJdbcErrorMapper(DatabaseSpecificErrorAnalyzer errorAnalyzer) {
-    this.errorAnalyzer = errorAnalyzer;
-  }
-
   /**
    * Maps a DataAccessException to an AnalyticsException with appropriate error code.
    *
@@ -44,16 +38,15 @@ public class SpringDataJdbcErrorMapper {
       DataAccessException e, String entityType, @Nullable String identifier) {
 
     // A transaction conflict aborts the whole transaction, so it is reported as retryable before
-    // any other categorization (the analyzer would report it as a generic operation failure).
+    // any other categorization (the ScalarDB SQL check below would report it as a generic operation
+    // failure).
     if (TransactionConflicts.isConflict(e)) {
       return TransactionConflicts.toAnalyticsException(e);
     }
 
-    // Try database-specific error categorization
-    Optional<AnalyticsException> specificError =
-        errorAnalyzer.categorizeError(e, entityType, identifier);
-    if (specificError.isPresent()) {
-      return specificError.get();
+    // Handle ScalarDB SQL exceptions before Spring DAO exceptions.
+    if (e.getMostSpecificCause() instanceof SqlException) {
+      return new AnalyticsException(AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED, e);
     }
 
     // Handle specific Spring DAO exceptions
@@ -94,27 +87,17 @@ public class SpringDataJdbcErrorMapper {
    * @return the corresponding error code
    */
   static AnalyticsErrorCode entityAlreadyExistsCode(String entityType) {
-    switch (entityType) {
-      case "Catalog":
-        return AnalyticsErrorCode.CATALOG_ALREADY_EXISTS;
-      case "DataSource":
-        return AnalyticsErrorCode.DATA_SOURCE_ALREADY_EXISTS;
-      case "Namespace":
-        return AnalyticsErrorCode.NAMESPACE_ALREADY_EXISTS;
-      case "Table":
-        return AnalyticsErrorCode.TABLE_ALREADY_EXISTS;
-      case "Role":
-        return AnalyticsErrorCode.ROLE_ALREADY_EXISTS;
-      case "RoleAssignment":
-        return AnalyticsErrorCode.ROLE_ALREADY_ASSIGNED;
-      case "AccessControlEntry":
-        return AnalyticsErrorCode.PERMISSION_ALREADY_GRANTED;
-      case "PasswordIdentity":
-      case "InternalCredential":
-        return AnalyticsErrorCode.USER_ALREADY_EXISTS;
-      default:
-        return AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED;
-    }
+    return switch (entityType) {
+      case "Catalog" -> AnalyticsErrorCode.CATALOG_ALREADY_EXISTS;
+      case "DataSource" -> AnalyticsErrorCode.DATA_SOURCE_ALREADY_EXISTS;
+      case "Namespace" -> AnalyticsErrorCode.NAMESPACE_ALREADY_EXISTS;
+      case "Table" -> AnalyticsErrorCode.TABLE_ALREADY_EXISTS;
+      case "Role" -> AnalyticsErrorCode.ROLE_ALREADY_EXISTS;
+      case "RoleAssignment" -> AnalyticsErrorCode.ROLE_ALREADY_ASSIGNED;
+      case "AccessControlEntry" -> AnalyticsErrorCode.PERMISSION_ALREADY_GRANTED;
+      case "PasswordIdentity", "InternalCredential" -> AnalyticsErrorCode.USER_ALREADY_EXISTS;
+      default -> AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED;
+    };
   }
 
   private AnalyticsException mapSpringException(

@@ -31,8 +31,7 @@ class TransactionConflictsTest {
             new TransactionConflictException("DB-CORE-20022: anti-dependency", TX_ID)));
   }
 
-  private final SpringDataJdbcErrorMapper errorMapper =
-      new SpringDataJdbcErrorMapper(new ScalarDbSqlErrorAnalyzer());
+  private final SpringDataJdbcErrorMapper errorMapper = new SpringDataJdbcErrorMapper();
 
   @Test
   void isConflict_shouldFindConflictInCauseChain() {
