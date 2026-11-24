@@ -62,9 +62,10 @@ public class AccessTokenRepositoryImpl
   @Transactional(readOnly = false)
   public void deleteByUserId(SpringDataJdbcTransactionContext ctx, UUID userId) {
     try {
-      if (springDataRepository.existsById(userId)) {
-        springDataRepository.deleteById(userId);
-      }
+      // The entity's @Id is only the partition key (user_id), so this deletes every token row of
+      // the user. A lookup such as existsById(userId) must not precede it: it expects at most one
+      // row and fails once a user has more than one token.
+      springDataRepository.deleteById(userId);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, ACCESS_TOKEN, userId.toString());
     } catch (Exception e) {
