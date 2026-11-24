@@ -3,12 +3,12 @@
 # The official image is a multi-platform index, so it serves both platforms that the Makefile
 # builds for. You can confirm the digest with:
 #   docker buildx imagetools inspect ghcr.io/grpc-ecosystem/grpc-health-probe:<tag>
-FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.60@sha256:2d433b978644e40eb2b2887dbd0af3a19e470514a2176a97cad1971f13bdb171 AS grpc-health-probe
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.63@sha256:1d6cc5716f1c80cbcf97d5bc7eef3cd5bd4c7a7b942c0dc4f533dea70dcb5173 AS grpc-health-probe
 
 # Build stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:422bf3f42dc7f967f36eb4196f6d7b683c415cb541583571833d865c807c2ea2 AS builder
+FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:1ba05eab8e59bad9cbc9c6294b5c4a1d71150cfd00a5cdf04e67bb36a0a10916 AS builder
 
 WORKDIR /workspace
 
@@ -26,7 +26,7 @@ RUN --mount=type=secret,id=gpr_username \
 # Runtime stage
 # You can see sha256 hash in the following page:
 # - https://hub.docker.com/_/eclipse-temurin/tags
-FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:422bf3f42dc7f967f36eb4196f6d7b683c415cb541583571833d865c807c2ea2
+FROM eclipse-temurin:25.0.5_8-jdk-resolute@sha256:1ba05eab8e59bad9cbc9c6294b5c4a1d71150cfd00a5cdf04e67bb36a0a10916
 
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
