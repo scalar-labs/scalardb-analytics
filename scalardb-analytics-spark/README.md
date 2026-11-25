@@ -16,7 +16,7 @@ Follow the root [build instructions](../README.md#build-the-core-artifacts-used-
 ```
 
 Build the assembly from `sparkAll`, not `spark`. Mill can assemble any module, so
-`spark[…].assembly` also succeeds, but it produces a jar without the generated license texts
+`spark[…].assembly` also succeeds, but it produces a jar without the license and notice texts
 that is not the published artifact.
 
 Use these commands to format or check Scala sources:
