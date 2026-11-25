@@ -8,7 +8,10 @@ How many access tokens can a user hold at once, and how are tokens keyed in the 
 
 Each user holds at most one access token. The `auth_access_tokens` table uses `user_id` as its
 partition key and `token` as its clustering key. Signing in deletes the user's existing token and
-creates a new one, so signing in again ends the previous session.
+creates a new one, so signing in again ends the previous session. The server runs its transactions
+under SERIALIZABLE, so two concurrent sign-ins of the same user conflict instead of both leaving a
+token; the sign-in use case retries the transaction that lost, which then replaces the token the
+other created.
 
 Validating a request is a lookup by both keys. Clients therefore send the `userId` they received
 when signing in as the `x-user-id` header together with the token

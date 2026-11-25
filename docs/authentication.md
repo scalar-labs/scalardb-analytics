@@ -58,7 +58,8 @@ sign-in instead.
 ## Access tokens and request validation
 
 An access token is an opaque random string stored as an `IssuedToken` with its expiry. Each user has
-at most one token, and signing in again replaces it; why is recorded in
+at most one token, and signing in again replaces it. Concurrent sign-ins of the same user conflict
+and are retried like concurrent first sign-ins, so they also leave one token. Why is recorded in
 [design/keep-one-access-token-per-user.md](design/keep-one-access-token-per-user.md).
 
 Clients send the token as `Authorization: Bearer <token>` and the `userId` as `x-user-id`. On the
