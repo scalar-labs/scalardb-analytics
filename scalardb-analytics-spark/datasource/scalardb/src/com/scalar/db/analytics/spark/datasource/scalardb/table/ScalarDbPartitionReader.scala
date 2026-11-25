@@ -52,7 +52,6 @@ class ScalarDbPartitionReader private (
     // be changed in the future because the ScalarDB team is now planning to optimize the
     // coordination process by skipping the coordinate writing for read-only transactions.
     // If it is changed, we can remove the catch block for UnknownTransactionStatusException.
-    // See: https://github.com/scalar-labs/scalardb-analytics/pull/129#discussion_r2149704900
     catch {
       case e @ (_: CrudException | _: UnknownTransactionStatusException) =>
         logger.warn(

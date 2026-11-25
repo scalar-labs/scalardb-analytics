@@ -174,7 +174,7 @@ public class RoleUseCaseImpl<T extends RepositoryTransactionContext> implements 
 
   private void requireSuperAdmin(UUID userId) {
     if (!authorizationService.authorizeSuperAdmin(userId)) {
-      // TODO(#460): include the caller's username here once AuthenticationInterceptor threads an
+      // TODO(#33): include the caller's username here once AuthenticationInterceptor threads an
       // AuthUser (username) downstream, instead of surfacing only the UUID.
       throw new AnalyticsException(
           AnalyticsErrorCode.ACCESS_DENIED, Map.of("user_id", userId.toString()));

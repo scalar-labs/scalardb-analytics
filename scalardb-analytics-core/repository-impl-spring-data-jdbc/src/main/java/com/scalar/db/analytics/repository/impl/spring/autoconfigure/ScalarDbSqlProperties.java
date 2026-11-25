@@ -49,7 +49,7 @@ public class ScalarDbSqlProperties {
     // per-query setting. Whether to localize it instead -- e.g. a fixed-value directory_id
     // secondary index on auth_user so findAll becomes a bounded index scan and this default can
     // revert to false -- is tracked, with the related stale-doc and scan-avoidance cleanups, in
-    // #505.
+    // #39.
     params.put("scalar.db.cross_partition_scan.enabled", "true");
     params.put("scalar.db.contact_points", contactPoints);
 
