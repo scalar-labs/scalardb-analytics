@@ -111,10 +111,7 @@ public class CatalogRepositoryImpl implements CatalogRepository<SpringDataJdbcTr
   @Transactional(readOnly = false)
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID id) {
     try {
-      // Check if exists before deleting to avoid database-specific errors
-      if (springDataRepository.existsById(id)) {
-        springDataRepository.deleteById(id);
-      }
+      springDataRepository.deleteById(id);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, CATALOG, id.toString());
     } catch (Exception e) {

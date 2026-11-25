@@ -23,6 +23,11 @@ changes released from here, starting with the entries below.
 
 - Fixed an issue where two concurrent requests that created a catalog, data source, namespace, table, or role with the same name, or that linked the same user to the same password backend, could both succeed and leave a duplicate. Every later operation that looked the entity up by that name or link then failed with `DB-ANALYTICS-30104`. Now at most one of the requests succeeds and the others fail with the retryable `DB-ANALYTICS-30003`; a retry either creates the entity or reports its `*_ALREADY_EXISTS` error. Duplicates created before this fix are not removed (#95)
 
+### Bug fixes
+
+- Fixed an issue where a user who had ended up with more than one access token, which concurrent logins of a user who held no token could cause, could no longer log in, be deleted, be unlinked from a backend user, or have their internal backend user deleted with cascade; these operations failed with `DB-ANALYTICS-30104` (`ANALYTICS_DB_OPERATION_FAILED`). They now remove every token of the user (#93)
+- Wait for the gRPC server and its cancelled call handlers to finish after a forced shutdown, so that the resources the handlers use are not released while they are still running, and stop the already started gRPC servers when server startup fails partway (#76)
+
 ## [v3.20.0] - 2026-11-06
 
 ### Enhancements

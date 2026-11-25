@@ -86,9 +86,7 @@ public class AuthUserRepositoryImpl
   @Transactional(readOnly = false)
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID userId) {
     try {
-      if (springDataRepository.existsById(userId)) {
-        springDataRepository.deleteById(userId);
-      }
+      springDataRepository.deleteById(userId);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, USER, userId.toString());
     } catch (Exception e) {

@@ -125,13 +125,10 @@ public class TableRepositoryImpl implements TableRepository<SpringDataJdbcTransa
   @Transactional(readOnly = false)
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID id) {
     try {
-      // Check if exists before deleting to avoid database-specific errors
-      if (springDataRepository.existsById(id)) {
-        // First delete all columns associated with this table
-        columnRepository.deleteByTableId(id);
-        // Then delete the table itself
-        springDataRepository.deleteById(id);
-      }
+      // First delete all columns associated with this table
+      columnRepository.deleteByTableId(id);
+      // Then delete the table itself
+      springDataRepository.deleteById(id);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, TABLE, id.toString());
     } catch (Exception e) {
