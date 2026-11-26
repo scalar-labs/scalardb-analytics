@@ -203,6 +203,22 @@ public enum AnalyticsErrorCode {
           "The permission is already granted to the role on the resource.",
           "No action is required if the grant is intended. Otherwise, choose a different permission or resource.")),
 
+  /**
+   * Backend user already linked.
+   *
+   * <p>Expected metadata keys: {@code reason}, {@code username} (the user in the request), {@code
+   * backend}, {@code backend_username}. With {@code reason} {@code backend_user_linked}, the
+   * requested backend user is already linked to a user; with {@code user_linked_on_backend}, the
+   * user is already linked to {@code backend_username} on the backend.
+   */
+  BACKEND_USER_ALREADY_LINKED(
+      "DB-ANALYTICS-10108",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Backend user already linked",
+          "The backend user is already linked to a user, or the user is already linked to a backend user on the same backend. A user can have at most one backend user per backend.",
+          "Unlink the existing link first, or choose a different backend user.")),
+
   // 102xx - Operation Precondition
 
   /**
@@ -271,6 +287,20 @@ public enum AnalyticsErrorCode {
           "Authorization for the resource is delegated to ScalarDB Cluster, so Analytics permissions granted on it would be ignored.",
           "Grant the corresponding privilege in ScalarDB Cluster instead.")),
 
+  /**
+   * The operation requires the internal password backend, but the server uses another backend.
+   *
+   * <p>Expected metadata keys: {@code password_backend} (the backend the server is configured with,
+   * as the lower-case enum name, e.g. {@code scalardb_cluster}), when known.
+   */
+  INTERNAL_PASSWORD_BACKEND_REQUIRED(
+      "DB-ANALYTICS-10205",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Internal password backend required",
+          "The operation manages internal-backend users, but the server is configured with a different password backend.",
+          "Create the users in the configured password backend and link them to Analytics users instead, or configure the server to use the internal password backend.")),
+
   // 103xx - Data Source Connection
 
   /**
@@ -304,7 +334,9 @@ public enum AnalyticsErrorCode {
   /**
    * Invalid argument or validation failure.
    *
-   * <p>Expected metadata keys: context-dependent.
+   * <p>Expected metadata keys: {@code field} (the invalid request field) and {@code reason} (a
+   * snake_case token naming the violated rule) where the failure is modelled, plus the names of the
+   * entities involved (e.g. {@code catalog_name}).
    */
   INVALID_ARGUMENT(
       "DB-ANALYTICS-10400",
@@ -329,6 +361,118 @@ public enum AnalyticsErrorCode {
           "Data source schema contains a prohibited character",
           "A namespace, table, column, or column type name in the data source schema contains a control character (such as a line break or ESC) or a bidirectional formatting character, which could alter logs or terminal output.",
           "Rename the object identified by the field and path in the metadata, or correct the name in the manual schema, then retry. The value in the metadata shows the prohibited characters escaped.")),
+
+  // 105xx - Entity Not Found
+  //
+  // Raised when an operation refers to an entity that must exist (for example, the role in a role
+  // grant). Lookups that report absence in their result (find, describe, delete) do not use these.
+
+  /**
+   * Catalog not found.
+   *
+   * <p>Expected metadata keys: {@code catalog_name} or {@code catalog_id}.
+   */
+  CATALOG_NOT_FOUND(
+      "DB-ANALYTICS-10500",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Catalog not found",
+          "The operation refers to a catalog that does not exist.",
+          "Verify the catalog name or ID, then retry.")),
+
+  /**
+   * Data source not found.
+   *
+   * <p>Expected metadata keys: {@code catalog_name} + {@code data_source_name}, or {@code
+   * data_source_id}.
+   */
+  DATA_SOURCE_NOT_FOUND(
+      "DB-ANALYTICS-10501",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Data source not found",
+          "The operation refers to a data source that does not exist in the catalog.",
+          "Verify the catalog and data source names or the data source ID, then retry.")),
+
+  /**
+   * Namespace not found.
+   *
+   * <p>Expected metadata keys: {@code catalog_name} + {@code data_source_name} + {@code
+   * namespace_name}, or {@code namespace_id}.
+   */
+  NAMESPACE_NOT_FOUND(
+      "DB-ANALYTICS-10502",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Namespace not found",
+          "The operation refers to a namespace that does not exist in the data source.",
+          "Verify the catalog, data source, and namespace names or the namespace ID, then retry.")),
+
+  /**
+   * Table not found.
+   *
+   * <p>Expected metadata keys: {@code catalog_name} + {@code data_source_name} + {@code
+   * namespace_name} + {@code table_name}, or {@code table_id}.
+   */
+  TABLE_NOT_FOUND(
+      "DB-ANALYTICS-10503",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Table not found",
+          "The operation refers to a table that does not exist in the namespace.",
+          "Verify the catalog, data source, namespace, and table names or the table ID, then retry.")),
+
+  /**
+   * Role not found.
+   *
+   * <p>Expected metadata keys: {@code role_name} or {@code role_id}.
+   */
+  ROLE_NOT_FOUND(
+      "DB-ANALYTICS-10504",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Role not found",
+          "The operation refers to a role that does not exist.",
+          "Verify the role name or ID, then retry.")),
+
+  /**
+   * User not found.
+   *
+   * <p>Expected metadata keys: {@code username} or {@code user_id}.
+   */
+  USER_NOT_FOUND(
+      "DB-ANALYTICS-10505",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "User not found",
+          "The operation refers to a user that does not exist.",
+          "Verify the username or user ID, then retry.")),
+
+  /**
+   * Backend user not found.
+   *
+   * <p>Expected metadata keys: {@code backend}, {@code backend_username}.
+   */
+  BACKEND_USER_NOT_FOUND(
+      "DB-ANALYTICS-10506",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Backend user not found",
+          "The operation refers to a backend user that does not exist in the password backend.",
+          "Create the backend user first, or verify the backend username, then retry.")),
+
+  /**
+   * Link between a user and a backend user not found.
+   *
+   * <p>Expected metadata keys: {@code username}, {@code backend}, {@code backend_username}.
+   */
+  BACKEND_USER_LINK_NOT_FOUND(
+      "DB-ANALYTICS-10507",
+      ErrorCategory.USER_ERROR,
+      new ErrorDescription(
+          "Backend user link not found",
+          "The user is not linked to the backend user on the backend.",
+          "Verify the username, backend, and backend username, then retry.")),
 
   // 300xx - Retryable Internal Errors
 

@@ -24,7 +24,6 @@ import com.scalar.db.analytics.grpc.mapper.RequestMapper;
 import com.scalar.db.analytics.grpc.mapper.catalog.CatalogMapper;
 import com.scalar.db.analytics.usecase.CatalogUseCase;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class CatalogServiceImpl extends CatalogServiceImplBase {
   private final CatalogUseCase catalogUseCase;
@@ -90,9 +89,7 @@ public class CatalogServiceImpl extends CatalogServiceImplBase {
         .initializeCatalog(
             userId,
             request.getCatalogName(),
-            request.getDataSourcesList().stream()
-                .map(RequestMapper.INSTANCE::toDomainRegisterDataSourceRequest)
-                .collect(Collectors.toList()))
+            RequestMapper.INSTANCE.toDomainRegisterDataSourceRequests(request))
         .ifPresent(value -> responseBuilder.setCatalog(CatalogMapper.INSTANCE.toProto(value)));
 
     responseObserver.onNext(responseBuilder.build());
@@ -107,7 +104,7 @@ public class CatalogServiceImpl extends CatalogServiceImplBase {
     FindCatalogByIdResponse.Builder responseBuilder = FindCatalogByIdResponse.newBuilder();
 
     catalogUseCase
-        .describeCatalogById(userId, UUID.fromString(request.getCatalogId()))
+        .describeCatalogById(userId, RequestFields.uuid("catalog_id", request.getCatalogId()))
         .ifPresent(value -> responseBuilder.setCatalog(CatalogMapper.INSTANCE.toProto(value)));
 
     responseObserver.onNext(responseBuilder.build());
@@ -135,7 +132,7 @@ public class CatalogServiceImpl extends CatalogServiceImplBase {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
     boolean deleted =
         catalogUseCase.deleteCatalogById(
-            userId, UUID.fromString(request.getCatalogId()), request.getCascade());
+            userId, RequestFields.uuid("catalog_id", request.getCatalogId()), request.getCascade());
 
     DeleteCatalogByIdResponse response =
         DeleteCatalogByIdResponse.newBuilder().setDeleted(deleted).build();

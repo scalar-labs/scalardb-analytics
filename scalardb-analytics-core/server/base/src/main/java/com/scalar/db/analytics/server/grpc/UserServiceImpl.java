@@ -64,7 +64,7 @@ public class UserServiceImpl extends UserServiceImplBase {
   public void describeUserById(
       DescribeUserByIdRequest request, StreamObserver<DescribeUserByIdResponse> responseObserver) {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
-    UUID targetUserId = UUID.fromString(request.getUserId());
+    UUID targetUserId = RequestFields.uuid("user_id", request.getUserId());
     Optional<UserDetail> detail = userUseCase.describeUserById(userId, targetUserId);
 
     DescribeUserByIdResponse.Builder responseBuilder = DescribeUserByIdResponse.newBuilder();
@@ -113,7 +113,7 @@ public class UserServiceImpl extends UserServiceImplBase {
   public void deleteUserById(
       DeleteUserByIdRequest request, StreamObserver<DeleteUserByIdResponse> responseObserver) {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
-    UUID targetUserId = UUID.fromString(request.getUserId());
+    UUID targetUserId = RequestFields.uuid("user_id", request.getUserId());
     boolean deleted = userUseCase.deleteUserById(userId, targetUserId, request.getCascade());
     responseObserver.onNext(DeleteUserByIdResponse.newBuilder().setDeleted(deleted).build());
     responseObserver.onCompleted();
@@ -140,7 +140,9 @@ public class UserServiceImpl extends UserServiceImplBase {
   public void linkBackendUser(
       LinkBackendUserRequest request, StreamObserver<LinkBackendUserResponse> responseObserver) {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
-    PasswordBackendType backend = PasswordBackendMapper.INSTANCE.toDomain(request.getBackend());
+    PasswordBackendType backend =
+        PasswordBackendMapper.INSTANCE.toDomain(
+            RequestFields.specified("backend", request.getBackend()));
     userUseCase.linkBackendUser(
         userId, request.getUsername(), request.getBackendUsername(), backend);
     responseObserver.onNext(LinkBackendUserResponse.newBuilder().build());
@@ -152,7 +154,9 @@ public class UserServiceImpl extends UserServiceImplBase {
       UnlinkBackendUserRequest request,
       StreamObserver<UnlinkBackendUserResponse> responseObserver) {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
-    PasswordBackendType backend = PasswordBackendMapper.INSTANCE.toDomain(request.getBackend());
+    PasswordBackendType backend =
+        PasswordBackendMapper.INSTANCE.toDomain(
+            RequestFields.specified("backend", request.getBackend()));
     userUseCase.unlinkBackendUser(
         userId, request.getUsername(), request.getBackendUsername(), backend);
     responseObserver.onNext(UnlinkBackendUserResponse.newBuilder().build());

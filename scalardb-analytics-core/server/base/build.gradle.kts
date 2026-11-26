@@ -79,6 +79,8 @@ testing.suites {
         useJUnitJupiter(libs.versions.junit.jupiter)
         dependencies {
             implementation(project())
+            // Asserts the error that the SDK reconstructs from a server failure.
+            implementation(project(":client-sdk"))
             implementation(libs.assertj.core)
             implementation(libs.mockito.core)
             implementation(libs.grpc.inprocess)

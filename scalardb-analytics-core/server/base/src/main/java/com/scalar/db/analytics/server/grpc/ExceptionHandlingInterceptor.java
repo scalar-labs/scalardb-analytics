@@ -27,6 +27,10 @@ import org.slf4j.LoggerFactory;
  * <p>Error details are transmitted via the {@code grpc-status-details-bin} trailing metadata, which
  * carries a {@code google.rpc.Status} with an {@code AnalyticsError} detail for structured access.
  *
+ * <p>Only {@link AnalyticsException} carries an error code to the client. Any other exception,
+ * including a bare {@link IllegalArgumentException}, is unexpected and maps to {@link
+ * AnalyticsErrorCode#INTERNAL_ERROR}.
+ *
  * <p>See ERROR_MAPPING.md for the complete error mapping documentation.
  */
 public class ExceptionHandlingInterceptor implements ServerInterceptor {
@@ -82,16 +86,13 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
               .setErrorCode(errorCode.getCode())
               .putAllMetadata(ae.getMetadata())
               .build();
-    } else if (exception instanceof IllegalArgumentException) {
-      // TODO(#499): Temporary bridge. Request-path validation / "not found" code still throws bare
-      // IllegalArgumentException; map it to INVALID_ARGUMENT so client input errors are not
-      // mislabeled as INTERNAL. Remove this branch once those sites throw AnalyticsException.
-      errorCode = AnalyticsErrorCode.INVALID_ARGUMENT;
-      status =
-          Status.INVALID_ARGUMENT.withDescription(
-              errorCode.getCode() + ": " + exception.getMessage());
-      analyticsError = AnalyticsError.newBuilder().setErrorCode(errorCode.getCode()).build();
     } else {
+      // Expected failures, including invalid caller input, are thrown as AnalyticsException: the
+      // gRPC layer decodes request fields (RequestFields, RequestMapper), the use cases validate
+      // the rest before reaching code with its own argument checks, and an IllegalArgumentException
+      // that a data source's library (ScalarDB, a JDBC driver) throws for the caller's
+      // configuration is converted where the library is called. Anything else, including a bare
+      // IllegalArgumentException, is a server-side defect and is reported as INTERNAL_ERROR.
       errorCode = AnalyticsErrorCode.INTERNAL_ERROR;
       status = Status.INTERNAL.withDescription(errorCode.getCode() + ": " + exception.getMessage());
       analyticsError = AnalyticsError.newBuilder().setErrorCode(errorCode.getCode()).build();
@@ -161,14 +162,25 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
           ROLE_ALREADY_EXISTS,
           USER_ALREADY_EXISTS,
           ROLE_ALREADY_ASSIGNED,
-          PERMISSION_ALREADY_GRANTED ->
+          PERMISSION_ALREADY_GRANTED,
+          BACKEND_USER_ALREADY_LINKED ->
           Status.ALREADY_EXISTS;
       case CATALOG_NOT_EMPTY,
           DATA_SOURCE_NOT_EMPTY,
           USER_NOT_EMPTY,
           BUILT_IN_ENTITY_NOT_MODIFIABLE,
-          RESOURCE_UNDER_ACL_DELEGATION ->
+          RESOURCE_UNDER_ACL_DELEGATION,
+          INTERNAL_PASSWORD_BACKEND_REQUIRED ->
           Status.FAILED_PRECONDITION;
+      case CATALOG_NOT_FOUND,
+          DATA_SOURCE_NOT_FOUND,
+          NAMESPACE_NOT_FOUND,
+          TABLE_NOT_FOUND,
+          ROLE_NOT_FOUND,
+          USER_NOT_FOUND,
+          BACKEND_USER_NOT_FOUND,
+          BACKEND_USER_LINK_NOT_FOUND ->
+          Status.NOT_FOUND;
       case DATA_SOURCE_AUTHENTICATION_FAILED,
           DATA_SOURCE_UNREACHABLE,
           INVALID_ARGUMENT,

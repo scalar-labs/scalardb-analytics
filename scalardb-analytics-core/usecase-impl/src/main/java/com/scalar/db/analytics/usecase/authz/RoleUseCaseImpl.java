@@ -43,6 +43,12 @@ public class RoleUseCaseImpl<T extends RepositoryTransactionContext> implements 
   @Override
   public Role createRole(UUID userId, String roleName) {
     requireSuperAdmin(userId);
+    // Mirrors the check in Role, so that the caller gets a modelled error instead of the
+    // constructor's IllegalArgumentException.
+    if (roleName.isBlank()) {
+      throw new AnalyticsException(
+          AnalyticsErrorCode.INVALID_ARGUMENT, Map.of("field", "role_name", "reason", "blank"));
+    }
     Role role = Role.create(roleName);
     roleRepository.create(txManager.single(), role);
     return role;
@@ -155,20 +161,27 @@ public class RoleUseCaseImpl<T extends RepositoryTransactionContext> implements 
   private UUID resolveRoleId(T ctx, String roleName) {
     return roleRepository
         .findByName(ctx, roleName)
-        .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName))
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.ROLE_NOT_FOUND, Map.of("role_name", roleName)))
         .id();
   }
 
   private UUID resolveUserId(T ctx, String username) {
     return authUserRepository
         .findByUsername(ctx, username)
-        .orElseThrow(() -> new IllegalArgumentException("User not found: " + username))
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.USER_NOT_FOUND, Map.of("username", username)))
         .getUserId();
   }
 
   private void requireRoleExists(T ctx, UUID roleId) {
     if (roleRepository.findById(ctx, roleId).isEmpty()) {
-      throw new IllegalArgumentException("Role not found: " + roleId);
+      throw new AnalyticsException(
+          AnalyticsErrorCode.ROLE_NOT_FOUND, Map.of("role_id", roleId.toString()));
     }
   }
 

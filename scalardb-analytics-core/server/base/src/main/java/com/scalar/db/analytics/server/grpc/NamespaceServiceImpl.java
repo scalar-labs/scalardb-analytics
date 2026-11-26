@@ -65,7 +65,7 @@ public class NamespaceServiceImpl extends NamespaceServiceImplBase {
     DescribeNamespaceByIdResponse.Builder builder = DescribeNamespaceByIdResponse.newBuilder();
 
     useCase
-        .describeNamespaceById(userId, UUID.fromString(request.getNamespaceId()))
+        .describeNamespaceById(userId, RequestFields.uuid("namespace_id", request.getNamespaceId()))
         .ifPresent(namespace -> builder.setNamespace(namespaceMapper.toProto(namespace)));
 
     responseObserver.onNext(builder.build());

@@ -7,6 +7,7 @@ package com.scalar.db.analytics.server.config.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.scalar.db.analytics.grpc.generated.auth.v1.InternalUserDirectoryServiceGrpc.InternalUserDirectoryServiceImplBase;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.auth.AccessTokenRepository;
 import com.scalar.db.analytics.repository.auth.AuthUserRepository;
@@ -17,6 +18,8 @@ import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.server.auth.ScalarDbClusterPasswordBackend;
 import com.scalar.db.analytics.server.config.ServerTlsProperties;
+import com.scalar.db.analytics.server.grpc.InternalUserDirectoryServiceImpl;
+import com.scalar.db.analytics.server.grpc.UnsupportedInternalUserDirectoryServiceImpl;
 import com.scalar.db.analytics.server.grpc.UserServiceImpl;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.usecase.auth.AuthenticationUseCase;
@@ -77,6 +80,10 @@ class AuthGrpcConfigurationTest {
               assertThat(context).hasSingleBean(UserServiceImpl.class);
               assertThat(context.getBean(PasswordAuthenticationBackend.class))
                   .isInstanceOf(ScalarDbClusterPasswordBackend.class);
+              // The internal user directory service is still registered, so that its calls fail
+              // with a descriptive error rather than UNIMPLEMENTED.
+              assertThat(context.getBean(InternalUserDirectoryServiceImplBase.class))
+                  .isInstanceOf(UnsupportedInternalUserDirectoryServiceImpl.class);
             });
   }
 
@@ -92,6 +99,8 @@ class AuthGrpcConfigurationTest {
               assertThat(context).hasSingleBean(UserServiceImpl.class);
               assertThat(context.getBean(PasswordAuthenticationBackend.class))
                   .isInstanceOf(InternalPasswordBackend.class);
+              assertThat(context.getBean(InternalUserDirectoryServiceImplBase.class))
+                  .isInstanceOf(InternalUserDirectoryServiceImpl.class);
             });
   }
 

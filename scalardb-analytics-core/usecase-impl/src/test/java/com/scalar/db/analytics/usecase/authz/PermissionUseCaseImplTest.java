@@ -47,6 +47,7 @@ import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -475,5 +476,202 @@ class PermissionUseCaseImplTest {
 
     assertThat(result).isEmpty();
     verify(txManager, times(1)).withTransaction(any());
+  }
+
+  @Nested
+  class WhenReferencedEntityDoesNotExist {
+
+    private final DataSource dataSource =
+        new DataSource(
+            UUID.randomUUID(),
+            CATALOG_ID,
+            "ds",
+            ScalarDbProvider.builder()
+                .configs(Collections.singletonMap("scalar.db.storage", "cassandra"))
+                .build());
+    private final Namespace namespace =
+        new Namespace(UUID.randomUUID(), dataSource.getId(), List.of("ns1", "ns2"));
+
+    @BeforeEach
+    void setUpGrantee() throws Exception {
+      lenient()
+          .when(authUserRepository.findByUsername(txContext, "alice"))
+          .thenReturn(Optional.of(new AuthUser(TARGET_USER_ID, "alice")));
+    }
+
+    private void grantTablePermission() {
+      permissionUseCase.grantTablePermission(
+          USER_ID,
+          GranteeType.USER,
+          "alice",
+          Permission.TABLE_READ,
+          "catalog",
+          "ds",
+          List.of("ns1", "ns2"),
+          "tbl");
+    }
+
+    private void assertAnalyticsError(
+        Runnable call, AnalyticsErrorCode errorCode, Map<String, String> metadata) {
+      assertThatThrownBy(call::run)
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              e -> {
+                assertThat(e.getErrorCode()).isEqualTo(errorCode);
+                assertThat(e.getMetadata()).isEqualTo(metadata);
+              });
+      verify(aceRepository, never()).create(any(), any());
+    }
+
+    @Test
+    void grantPermission_toMissingUser_shouldThrowUserNotFound() {
+      when(authUserRepository.findByUsername(txContext, "bob")).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () ->
+              permissionUseCase.grantCatalogPermission(
+                  USER_ID, GranteeType.USER, "bob", Permission.CATALOG_READ, "catalog"),
+          AnalyticsErrorCode.USER_NOT_FOUND,
+          Map.of("username", "bob"));
+    }
+
+    @Test
+    void grantPermission_toMissingRole_shouldThrowRoleNotFound() {
+      when(roleRepository.findByName(txContext, "analyst")).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () ->
+              permissionUseCase.grantCatalogPermission(
+                  USER_ID, GranteeType.ROLE, "analyst", Permission.CATALOG_READ, "catalog"),
+          AnalyticsErrorCode.ROLE_NOT_FOUND,
+          Map.of("role_name", "analyst"));
+    }
+
+    @Test
+    void grantTablePermission_inMissingCatalog_shouldThrowCatalogNotFound() {
+      when(catalogRepository.findByName(txContext, "catalog")).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          this::grantTablePermission,
+          AnalyticsErrorCode.CATALOG_NOT_FOUND,
+          Map.of("catalog_name", "catalog"));
+    }
+
+    @Test
+    void grantTablePermission_inMissingDataSource_shouldThrowDataSourceNotFound() {
+      when(catalogRepository.findByName(txContext, "catalog"))
+          .thenReturn(Optional.of(Catalog.of(CATALOG_ID, "catalog")));
+      when(dataSourceRepository.findByCatalogIdAndName(txContext, CATALOG_ID, "ds"))
+          .thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          this::grantTablePermission,
+          AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND,
+          Map.of("catalog_name", "catalog", "data_source_name", "ds"));
+    }
+
+    @Test
+    void grantTablePermission_inMissingNamespace_shouldThrowNamespaceNotFound() {
+      when(catalogRepository.findByName(txContext, "catalog"))
+          .thenReturn(Optional.of(Catalog.of(CATALOG_ID, "catalog")));
+      when(dataSourceRepository.findByCatalogIdAndName(txContext, CATALOG_ID, "ds"))
+          .thenReturn(Optional.of(dataSource));
+      when(namespaceRepository.findByDataSourceIdAndNames(
+              txContext, dataSource.getId(), List.of("ns1", "ns2")))
+          .thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          this::grantTablePermission,
+          AnalyticsErrorCode.NAMESPACE_NOT_FOUND,
+          Map.of("catalog_name", "catalog", "data_source_name", "ds", "namespace_name", "ns1.ns2"));
+    }
+
+    @Test
+    void grantTablePermission_onMissingTable_shouldThrowTableNotFound() {
+      when(catalogRepository.findByName(txContext, "catalog"))
+          .thenReturn(Optional.of(Catalog.of(CATALOG_ID, "catalog")));
+      when(dataSourceRepository.findByCatalogIdAndName(txContext, CATALOG_ID, "ds"))
+          .thenReturn(Optional.of(dataSource));
+      when(namespaceRepository.findByDataSourceIdAndNames(
+              txContext, dataSource.getId(), List.of("ns1", "ns2")))
+          .thenReturn(Optional.of(namespace));
+      when(tableRepository.findByNamespaceIdAndName(txContext, namespace.getId(), "tbl"))
+          .thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          this::grantTablePermission,
+          AnalyticsErrorCode.TABLE_NOT_FOUND,
+          Map.of(
+              "catalog_name", "catalog",
+              "data_source_name", "ds",
+              "namespace_name", "ns1.ns2",
+              "table_name", "tbl"));
+    }
+
+    @Test
+    void grantPermissionById_onMissingTable_shouldThrowTableNotFound() {
+      UUID tableId = UUID.randomUUID();
+      when(tableRepository.findById(txContext, tableId)).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () ->
+              permissionUseCase.grantPermissionById(
+                  USER_ID, GranteeType.USER, TARGET_USER_ID, Permission.TABLE_READ, tableId),
+          AnalyticsErrorCode.TABLE_NOT_FOUND,
+          Map.of("table_id", tableId.toString()));
+    }
+
+    @Test
+    void grantPermissionById_onTableWithMissingNamespace_shouldThrowDataInconsistency() {
+      Table table = new Table(new TableInfo(UUID.randomUUID(), namespace.getId(), "tbl"));
+      when(tableRepository.findById(txContext, table.getInfo().getId()))
+          .thenReturn(Optional.of(table));
+      when(namespaceRepository.findById(txContext, namespace.getId())).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () ->
+              permissionUseCase.grantPermissionById(
+                  USER_ID,
+                  GranteeType.USER,
+                  TARGET_USER_ID,
+                  Permission.TABLE_READ,
+                  table.getInfo().getId()),
+          AnalyticsErrorCode.DATA_INCONSISTENCY,
+          Map.of(
+              "table_id",
+              table.getInfo().getId().toString(),
+              "namespace_id",
+              namespace.getId().toString()));
+    }
+
+    @Test
+    void listPermissions_ofMissingUser_shouldThrowUserNotFound() {
+      when(authUserRepository.findByUsername(txContext, "bob")).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () -> permissionUseCase.listPermissions(USER_ID, "bob"),
+          AnalyticsErrorCode.USER_NOT_FOUND,
+          Map.of("username", "bob"));
+    }
+
+    @Test
+    void listPermissionsForRole_ofMissingRole_shouldThrowRoleNotFound() {
+      when(roleRepository.findByName(txContext, "analyst")).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () -> permissionUseCase.listPermissionsForRole(USER_ID, "analyst"),
+          AnalyticsErrorCode.ROLE_NOT_FOUND,
+          Map.of("role_name", "analyst"));
+    }
+
+    @Test
+    void listPermissionsForRoleById_ofMissingRole_shouldThrowRoleNotFound() {
+      when(roleRepository.findById(txContext, ROLE_ID)).thenReturn(Optional.empty());
+
+      assertAnalyticsError(
+          () -> permissionUseCase.listPermissionsForRoleById(USER_ID, ROLE_ID),
+          AnalyticsErrorCode.ROLE_NOT_FOUND,
+          Map.of("role_id", ROLE_ID.toString()));
+    }
   }
 }

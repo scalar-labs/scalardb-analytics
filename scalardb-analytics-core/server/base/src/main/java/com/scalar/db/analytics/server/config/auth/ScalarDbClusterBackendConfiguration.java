@@ -4,8 +4,11 @@
  */
 package com.scalar.db.analytics.server.config.auth;
 
+import com.scalar.db.analytics.api.auth.PasswordBackendType;
 import com.scalar.db.analytics.grpc.generated.scalardb.cluster.rpc.v1.auth.AuthLoginGrpc;
 import com.scalar.db.analytics.server.auth.ScalarDbClusterPasswordBackend;
+import com.scalar.db.analytics.server.grpc.UnsupportedInternalUserDirectoryServiceImpl;
+import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.usecase.auth.PasswordAuthenticationBackend;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -76,5 +79,16 @@ public class ScalarDbClusterBackendConfiguration {
     AuthLoginGrpc.AuthLoginBlockingStub stub =
         AuthLoginGrpc.newBlockingStub(scalarDbClusterChannel);
     return new ScalarDbClusterPasswordBackend(stub, properties.getDeadlineMillis());
+  }
+
+  /**
+   * Registers the internal user directory service so that its calls fail with a descriptive error
+   * instead of a bare {@code UNIMPLEMENTED}. Users of this backend are managed in ScalarDB Cluster.
+   */
+  @Bean
+  public UnsupportedInternalUserDirectoryServiceImpl internalUserDirectoryService(
+      AuthorizationService authorizationService) {
+    return new UnsupportedInternalUserDirectoryServiceImpl(
+        PasswordBackendType.SCALARDB_CLUSTER, authorizationService);
   }
 }

@@ -90,7 +90,8 @@ public class DataSourceServiceImpl extends DataSourceServiceImplBase {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
     FindDataSourceByIdResponse.Builder builder = FindDataSourceByIdResponse.newBuilder();
     useCase
-        .describeDataSourceById(userId, UUID.fromString(request.getDataSourceId()))
+        .describeDataSourceById(
+            userId, RequestFields.uuid("data_source_id", request.getDataSourceId()))
         .ifPresent(
             dataSource -> builder.setDataSource(DataSourceMapper.INSTANCE.toProto(dataSource)));
 
@@ -120,7 +121,9 @@ public class DataSourceServiceImpl extends DataSourceServiceImplBase {
     UUID userId = AuthenticationInterceptor.AUTHENTICATED_USER_ID.get();
     boolean deleted =
         useCase.deleteDataSourceById(
-            userId, UUID.fromString(request.getDataSourceId()), request.getCascade());
+            userId,
+            RequestFields.uuid("data_source_id", request.getDataSourceId()),
+            request.getCascade());
 
     DeleteDataSourceByIdResponse response =
         DeleteDataSourceByIdResponse.newBuilder().setDeleted(deleted).build();

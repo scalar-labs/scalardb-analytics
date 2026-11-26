@@ -64,6 +64,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10105` | `USER_ALREADY_EXISTS` | `ALREADY_EXISTS` | USER_ERROR | No | User already exists |
 | `DB-ANALYTICS-10106` | `ROLE_ALREADY_ASSIGNED` | `ALREADY_EXISTS` | USER_ERROR | No | Role already assigned |
 | `DB-ANALYTICS-10107` | `PERMISSION_ALREADY_GRANTED` | `ALREADY_EXISTS` | USER_ERROR | No | Permission already granted |
+| `DB-ANALYTICS-10108` | `BACKEND_USER_ALREADY_LINKED` | `ALREADY_EXISTS` | USER_ERROR | No | Backend user already linked (`reason=backend_user_linked`), or the user is already linked on the same backend (`reason=user_linked_on_backend`) |
 
 ### 102xx — Operation Precondition
 
@@ -74,6 +75,7 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 | `DB-ANALYTICS-10202` | `BUILT_IN_ENTITY_NOT_MODIFIABLE` | `FAILED_PRECONDITION` | USER_ERROR | No | Cannot modify built-in entity |
 | `DB-ANALYTICS-10203` | `USER_NOT_EMPTY` | `FAILED_PRECONDITION` | USER_ERROR | No | User is not empty |
 | `DB-ANALYTICS-10204` | `RESOURCE_UNDER_ACL_DELEGATION` | `FAILED_PRECONDITION` | USER_ERROR | No | Analytics permission granted on a resource under ACL delegation |
+| `DB-ANALYTICS-10205` | `INTERNAL_PASSWORD_BACKEND_REQUIRED` | `FAILED_PRECONDITION` | USER_ERROR | No | The operation manages internal-backend users, but the server uses another password backend |
 
 ### 103xx — Data Source Connection
 
@@ -88,6 +90,35 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 |------------|------|-------------|----------|--------|-------------|
 | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | `INVALID_ARGUMENT` | USER_ERROR | No | Invalid argument or validation failure |
 | `DB-ANALYTICS-10401` | `INVALID_SCHEMA_METADATA` | `INVALID_ARGUMENT` | USER_ERROR | No | A namespace, table, column, or column type name in the data source schema contains a prohibited control or bidirectional formatting character |
+
+`INVALID_ARGUMENT` raised by request validation carries `field` (the invalid request field) and `reason` (a snake_case token naming the violated rule, such as `blank` or `required_for_provider`) in its metadata, plus the names of the entities involved. `field` is the name of the request field in the proto definition:
+
+| `field` | `reason` | Raised when |
+|---------|----------|-------------|
+| `role_name`, `username` | `blank` | A role or user is created with a blank name |
+| `schema_json` | `not_allowed_for_provider` | A data source registration gives a manual schema for a provider that resolves schemas. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type` |
+| `schema_json` | `required_for_provider` | A data source registration gives no manual schema for a provider that does not resolve schemas. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type` |
+| `catalog_id`, `data_source_id`, `namespace_id`, `table_id`, `role_id`, `user_id`, `grantee_id`, `resource_id` | `malformed_uuid` | The ID of a `*ById` request is not a UUID |
+| `grantee_type`, `permission`, `backend` | `unspecified` | The enum is left at its zero (`*_UNSPECIFIED`) value |
+| `grantee_type`, `permission`, `backend` | `unrecognized` | The enum holds a value the server does not know, such as one sent by a newer client |
+| `provider_payload_json` | `required` | A data source registration has no provider JSON |
+| `provider_payload_json`, `schema_json` | `invalid` | The provider or schema JSON does not decode: malformed JSON, an unknown provider type or data type, or a value the provider rejects. The metadata also carries `catalog_name` and `data_source_name`, and for an entry of `data_sources` in a catalog initialization, the catalog name of the initialization request and `data_source_index` (the 0-based index of the entry). The decoder's message is logged on the server but not returned, since it can echo the payload. A provider codec failure that does not come from the payload, such as a bug in a codec, is reported as `DB-ANALYTICS-30103` |
+| `provider_payload_json` | `invalid_configuration` | The provider JSON decodes, but the data source's client library rejects the configuration while the server sets up the client: ScalarDB rejects the `configs` of a ScalarDB data source (such as an unsupported `scalar.db.storage` or a non-numeric property), or a JDBC driver throws `IllegalArgumentException` for the connection URL or properties. The metadata also carries `catalog_name`, `data_source_name`, and `provider_type`; the library's message is logged on the server but not returned |
+
+### 105xx — Entity Not Found
+
+Raised when an operation refers to an entity that must exist, such as the role in a role grant or the catalog a data source is registered in. Operations that report absence in their result (find, describe, delete) do not raise these.
+
+| Error Code | Name | gRPC Status | Category | Reauth | Description |
+|------------|------|-------------|----------|--------|-------------|
+| `DB-ANALYTICS-10500` | `CATALOG_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Catalog not found |
+| `DB-ANALYTICS-10501` | `DATA_SOURCE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Data source not found |
+| `DB-ANALYTICS-10502` | `NAMESPACE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Namespace not found |
+| `DB-ANALYTICS-10503` | `TABLE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Table not found |
+| `DB-ANALYTICS-10504` | `ROLE_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Role not found |
+| `DB-ANALYTICS-10505` | `USER_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | User not found |
+| `DB-ANALYTICS-10506` | `BACKEND_USER_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | Backend user not found in the password backend |
+| `DB-ANALYTICS-10507` | `BACKEND_USER_LINK_NOT_FOUND` | `NOT_FOUND` | USER_ERROR | No | The user is not linked to the backend user |
 
 ### 300xx — Retryable Internal Errors
 
@@ -125,8 +156,9 @@ Produced only by the SDK (`GrpcExceptionMapper`) when a request terminates befor
 
 | Exception Type | Error Code Used | gRPC Status | Description |
 |----------------|----------------|-------------|-------------|
-| `IllegalArgumentException` | `DB-ANALYTICS-10400` | `INVALID_ARGUMENT` | Invalid input (e.g., malformed UUID) |
 | Any other exception | `DB-ANALYTICS-30103` | `INTERNAL` | Unexpected error |
+
+A bare `IllegalArgumentException` is not treated as a caller error. Invalid input is reported as `AnalyticsException` before it reaches code with its own argument checks: the gRPC layer decodes request fields (`RequestFields`, `RequestMapper`), and the use cases validate the rest, mirroring the checks of the domain and API constructors (such as a blank role name). An `IllegalArgumentException` that a data source's client library (ScalarDB or a JDBC driver) throws for the caller's configuration is converted where the library is called (`reason=invalid_configuration` above). An `IllegalArgumentException` that reaches the interceptor therefore indicates a server-side defect and maps to `DB-ANALYTICS-30103`. New request-path validation must throw `AnalyticsException` with `field` and `reason` metadata.
 
 ## Implementation Details
 

@@ -13,6 +13,8 @@ public record Role(UUID id, String name, boolean builtIn) {
   public Role {
     Objects.requireNonNull(id, "id must not be null");
     Objects.requireNonNull(name, "name must not be null");
+    // An invariant check: RoleUseCaseImpl validates role names in requests first and reports
+    // INVALID_ARGUMENT, so a request does not reach this.
     if (name.isBlank()) {
       throw new IllegalArgumentException("name must not be blank");
     }

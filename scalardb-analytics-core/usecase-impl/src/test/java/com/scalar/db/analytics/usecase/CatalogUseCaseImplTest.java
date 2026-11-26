@@ -289,12 +289,45 @@ class CatalogUseCaseImplTest {
                       entry("data_source_name", DATA_SOURCE_NAME),
                       entry("field", "column"),
                       entry("path", "\"ns\".\"orders\".\"id\\u001b[31m\""),
-                      entry("value", "id\\u001b[31m"));
+                      entry("value", "id\\u001b[31m"),
+                      entry("data_source_index", "0"));
               assertThat(e.getMessage()).doesNotContain("\u001b");
             });
     verify(dataSourceRepository, never()).create(any(), any());
     verify(namespaceRepository, never()).create(any(), any());
     verify(tableRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void initializeCatalog_whenSecondDataSourceIsInvalid_shouldNameItsIndex() throws Throwable {
+    stubTransaction();
+    when(catalogRepository.findByName(transactionContext, CATALOG_NAME))
+        .thenReturn(Optional.empty(), Optional.of(testCatalog));
+    // A DynamoDB data source needs a manual schema.
+    RegisterDataSourceRequest withoutSchema =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            "no-schema",
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            null);
+
+    assertThatThrownBy(
+            () ->
+                catalogUseCase.initializeCatalog(
+                    USER_ID, CATALOG_NAME, List.of(registerRequest("orders", "id"), withoutSchema)))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(e.getMetadata())
+                  .containsOnly(
+                      entry("field", "schema_json"),
+                      entry("reason", "required_for_provider"),
+                      entry("catalog_name", CATALOG_NAME),
+                      entry("data_source_name", "no-schema"),
+                      entry("provider_type", DynamoDbProvider.TYPE),
+                      entry("data_source_index", "1"));
+            });
   }
 
   private void stubTransaction() throws Throwable {

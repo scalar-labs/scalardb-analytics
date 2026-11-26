@@ -88,7 +88,7 @@ public class TableServiceImpl extends TableServiceImplBase {
     DescribeTableByIdResponse.Builder builder = DescribeTableByIdResponse.newBuilder();
 
     useCase
-        .describeTableById(userId, UUID.fromString(request.getTableId()))
+        .describeTableById(userId, RequestFields.uuid("table_id", request.getTableId()))
         .ifPresent(table -> builder.setTable(tableMapper.toProto(table)));
 
     responseObserver.onNext(builder.build());

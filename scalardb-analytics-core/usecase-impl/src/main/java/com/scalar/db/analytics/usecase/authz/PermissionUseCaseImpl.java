@@ -6,7 +6,9 @@ package com.scalar.db.analytics.usecase.authz;
 
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
+import com.scalar.db.analytics.api.model.Catalog;
 import com.scalar.db.analytics.api.model.DataSource;
+import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.domain.authz.AccessControlEntry;
 import com.scalar.db.analytics.domain.authz.EffectivePermission;
 import com.scalar.db.analytics.domain.authz.GranteeType;
@@ -258,7 +260,10 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
           UUID targetUserId =
               authUserRepository
                   .findByUsername(ctx, username)
-                  .orElseThrow(() -> new IllegalArgumentException("User not found: " + username))
+                  .orElseThrow(
+                      () ->
+                          new AnalyticsException(
+                              AnalyticsErrorCode.USER_NOT_FOUND, Map.of("username", username)))
                   .getUserId();
           return collectPermissionsForUser(ctx, userId, targetUserId);
         });
@@ -276,7 +281,10 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
           Role role =
               roleRepository
                   .findByName(ctx, roleName)
-                  .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
+                  .orElseThrow(
+                      () ->
+                          new AnalyticsException(
+                              AnalyticsErrorCode.ROLE_NOT_FOUND, Map.of("role_name", roleName)));
           return collectPermissionsForRole(ctx, userId, role.id());
         });
   }
@@ -291,7 +299,11 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
           Role unused =
               roleRepository
                   .findById(ctx, roleId)
-                  .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleId));
+                  .orElseThrow(
+                      () ->
+                          new AnalyticsException(
+                              AnalyticsErrorCode.ROLE_NOT_FOUND,
+                              Map.of("role_id", roleId.toString())));
           return collectPermissionsForRole(ctx, userId, roleId);
         });
   }
@@ -502,49 +514,33 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
       case USER ->
           authUserRepository
               .findByUsername(ctx, granteeName)
-              .orElseThrow(() -> new IllegalArgumentException("User not found: " + granteeName))
+              .orElseThrow(
+                  () ->
+                      new AnalyticsException(
+                          AnalyticsErrorCode.USER_NOT_FOUND, Map.of("username", granteeName)))
               .getUserId();
       case ROLE ->
           roleRepository
               .findByName(ctx, granteeName)
-              .orElseThrow(() -> new IllegalArgumentException("Role not found: " + granteeName))
+              .orElseThrow(
+                  () ->
+                      new AnalyticsException(
+                          AnalyticsErrorCode.ROLE_NOT_FOUND, Map.of("role_name", granteeName)))
               .id();
     };
   }
 
   private UUID resolveCatalogResourceId(T ctx, String catalogName) {
-    return catalogRepository
-        .findByName(ctx, catalogName)
-        .orElseThrow(() -> new IllegalArgumentException("Catalog not found: " + catalogName))
-        .getId();
+    return findCatalogByName(ctx, catalogName).getId();
   }
 
   private UUID resolveDataSourceResourceId(T ctx, String catalogName, String dataSourceName) {
-    var catalog =
-        catalogRepository
-            .findByName(ctx, catalogName)
-            .orElseThrow(() -> new IllegalArgumentException("Catalog not found: " + catalogName));
-    return dataSourceRepository
-        .findByCatalogIdAndName(ctx, catalog.getId(), dataSourceName)
-        .orElseThrow(() -> new IllegalArgumentException("DataSource not found: " + dataSourceName))
-        .getId();
+    return findDataSourceByName(ctx, catalogName, dataSourceName).getId();
   }
 
   private UUID resolveNamespaceResourceId(
       T ctx, String catalogName, String dataSourceName, List<String> namespaceNames) {
-    var catalog =
-        catalogRepository
-            .findByName(ctx, catalogName)
-            .orElseThrow(() -> new IllegalArgumentException("Catalog not found: " + catalogName));
-    var dataSource =
-        dataSourceRepository
-            .findByCatalogIdAndName(ctx, catalog.getId(), dataSourceName)
-            .orElseThrow(
-                () -> new IllegalArgumentException("DataSource not found: " + dataSourceName));
-    return namespaceRepository
-        .findByDataSourceIdAndNames(ctx, dataSource.getId(), namespaceNames)
-        .orElseThrow(() -> new IllegalArgumentException("Namespace not found: " + namespaceNames))
-        .getId();
+    return findNamespaceByNames(ctx, catalogName, dataSourceName, namespaceNames).getId();
   }
 
   private UUID resolveTableResourceId(
@@ -553,25 +549,55 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
       String dataSourceName,
       List<String> namespaceNames,
       String tableName) {
-    var catalog =
-        catalogRepository
-            .findByName(ctx, catalogName)
-            .orElseThrow(() -> new IllegalArgumentException("Catalog not found: " + catalogName));
-    var dataSource =
-        dataSourceRepository
-            .findByCatalogIdAndName(ctx, catalog.getId(), dataSourceName)
-            .orElseThrow(
-                () -> new IllegalArgumentException("DataSource not found: " + dataSourceName));
-    var namespace =
-        namespaceRepository
-            .findByDataSourceIdAndNames(ctx, dataSource.getId(), namespaceNames)
-            .orElseThrow(
-                () -> new IllegalArgumentException("Namespace not found: " + namespaceNames));
+    var namespace = findNamespaceByNames(ctx, catalogName, dataSourceName, namespaceNames);
     return tableRepository
         .findByNamespaceIdAndName(ctx, namespace.getId(), tableName)
-        .orElseThrow(() -> new IllegalArgumentException("Table not found: " + tableName))
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.TABLE_NOT_FOUND,
+                    Map.of(
+                        "catalog_name", catalogName,
+                        "data_source_name", dataSourceName,
+                        "namespace_name", String.join(".", namespaceNames),
+                        "table_name", tableName)))
         .getInfo()
         .getId();
+  }
+
+  private Catalog findCatalogByName(T ctx, String catalogName) {
+    return catalogRepository
+        .findByName(ctx, catalogName)
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.CATALOG_NOT_FOUND, Map.of("catalog_name", catalogName)));
+  }
+
+  private DataSource findDataSourceByName(T ctx, String catalogName, String dataSourceName) {
+    var catalog = findCatalogByName(ctx, catalogName);
+    return dataSourceRepository
+        .findByCatalogIdAndName(ctx, catalog.getId(), dataSourceName)
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND,
+                    Map.of("catalog_name", catalogName, "data_source_name", dataSourceName)));
+  }
+
+  private Namespace findNamespaceByNames(
+      T ctx, String catalogName, String dataSourceName, List<String> namespaceNames) {
+    var dataSource = findDataSourceByName(ctx, catalogName, dataSourceName);
+    return namespaceRepository
+        .findByDataSourceIdAndNames(ctx, dataSource.getId(), namespaceNames)
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.NAMESPACE_NOT_FOUND,
+                    Map.of(
+                        "catalog_name", catalogName,
+                        "data_source_name", dataSourceName,
+                        "namespace_name", String.join(".", namespaceNames))));
   }
 
   private UUID resolveCatalogId(T ctx, Permission permission, UUID resourceId) {
@@ -592,39 +618,62 @@ public class PermissionUseCaseImpl<T extends RepositoryTransactionContext>
           dataSourceRepository
               .findById(ctx, resourceId)
               .orElseThrow(
-                  () -> new IllegalArgumentException("DataSource not found: " + resourceId));
+                  () ->
+                      new AnalyticsException(
+                          AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND,
+                          Map.of("data_source_id", resourceId.toString())));
       case NAMESPACE -> {
         var namespace =
             namespaceRepository
                 .findById(ctx, resourceId)
                 .orElseThrow(
-                    () -> new IllegalArgumentException("Namespace not found: " + resourceId));
-        yield dataSourceRepository
-            .findById(ctx, namespace.getDataSourceId())
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "DataSource not found: " + namespace.getDataSourceId()));
+                    () ->
+                        new AnalyticsException(
+                            AnalyticsErrorCode.NAMESPACE_NOT_FOUND,
+                            Map.of("namespace_id", resourceId.toString())));
+        yield findParentDataSource(ctx, namespace);
       }
       case TABLE -> {
         var table =
             tableRepository
                 .findById(ctx, resourceId)
-                .orElseThrow(() -> new IllegalArgumentException("Table not found: " + resourceId));
-        var namespace =
-            namespaceRepository
-                .findById(ctx, table.getInfo().getNamespaceId())
                 .orElseThrow(
                     () ->
-                        new IllegalArgumentException(
-                            "Namespace not found: " + table.getInfo().getNamespaceId()));
-        yield dataSourceRepository
-            .findById(ctx, namespace.getDataSourceId())
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "DataSource not found: " + namespace.getDataSourceId()));
+                        new AnalyticsException(
+                            AnalyticsErrorCode.TABLE_NOT_FOUND,
+                            Map.of("table_id", resourceId.toString())));
+        UUID namespaceId = table.getInfo().getNamespaceId();
+        // The parent of an existing entity is not caller input, so its absence is reported as an
+        // integrity problem rather than as NOT_FOUND.
+        var namespace =
+            namespaceRepository
+                .findById(ctx, namespaceId)
+                .orElseThrow(
+                    () ->
+                        new AnalyticsException(
+                            AnalyticsErrorCode.DATA_INCONSISTENCY,
+                            Map.of(
+                                "table_id",
+                                resourceId.toString(),
+                                "namespace_id",
+                                namespaceId.toString())));
+        yield findParentDataSource(ctx, namespace);
       }
     };
+  }
+
+  /** Returns the data source of an existing namespace, whose absence is an integrity problem. */
+  private DataSource findParentDataSource(T ctx, Namespace namespace) {
+    return dataSourceRepository
+        .findById(ctx, namespace.getDataSourceId())
+        .orElseThrow(
+            () ->
+                new AnalyticsException(
+                    AnalyticsErrorCode.DATA_INCONSISTENCY,
+                    Map.of(
+                        "namespace_id",
+                        namespace.getId().toString(),
+                        "data_source_id",
+                        namespace.getDataSourceId().toString())));
   }
 }
