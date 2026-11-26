@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +98,11 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
     this.backendTokenStore = backendTokenStore;
   }
 
-  private static final int MAX_JIT_RETRIES = 1;
+  // Concurrent first sign-ins under SERIALIZABLE often abort each other, so the retries back off
+  // by a random delay to avoid colliding again.
+  private static final int MAX_JIT_RETRIES = 3;
+  private static final long MIN_JIT_RETRY_DELAY_MILLIS = 10;
+  private static final long MAX_JIT_RETRY_DELAY_MILLIS = 50;
 
   @Override
   public AccessToken authenticateWithPassword(PasswordCredential credential) {
@@ -107,8 +112,10 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
 
     // Step 2: Resolve user via PasswordIdentity and issue token.
     // Retry the entire transaction on conflict to handle concurrent JIT provisioning:
-    // on the first attempt, JIT provisioning may fail due to a duplicate identity created by
-    // a concurrent request; on retry, the existing identity is found and used.
+    // on the first attempt, JIT provisioning may fail because a concurrent request created the
+    // identity (a duplicate, or a transaction conflict at commit); on retry, the existing
+    // identity is found and used. Retrying here, rather than leaving the retryable conflict to
+    // the client, avoids repeating the backend credential check above.
     AnalyticsException lastException = null;
     for (int attempt = 0; attempt <= MAX_JIT_RETRIES; attempt++) {
       try {
@@ -137,12 +144,27 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
               authResult.backendUserId(),
               attempt + 1,
               MAX_JIT_RETRIES + 1);
+          if (attempt < MAX_JIT_RETRIES) {
+            backOffBeforeJitRetry(e);
+          }
         } else {
           throw e;
         }
       }
     }
     throw lastException;
+  }
+
+  private static void backOffBeforeJitRetry(AnalyticsException conflict) {
+    try {
+      Thread.sleep(
+          ThreadLocalRandom.current()
+              .nextLong(MIN_JIT_RETRY_DELAY_MILLIS, MAX_JIT_RETRY_DELAY_MILLIS + 1));
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      conflict.addSuppressed(interrupted);
+      throw conflict;
+    }
   }
 
   private ResolvedIdentity resolveIdentity(T ctx, String backendUserId) {
@@ -235,6 +257,7 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
   }
 
   private static boolean isConflictError(AnalyticsException e) {
-    return e.getErrorCode() == AnalyticsErrorCode.USER_ALREADY_EXISTS;
+    return e.getErrorCode() == AnalyticsErrorCode.USER_ALREADY_EXISTS
+        || e.getErrorCode() == AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT;
   }
 }

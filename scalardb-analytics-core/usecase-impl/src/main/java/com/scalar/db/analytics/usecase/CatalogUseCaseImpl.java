@@ -132,11 +132,15 @@ public class CatalogUseCaseImpl<T extends RepositoryTransactionContext> implemen
           Catalog catalog = Catalog.create(catalogName);
           catalogRepository.create(ctx, catalog);
 
-          for (RegisterDataSourceRequest ds : dataSources) {
+          for (int i = 0; i < dataSources.size(); i++) {
+            RegisterDataSourceRequest ds = dataSources.get(i);
             try {
               dataSourceService.registerDataSource(ctx, ds);
             } catch (InvalidSchemaMetadataException e) {
-              throw DataSourceRegistrationErrors.invalidSchemaMetadata(ds, e);
+              throw DataSourceRegistrationErrors.withDataSourceIndex(
+                  DataSourceRegistrationErrors.invalidSchemaMetadata(ds, e), i);
+            } catch (AnalyticsException e) {
+              throw DataSourceRegistrationErrors.withDataSourceIndex(e, i);
             }
           }
 

@@ -104,9 +104,7 @@ public class DataSourceRepositoryImpl
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID id) {
     try {
       // Simply delete the data source (provider data is in JSON column)
-      if (springDataRepository.existsById(id)) {
-        springDataRepository.deleteById(id);
-      }
+      springDataRepository.deleteById(id);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, DATA_SOURCE, id.toString());
     } catch (Exception e) {

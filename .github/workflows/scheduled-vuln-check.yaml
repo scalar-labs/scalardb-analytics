@@ -1,0 +1,24 @@
+name: Scheduled Vulnerability Check
+
+on:
+  schedule:
+    # UTC
+    - cron: '0 18 * * WED,SAT'
+
+jobs:
+  call-vuln-check-for-main:
+    uses: ./.github/workflows/vuln-check.yaml
+    with:
+      target-ref: main
+    secrets:
+      CR_PAT: ${{ secrets.CR_PAT }}
+      SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
+
+  call-vuln-check-for-v3_20:
+    uses: ./.github/workflows/vuln-check.yaml
+    with:
+      target-ref: v3.20
+      find-latest-release: true
+    secrets:
+      CR_PAT: ${{ secrets.CR_PAT }}
+      SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}

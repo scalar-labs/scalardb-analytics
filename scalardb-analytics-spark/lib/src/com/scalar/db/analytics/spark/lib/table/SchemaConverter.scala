@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
 object SchemaConverter {
 
   def toSparkColumns(tableDetail: TableDetail): Array[Column] =
-    tableDetail.getColumns.asScala.map { col =>
+    tableDetail.getColumns.asScala.iterator.map { col =>
       Column.create(
         col.getName,
         toSparkType(col.getType),
@@ -25,7 +25,7 @@ object SchemaConverter {
     }.toArray
 
   def toSparkSchema(tableDetail: TableDetail): StructType = {
-    val fields = tableDetail.getColumns.asScala.map(toSparkField).toArray
+    val fields = tableDetail.getColumns.asScala.iterator.map(toSparkField).toArray
     StructType(fields)
   }
 

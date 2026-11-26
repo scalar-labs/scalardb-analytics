@@ -94,13 +94,7 @@ public class NamespaceRepositoryImpl
   @Transactional(readOnly = false)
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID id) {
     try {
-      // ScalarDB SQL lacks COUNT; use a simple lookup to confirm presence
-      if (springDataRepository.findById(id).isPresent()) {
-        springDataRepository.deleteById(id);
-      }
-    } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-      // Ignore if the namespace does not exist; behaviour matches previous implementation
-      return;
+      springDataRepository.deleteById(id);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, NAMESPACE, id.toString());
     } catch (Exception e) {

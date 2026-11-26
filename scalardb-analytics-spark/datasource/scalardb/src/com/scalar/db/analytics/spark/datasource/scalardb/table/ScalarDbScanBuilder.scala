@@ -44,7 +44,11 @@ class ScalarDbScanBuilder(
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private lazy val columnTypes: Map[String, ScalarDbDataType] =
     Option(table)
-      .map(_.getColumns.asScala.map(c => c.getName -> TypeMapping.toScalarDbType(c.getType)).toMap)
+      .map(
+        _.getColumns.asScala.iterator
+          .map(c => c.getName -> TypeMapping.toScalarDbType(c.getType))
+          .toMap
+      )
       .getOrElse(Map.empty[String, ScalarDbDataType])
 
   override def pushPredicates(predicates: Array[Predicate]): Array[Predicate] = {

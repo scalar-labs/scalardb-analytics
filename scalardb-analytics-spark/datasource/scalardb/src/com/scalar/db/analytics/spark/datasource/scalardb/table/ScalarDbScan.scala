@@ -35,12 +35,11 @@ class ScalarDbScan(
     )
 
   override def description(): String = {
-    val parts = Seq.newBuilder[String]
-    parts += super.description()
-    ScalarDbScan.describeConditions(pushedConditions).foreach(parts += _)
-    prunedSchema.foreach(s => parts += s"PushedColumns: [${s.fieldNames.mkString(", ")}]")
-    pushedLimit.foreach(l => parts += s"PushedLimit: ${l.toString}")
-    parts.result().mkString(", ")
+    val parts = Seq(super.description()) ++
+      ScalarDbScan.describeConditions(pushedConditions).toList ++
+      prunedSchema.map(s => s"PushedColumns: [${s.fieldNames.mkString(", ")}]").toList ++
+      pushedLimit.map(l => s"PushedLimit: ${l.toString}").toList
+    parts.mkString(", ")
   }
 }
 

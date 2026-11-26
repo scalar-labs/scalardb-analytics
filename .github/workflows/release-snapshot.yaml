@@ -39,7 +39,7 @@ jobs:
         id: version
         working-directory: scalardb-analytics-spark
         run: |
-          VERSION=$(./mill show sparkAll[2.12,3.4].publishVersion | tail -1 | tr -d '"')
+          VERSION=$(./mill show analyticsVersion | tail -1 | tr -d '"')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Publish scalardb-analytics-spark-all SNAPSHOT to Maven Central

@@ -43,6 +43,14 @@ public class DynamoDbProvider implements DataSourceProvider {
   // package-level @NullMarked scope rather than treating those fields as non-null.
   @NullUnmarked
   public static class Builder {
+    /**
+     * Builds the provider.
+     *
+     * @return the provider
+     * @throws IllegalArgumentException if neither a region nor an endpoint is set. When the server
+     *     decodes a provider from a request, this surfaces as {@code INVALID_ARGUMENT} for {@code
+     *     provider_payload_json}
+     */
     public DynamoDbProvider build() {
       if (region == null && endpoint == null) {
         throw new IllegalArgumentException("Either region or endpoint must be set.");

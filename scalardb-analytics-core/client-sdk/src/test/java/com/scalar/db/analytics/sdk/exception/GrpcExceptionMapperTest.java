@@ -49,6 +49,56 @@ class GrpcExceptionMapperTest {
   }
 
   @Test
+  void toAnalyticsException_ShouldPreserveNotFoundCodeAndMetadata() {
+    java.util.Map<String, String> metadata = new java.util.HashMap<>();
+    metadata.put("catalog_name", "catalog");
+    metadata.put("data_source_name", "ds");
+    StatusRuntimeException sre =
+        withDetail(
+            Status.Code.NOT_FOUND, AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND.getCode(), metadata);
+
+    AnalyticsException result = GrpcExceptionMapper.toAnalyticsException(sre, "grantPermission");
+
+    assertThat(result.getErrorCode()).isEqualTo(AnalyticsErrorCode.DATA_SOURCE_NOT_FOUND);
+    assertThat(result.getErrorCode().isUserError()).isTrue();
+    // Server metadata is authoritative; the caller's operation context is not mixed in.
+    assertThat(result.getMetadata()).isEqualTo(metadata);
+    assertThat(result.getMessage())
+        .isEqualTo(
+            "DB-ANALYTICS-10501: Data source not found [catalog_name=catalog, data_source_name=ds]");
+  }
+
+  @Test
+  void toAnalyticsException_ShouldPreserveValidationFieldAndReason() {
+    java.util.Map<String, String> metadata = new java.util.HashMap<>();
+    metadata.put("field", "schema_json");
+    metadata.put("reason", "required_for_provider");
+    StatusRuntimeException sre =
+        withDetail(
+            Status.Code.INVALID_ARGUMENT, AnalyticsErrorCode.INVALID_ARGUMENT.getCode(), metadata);
+
+    AnalyticsException result = GrpcExceptionMapper.toAnalyticsException(sre);
+
+    assertThat(result.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+    assertThat(result.getMetadata()).isEqualTo(metadata);
+  }
+
+  @Test
+  void toAnalyticsException_ShouldPreserveInternalPasswordBackendRequired() {
+    StatusRuntimeException sre =
+        withDetail(
+            Status.Code.FAILED_PRECONDITION,
+            AnalyticsErrorCode.INTERNAL_PASSWORD_BACKEND_REQUIRED.getCode(),
+            java.util.Collections.singletonMap("password_backend", "scalardb_cluster"));
+
+    AnalyticsException result = GrpcExceptionMapper.toAnalyticsException(sre);
+
+    assertThat(result.getErrorCode())
+        .isEqualTo(AnalyticsErrorCode.INTERNAL_PASSWORD_BACKEND_REQUIRED);
+    assertThat(result.getMetadata()).containsEntry("password_backend", "scalardb_cluster");
+  }
+
+  @Test
   void toAnalyticsException_ShouldReturnUnrecognizedServerError_WhenDetailCodeUnknown() {
     // The detail is present (the server was reached) but its code is unknown to this SDK. It must
     // not be misreported as a transport failure via status mapping; instead it surfaces as

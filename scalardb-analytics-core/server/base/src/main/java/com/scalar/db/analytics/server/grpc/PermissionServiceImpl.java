@@ -54,8 +54,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<GrantCatalogPermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.grantCatalogPermission(
         userId, granteeType, request.getGranteeName(), permission, request.getCatalogName());
     responseObserver.onNext(GrantCatalogPermissionResponse.getDefaultInstance());
@@ -68,8 +71,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<GrantDataSourcePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.grantDataSourcePermission(
         userId,
         granteeType,
@@ -87,8 +93,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<GrantNamespacePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.grantNamespacePermission(
         userId,
         granteeType,
@@ -107,8 +116,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<GrantTablePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.grantTablePermission(
         userId,
         granteeType,
@@ -128,15 +140,18 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<GrantPermissionByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
 
     permissionUseCase.grantPermissionById(
         userId,
         granteeType,
-        UUID.fromString(request.getGranteeId()),
+        RequestFields.uuid("grantee_id", request.getGranteeId()),
         permission,
-        UUID.fromString(request.getResourceId()));
+        RequestFields.uuid("resource_id", request.getResourceId()));
 
     responseObserver.onNext(GrantPermissionByIdResponse.getDefaultInstance());
     responseObserver.onCompleted();
@@ -148,8 +163,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<RevokeCatalogPermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.revokeCatalogPermission(
         userId, granteeType, request.getGranteeName(), permission, request.getCatalogName());
     responseObserver.onNext(RevokeCatalogPermissionResponse.getDefaultInstance());
@@ -162,8 +180,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<RevokeDataSourcePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.revokeDataSourcePermission(
         userId,
         granteeType,
@@ -181,8 +202,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<RevokeNamespacePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.revokeNamespacePermission(
         userId,
         granteeType,
@@ -201,8 +225,11 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<RevokeTablePermissionResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
     permissionUseCase.revokeTablePermission(
         userId,
         granteeType,
@@ -222,15 +249,18 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<RevokePermissionByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     GranteeType granteeType =
-        PermissionMapper.INSTANCE.toDomainGranteeType(request.getGranteeType());
-    Permission permission = PermissionMapper.INSTANCE.toDomainPermission(request.getPermission());
+        PermissionMapper.INSTANCE.toDomainGranteeType(
+            RequestFields.specified("grantee_type", request.getGranteeType()));
+    Permission permission =
+        PermissionMapper.INSTANCE.toDomainPermission(
+            RequestFields.specified("permission", request.getPermission()));
 
     permissionUseCase.revokePermissionById(
         userId,
         granteeType,
-        UUID.fromString(request.getGranteeId()),
+        RequestFields.uuid("grantee_id", request.getGranteeId()),
         permission,
-        UUID.fromString(request.getResourceId()));
+        RequestFields.uuid("resource_id", request.getResourceId()));
 
     responseObserver.onNext(RevokePermissionByIdResponse.getDefaultInstance());
     responseObserver.onCompleted();
@@ -257,7 +287,8 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<ListPermissionsByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     List<EffectivePermission> permissions =
-        permissionUseCase.listPermissionsById(userId, UUID.fromString(request.getUserId()));
+        permissionUseCase.listPermissionsById(
+            userId, RequestFields.uuid("user_id", request.getUserId()));
 
     ListPermissionsByIdResponse.Builder builder = ListPermissionsByIdResponse.newBuilder();
     permissions.stream().map(PermissionMapper.INSTANCE::toProto).forEach(builder::addPermissions);
@@ -287,7 +318,8 @@ public class PermissionServiceImpl extends PermissionServiceImplBase {
       io.grpc.stub.StreamObserver<ListPermissionsForRoleByIdResponse> responseObserver) {
     UUID userId = getAuthenticatedUserId();
     List<EffectivePermission> permissions =
-        permissionUseCase.listPermissionsForRoleById(userId, UUID.fromString(request.getRoleId()));
+        permissionUseCase.listPermissionsForRoleById(
+            userId, RequestFields.uuid("role_id", request.getRoleId()));
 
     ListPermissionsForRoleByIdResponse.Builder builder =
         ListPermissionsForRoleByIdResponse.newBuilder();

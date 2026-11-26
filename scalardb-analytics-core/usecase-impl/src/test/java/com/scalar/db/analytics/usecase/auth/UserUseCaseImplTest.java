@@ -6,6 +6,7 @@ package com.scalar.db.analytics.usecase.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -38,11 +39,14 @@ import com.scalar.db.analytics.repository.authz.RoleAssignmentRepository;
 import com.scalar.db.analytics.repository.authz.RoleRepository;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -222,8 +226,9 @@ class UserUseCaseImplTest {
         .isInstanceOfSatisfying(
             AnalyticsException.class,
             ex -> {
-              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
-              assertThat(ex.getMetadata()).containsEntry("field", "backend_username");
+              assertThat(ex.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.INTERNAL_PASSWORD_BACKEND_REQUIRED);
+              assertThat(ex.getMetadata()).isEmpty();
             });
 
     verify(txManager, never()).withTransaction(any());
@@ -541,5 +546,183 @@ class UserUseCaseImplTest {
     assertThat(created.backendUserId()).isEqualTo("alice-cluster");
     assertThat(created.userId()).isEqualTo(aliceUserId);
     verify(internalCredentialRepository, never()).findByUsername(any(), any());
+  }
+
+  // createUser mirrors the username check of AuthUser.create, so that the request path reports
+  // INVALID_ARGUMENT instead of reaching its IllegalArgumentException. Both must agree on every
+  // name.
+  @ParameterizedTest
+  @ValueSource(strings = {"", " ", "\t\n", "\u2003", "\u00a0", "alice", " alice "})
+  void createUser_shouldRejectExactlyTheUsernamesThatAuthUserRejects(String username) {
+    boolean rejectedByAuthUser = catchThrowable(() -> AuthUser.create(username)) != null;
+
+    Throwable thrown = catchThrowable(() -> useCase.createUser(USER_ID, username));
+
+    if (rejectedByAuthUser) {
+      assertThat(thrown)
+          .isInstanceOfSatisfying(
+              AnalyticsException.class,
+              ex -> assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT));
+    } else {
+      assertThat(thrown).isNull();
+    }
+  }
+
+  @Test
+  void createUser_shouldThrowInvalidArgumentWhenUsernameIsBlank() throws Exception {
+    assertThatThrownBy(() -> useCase.createUser(USER_ID, " "))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.INVALID_ARGUMENT);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(Map.of("field", "username", "reason", "blank"));
+            });
+
+    verify(authUserRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void linkBackendUser_whenUserDoesNotExist_shouldThrowUserNotFound() throws Exception {
+    when(authUserRepository.findByUsername(txContext, "alice")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.linkBackendUser(
+                    USER_ID, "alice", "alice-internal", PasswordBackendType.INTERNAL))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.USER_NOT_FOUND);
+              assertThat(ex.getMetadata()).isEqualTo(Map.of("username", "alice"));
+            });
+
+    verify(passwordIdentityRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void linkBackendUser_whenInternalBackendUserDoesNotExist_shouldThrowBackendUserNotFound()
+      throws Exception {
+    when(authUserRepository.findByUsername(txContext, "alice"))
+        .thenReturn(Optional.of(new AuthUser(UUID.randomUUID(), "alice")));
+    when(internalCredentialRepository.findByUsername(txContext, "alice-internal"))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.linkBackendUser(
+                    USER_ID, "alice", "alice-internal", PasswordBackendType.INTERNAL))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode()).isEqualTo(AnalyticsErrorCode.BACKEND_USER_NOT_FOUND);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(Map.of("backend", "internal", "backend_username", "alice-internal"));
+            });
+
+    verify(passwordIdentityRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void linkBackendUser_whenBackendUserIsLinkedToAnotherUser_shouldThrowAlreadyLinked()
+      throws Exception {
+    when(authUserRepository.findByUsername(txContext, "alice"))
+        .thenReturn(Optional.of(new AuthUser(UUID.randomUUID(), "alice")));
+    when(passwordIdentityRepository.findByBackendAndBackendUserId(
+            txContext, PasswordBackendType.SCALARDB_CLUSTER, "shared-cluster"))
+        .thenReturn(
+            Optional.of(
+                new PasswordIdentity(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    PasswordBackendType.SCALARDB_CLUSTER,
+                    "shared-cluster")));
+
+    assertThatThrownBy(
+            () ->
+                useCase.linkBackendUser(
+                    USER_ID, "alice", "shared-cluster", PasswordBackendType.SCALARDB_CLUSTER))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.BACKEND_USER_ALREADY_LINKED);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "reason", "backend_user_linked",
+                          "username", "alice",
+                          "backend", "scalardb_cluster",
+                          "backend_username", "shared-cluster"));
+            });
+
+    verify(passwordIdentityRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void linkBackendUser_whenUserIsLinkedOnSameBackend_shouldThrowAlreadyLinked() throws Exception {
+    UUID aliceUserId = UUID.randomUUID();
+    when(authUserRepository.findByUsername(txContext, "alice"))
+        .thenReturn(Optional.of(new AuthUser(aliceUserId, "alice")));
+    when(passwordIdentityRepository.findByBackendAndBackendUserId(
+            txContext, PasswordBackendType.SCALARDB_CLUSTER, "alice-cluster-2"))
+        .thenReturn(Optional.empty());
+    when(passwordIdentityRepository.findByUserId(txContext, aliceUserId))
+        .thenReturn(
+            List.of(
+                new PasswordIdentity(
+                    UUID.randomUUID(),
+                    aliceUserId,
+                    PasswordBackendType.SCALARDB_CLUSTER,
+                    "alice-cluster")));
+
+    assertThatThrownBy(
+            () ->
+                useCase.linkBackendUser(
+                    USER_ID, "alice", "alice-cluster-2", PasswordBackendType.SCALARDB_CLUSTER))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.BACKEND_USER_ALREADY_LINKED);
+              // Names the existing link, which is the one to remove before linking another.
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "reason", "user_linked_on_backend",
+                          "username", "alice",
+                          "backend", "scalardb_cluster",
+                          "backend_username", "alice-cluster"));
+            });
+
+    verify(passwordIdentityRepository, never()).create(any(), any());
+  }
+
+  @Test
+  void unlinkBackendUser_whenLinkDoesNotExist_shouldThrowLinkNotFound() throws Exception {
+    when(authUserRepository.findByUsername(txContext, "alice"))
+        .thenReturn(Optional.of(new AuthUser(UUID.randomUUID(), "alice")));
+    when(passwordIdentityRepository.findByBackendAndBackendUserId(
+            txContext, PasswordBackendType.INTERNAL, "alice-internal"))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.unlinkBackendUser(
+                    USER_ID, "alice", "alice-internal", PasswordBackendType.INTERNAL))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            ex -> {
+              assertThat(ex.getErrorCode())
+                  .isEqualTo(AnalyticsErrorCode.BACKEND_USER_LINK_NOT_FOUND);
+              assertThat(ex.getMetadata())
+                  .isEqualTo(
+                      Map.of(
+                          "username", "alice",
+                          "backend", "internal",
+                          "backend_username", "alice-internal"));
+            });
+
+    verify(passwordIdentityRepository, never()).deleteByUserIdAndBackend(any(), any(), any());
   }
 }

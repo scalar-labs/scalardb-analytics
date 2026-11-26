@@ -98,10 +98,7 @@ public class RoleRepositoryImpl implements RoleRepository<SpringDataJdbcTransact
   @Transactional(readOnly = false)
   public void deleteById(SpringDataJdbcTransactionContext ctx, UUID roleId) {
     try {
-      // Check if exists before deleting to avoid database-specific errors
-      if (springDataRepository.existsById(roleId)) {
-        springDataRepository.deleteById(roleId);
-      }
+      springDataRepository.deleteById(roleId);
     } catch (DataAccessException e) {
       throw errorMapper.mapException(e, ROLE, roleId.toString());
     } catch (Exception e) {

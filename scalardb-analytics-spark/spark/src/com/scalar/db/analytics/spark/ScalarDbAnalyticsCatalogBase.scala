@@ -5,7 +5,7 @@
 
 package com.scalar.db.analytics.spark
 
-import com.scalar.db.analytics.compat.spark.DatabricksDialect
+import com.scalar.db.analytics.compat.spark.JdbcDialectsCompat
 import com.scalar.db.analytics.grpc.common.TlsConfig
 import com.scalar.db.analytics.api.auth.PasswordCredential
 import com.scalar.db.analytics.sdk.ScalarDbAnalyticsClient
@@ -25,7 +25,6 @@ import org.apache.spark.sql.connector.catalog.{
   TableChange
 }
 import org.apache.spark.sql.connector.expressions.Transform
-import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
@@ -41,7 +40,7 @@ import scala.jdk.OptionConverters._
   */
 trait ScalarDbAnalyticsCatalogBase extends TableCatalog with SupportsNamespaces {
 
-  /** Runs once after the catalog has initialized its client and registered its dialect. */
+  /** Runs once after the catalog has initialized its client and set up its JDBC dialects. */
   protected def onInitialized(): Unit
 
   /** Runs before every catalog operation. Throwing here aborts the operation. */
@@ -102,7 +101,7 @@ trait ScalarDbAnalyticsCatalogBase extends TableCatalog with SupportsNamespaces 
       // Register cleanup listener to close resources on application end
       SparkSession.active.sparkContext.addSparkListener(new CatalogCleanupListener(this))
 
-      JdbcDialects.registerDialect(DatabricksDialect)
+      JdbcDialectsCompat.registerDatabricksDialect()
 
       onInitialized()
     }
@@ -122,6 +121,7 @@ trait ScalarDbAnalyticsCatalogBase extends TableCatalog with SupportsNamespaces 
         .table()
         .listTablesByNamespace(catalogName, dataSourceName, namespaceNames)
         .asScala
+        .iterator
         .map { table =>
           val dsName    = table.getDataSource.getName
           val nsNames   = table.getNamespace.getNames.asScala.toSeq
@@ -137,6 +137,7 @@ trait ScalarDbAnalyticsCatalogBase extends TableCatalog with SupportsNamespaces 
         .namespace()
         .listNamespacesByCatalog(catalogName)
         .asScala
+        .iterator
         .map { dsNamespace =>
           val dsName  = dsNamespace.getDataSource.getName
           val nsNames = dsNamespace.getNamespace.getNames.asScala.toSeq
@@ -195,7 +196,7 @@ trait ScalarDbAnalyticsCatalogBase extends TableCatalog with SupportsNamespaces 
 
   // Wraps catalog and SDK exceptions as AnalysisException so that Spark displays a clean
   // error message instead of a raw stack trace in the spark-sql CLI (PRETTY format).
-  // In Spark 3.4/3.5, SparkSQLCLIDriver suppresses the stack trace when the exception
+  // In Spark 3.5, 4.0, and 4.1, SparkSQLCLIDriver suppresses the stack trace when the exception
   // is an AnalysisException with no cause (getCause == null).
   // See SparkSQLCLIDriver.processCmd:
   //   if (format == ErrorMessageFormat.PRETTY &&

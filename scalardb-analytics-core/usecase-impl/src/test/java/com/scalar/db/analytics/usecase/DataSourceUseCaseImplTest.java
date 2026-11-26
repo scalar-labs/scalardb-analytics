@@ -42,6 +42,7 @@ import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -332,6 +333,34 @@ class DataSourceUseCaseImplTest {
             () ->
                 dataSourceUseCase.deleteDataSource(USER_ID, CATALOG_NAME, DATA_SOURCE_NAME, false))
         .isInstanceOf(AnalyticsException.class);
+  }
+
+  @Test
+  void register_whenCatalogDoesNotExist_shouldThrowCatalogNotFound() throws Throwable {
+    when(transactionManager.withTransaction(any()))
+        .thenAnswer(
+            invocation -> {
+              ThrowableFunction<RepositoryTransactionContext, DataSource, Exception> function =
+                  invocation.getArgument(0);
+              return function.apply(transactionContext);
+            });
+    when(catalogRepository.findByName(transactionContext, CATALOG_NAME))
+        .thenReturn(Optional.empty());
+    RegisterDataSourceRequest request =
+        new RegisterDataSourceRequest(
+            CATALOG_NAME,
+            DATA_SOURCE_NAME,
+            DynamoDbProvider.builder().region("us-east-1").build(),
+            DataSourceSchema.builder().namespaces(List.of()).build());
+
+    assertThatThrownBy(() -> dataSourceUseCase.register(USER_ID, request))
+        .isInstanceOfSatisfying(
+            AnalyticsException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(AnalyticsErrorCode.CATALOG_NOT_FOUND);
+              assertThat(e.getMetadata()).isEqualTo(Map.of("catalog_name", CATALOG_NAME));
+            });
+    verify(dataSourceRepository, never()).create(any(), any());
   }
 
   @Test
