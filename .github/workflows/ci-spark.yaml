@@ -116,7 +116,13 @@ jobs:
     strategy:
       matrix:
         scala-version: ["2.12", "2.13"]
-        spark-version: ["3.4", "3.5"]
+        spark-version: ["3.5", "4.0", "4.1"]
+        # Spark 4 is published for Scala 2.13 only.
+        exclude:
+          - scala-version: "2.12"
+            spark-version: "4.0"
+          - scala-version: "2.12"
+            spark-version: "4.1"
 
     steps:
       - name: Check out the repo
@@ -204,7 +210,13 @@ jobs:
     strategy:
       matrix:
         scala-version: ["2.12", "2.13"]
-        spark-version: ["3.4", "3.5"]
+        spark-version: ["3.5", "4.0", "4.1"]
+        # Spark 4 is published for Scala 2.13 only.
+        exclude:
+          - scala-version: "2.12"
+            spark-version: "4.0"
+          - scala-version: "2.12"
+            spark-version: "4.1"
 
     steps:
       - name: Check out the repo

@@ -20,7 +20,7 @@ class DynamoDbRecordConverter(tableDetail: TableDetail) extends Serializable {
   private type AttributeValueConverter = AttributeValue => AnyRef
 
   private val converters: Array[(String, AttributeValueConverter)] =
-    tableDetail.getColumns.asScala.map { column =>
+    tableDetail.getColumns.asScala.iterator.map { column =>
       val name      = column.getName
       val converter = createValueConverter(column.getType)
       (name, converter)

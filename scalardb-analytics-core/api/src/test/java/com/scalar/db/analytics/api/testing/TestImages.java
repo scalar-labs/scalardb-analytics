@@ -15,10 +15,7 @@ public class TestImages {
   public static final DockerImageName SQL_SERVER_2019 =
       DockerImageName.parse("mcr.microsoft.com/mssql/server:2019-latest");
 
-  /**
-   * We must use this image because testcontainer-oracle requires the images to have a particular
-   * configuration, and this is the only one that works as far as I know.
-   */
+  /** Uses the fast-start image to keep Oracle integration test startup time manageable. */
   public static final DockerImageName ORACLE_23 =
       DockerImageName.parse("gvenzl/oracle-free:23-slim-faststart");
 

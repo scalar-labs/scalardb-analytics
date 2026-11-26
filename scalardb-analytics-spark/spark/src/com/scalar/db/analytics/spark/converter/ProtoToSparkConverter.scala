@@ -50,10 +50,9 @@ object ProtoToSparkConverter {
     */
   def convertTableDetailToSchema(tableDetail: DataSourceNamespaceTableDetail): StructType = {
     val detail = tableDetail.getTable
-    val fields = detail.getColumns.asScala
+    val fields = detail.getColumns.asScala.toList
       .sortBy(_.getOrdinalPosition) // Sort by ordinal position
       .map(convertColumn)
-      .toSeq
     StructType(fields)
   }
 

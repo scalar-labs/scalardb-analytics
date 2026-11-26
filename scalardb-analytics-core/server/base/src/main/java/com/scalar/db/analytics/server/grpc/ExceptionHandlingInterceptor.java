@@ -191,7 +191,9 @@ public class ExceptionHandlingInterceptor implements ServerInterceptor {
       case DATA_INCONSISTENCY -> Status.DATA_LOSS;
       // Retryable codes are handled by the isRetryable() branch above; listed to keep the switch
       // exhaustive and to fail loudly if their category ever changes without a remapping.
-      case ANALYTICS_DB_CONNECTION_FAILED, SCALARDB_CLUSTER_UNAVAILABLE ->
+      case ANALYTICS_DB_CONNECTION_FAILED,
+          SCALARDB_CLUSTER_UNAVAILABLE,
+          ANALYTICS_DB_TRANSACTION_CONFLICT ->
           throw new IllegalStateException(
               "Retryable code must be mapped by the isRetryable() branch: " + errorCode.getCode());
       // Client-side codes are produced only by the SDK when no structured server error is

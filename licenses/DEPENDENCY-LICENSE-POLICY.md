@@ -80,7 +80,7 @@ that artifact's own runtime classpath.
 | --- | --- | --- |
 | CLI fat JAR | `META-INF/THIRD-PARTY-NOTICES.txt` | The `client:cli` runtime classpath |
 | Server distribution (`server:app`) | `THIRD-PARTY-NOTICES.txt` and `ORACLE-FUTC.txt` at the distribution root | The distribution's own runtime classpath |
-| Spark assemblies (`scalardb-analytics-spark-all-3.x`) | `META-INF/THIRD-PARTY-NOTICES.txt` and `META-INF/ORACLE-FUTC.txt` | Each assembly's own runtime classpath |
+| Spark assemblies (`scalardb-analytics-spark-all-<spark>`) | `META-INF/THIRD-PARTY-NOTICES.txt` and `META-INF/ORACLE-FUTC.txt` | Each assembly's own runtime classpath |
 | Gradle modules published to Maven Central | Nothing | Not applicable |
 
 The Gradle modules bundle no third-party code, so no attribution travels with them. The CLI fat JAR
@@ -126,12 +126,14 @@ report, the merged inventory is never published.
 The repository holds no checked-in `THIRD-PARTY-NOTICES.txt`, and no workflow compares a committed
 copy against a generated one. Restoring either would reintroduce a check that cannot pass.
 
-Such a comparison assumes the resolved dependency graph is a function of the commit. Two things
-break that assumption: the ScalarDB dependency is a SNAPSHOT during a development cycle, and
-Dependabot opens grouped update pull requests every week against `main` and each active release
-branch. Both change the resolved graph without any change to this repository's own sources, and
-Dependabot cannot regenerate a notice file. Every one of those pull requests would fail until
-someone regenerated the file by hand on each branch.
+Such a comparison assumes the resolved dependency graph is a function of the commit. The ScalarDB
+dependency is a SNAPSHOT during a development cycle, which breaks that assumption: the resolved
+graph changes without any change to this repository's own sources. Automated dependency updates
+would break the check as well. Dependabot currently updates only the container base images, on
+`main` and on each release branch (see [`.github/dependabot.yml`](../.github/dependabot.yml)),
+which does not touch the dependency graph. If it is extended to the Gradle or Mill dependencies, it
+cannot regenerate a notice file, so every one of its pull requests would fail until someone
+regenerated the file by hand on each branch.
 
 Generating at packaging time removes the question. Nothing has to be kept in sync, and the notice
 in a published artifact is correct by construction rather than by discipline.

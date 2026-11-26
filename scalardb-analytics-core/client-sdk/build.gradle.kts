@@ -31,6 +31,7 @@ testing.suites {
             implementation(libs.assertj.core)
             implementation(libs.mockito.core)
             implementation(libs.mockito.junit.jupiter)
+            implementation(libs.grpc.inprocess)
             implementation(libs.grpc.testing)
             // MapStruct is used in grpc module; add as compileOnly to suppress compiler warnings
             compileOnly(libs.mapstruct)

@@ -1,6 +1,5 @@
-name: Bugfix
+name: Bug report
 description: Report a bug
-labels: ["bugfix"]
 body:
   - type: textarea
     id: description

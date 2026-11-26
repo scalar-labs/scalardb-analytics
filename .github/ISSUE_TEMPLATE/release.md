@@ -38,6 +38,7 @@ Version locations referenced below:
 
 ### After the tag — easy to forget
 
+- [ ] `Next release` milestone renamed to `vX.Y.0` and closed, with its open Issues moved to a new `Next release` (`docs/issue-workflow.md#at-each-release`)
 - [ ] `main` returned to `X.(Y+1).0-SNAPSHOT` in `VERSION` and the ScalarDB dependency — nothing is published to the SNAPSHOT repository while `main` carries the released version
 - [ ] SNAPSHOT publish confirmed on the next `main` push — the job is **skipped without failing** while the version has no `-SNAPSHOT` suffix
 - [ ] Enterprise release notified that `vX.Y.0` is out

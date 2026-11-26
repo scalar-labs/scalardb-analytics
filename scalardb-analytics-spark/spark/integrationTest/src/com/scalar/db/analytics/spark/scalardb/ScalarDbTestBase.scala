@@ -16,6 +16,7 @@ import com.scalar.db.schemaloader.SchemaLoader
 import com.scalar.db.service.TransactionFactory
 import org.apache.spark.sql.connector.catalog.{Column, Identifier}
 import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.storage.StorageLevel
 import org.scalatest.BeforeAndAfterAll
 
 import java.nio.file.Paths
@@ -333,9 +334,10 @@ abstract class ScalarDbTestBase extends BaseSpec with CatalogTestBase with Befor
       val cached = spark.table(tableFqn).cache()
       try {
         // spark.table loads a new Table instance from the catalog, so this matches only if equal
-        // tables compare equal.
+        // tables compare equal. Dataset.storageLevel looks the plan up in the cache manager and
+        // returns NONE when no cached data matches.
         val reloaded = spark.table(tableFqn)
-        assert(spark.sharedState.cacheManager.lookupCachedData(reloaded).isDefined)
+        assert(reloaded.storageLevel != StorageLevel.NONE)
       } finally
         cached.unpersist(): Unit
     }
@@ -606,7 +608,7 @@ abstract class ScalarDbTestBase extends BaseSpec with CatalogTestBase with Befor
           assert(plan.contains("text_col"), s"text_col predicate missing: $plan")
         }
 
-        // TIME columns are mapped to Spark's TimestampNTZType (Spark 3.4/3.5 has no TIME type).
+        // TIME columns are mapped to Spark's TimestampNTZType on every supported Spark version.
         // `RowConverter` wraps stored LocalTime values as `LocalDateTime(EPOCH_DATE, time)`, so
         // for Spark's TimestampNTZ comparison the row is at 1970-01-01. Push down with an
         // epoch-date literal is equivalent to Spark's evaluation; a non-epoch-date literal cannot

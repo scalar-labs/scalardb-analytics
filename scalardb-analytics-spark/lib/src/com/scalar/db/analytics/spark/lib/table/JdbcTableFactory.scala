@@ -115,16 +115,11 @@ object JdbcTableFactory {
       sqlServer: SqlServer
   ): ForkedJDBCTable = {
     val url = s"jdbc:sqlserver://${sqlServer.getHost}:${sqlServer.getPort.toString}"
-    val extraOptions = {
-      val opts = Map.newBuilder[String, String]
-      opts ++= Map(
-        "user"     -> sqlServer.getUsername,
-        "password" -> sqlServer.getPassword
-      )
-      Option(sqlServer.getDatabase).foreach(db => opts += ("databaseName" -> db))
-      Option(sqlServer.getSecure).foreach(s => opts += ("encrypt" -> s.toString))
-      opts.result()
-    }
+    val extraOptions = Map(
+      "user"     -> sqlServer.getUsername,
+      "password" -> sqlServer.getPassword
+    ) ++ Option(sqlServer.getDatabase).map(db => "databaseName" -> db).toList ++
+      Option(sqlServer.getSecure).map(s => "encrypt" -> s.toString).toList
     createForkedJDBCTable(
       identifier,
       detail,
@@ -143,18 +138,13 @@ object JdbcTableFactory {
       case Some(p) => s"jdbc:databricks://${databricks.getHost}:${p.toString}"
       case None    => s"jdbc:databricks://${databricks.getHost}"
     }
-    val extraOptions = {
-      val opts = Map.newBuilder[String, String]
-      opts ++= Map(
-        "httpPath"       -> databricks.getHttpPath,
-        "AuthMech"       -> "11",
-        "Auth_Flow"      -> "1",
-        "OAuth2ClientId" -> databricks.getOAuthClientId,
-        "OAuth2Secret"   -> databricks.getOAuthSecret
-      )
-      Option(databricks.getCatalog).foreach(catalog => opts += ("catalog" -> catalog))
-      opts.result()
-    }
+    val extraOptions = Map(
+      "httpPath"       -> databricks.getHttpPath,
+      "AuthMech"       -> "11",
+      "Auth_Flow"      -> "1",
+      "OAuth2ClientId" -> databricks.getOAuthClientId,
+      "OAuth2Secret"   -> databricks.getOAuthSecret
+    ) ++ Option(databricks.getCatalog).map(catalog => "catalog" -> catalog).toList
     createForkedJDBCTable(
       identifier,
       detail,
@@ -170,15 +160,10 @@ object JdbcTableFactory {
       snowflake: Snowflake
   ): ForkedJDBCTable = {
     val url = s"jdbc:snowflake://${snowflake.getAccount}.snowflakecomputing.com/"
-    val extraOptions = {
-      val opts = Map.newBuilder[String, String]
-      opts ++= Map(
-        "user"     -> snowflake.getUsername,
-        "password" -> snowflake.getPassword
-      )
-      Option(snowflake.getDatabase).foreach(db => opts += ("db" -> db))
-      opts.result()
-    }
+    val extraOptions = Map(
+      "user"     -> snowflake.getUsername,
+      "password" -> snowflake.getPassword
+    ) ++ Option(snowflake.getDatabase).map(db => "db" -> db).toList
     createForkedJDBCTable(
       identifier,
       detail,
