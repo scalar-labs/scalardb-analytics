@@ -8,9 +8,13 @@ Docker image for the ScalarDB Analytics catalog server.
 
 ## Build Image
 
-### Prerequisites
+### Credentials for ScalarDB SQL (temporary)
 
-Building the Docker image requires authentication to GitHub Packages to download private dependencies.
+> [!NOTE]
+> Until ScalarDB SQL is published under an open license, building this image needs credentials for a private GitHub Packages registry that only Scalar can access.
+> This section goes away when that constraint does; see [#17](https://github.com/scalar-labs/scalardb-analytics/issues/17).
+
+Provide a GitHub user and a token with the `read:packages` scope that can read the `scalar-labs/scalardb-sql` packages, in one of the following ways.
 
 #### Option 1: Using `~/.gradle/gradle.properties` (Recommended for local development)
 
@@ -33,13 +37,9 @@ export GPR_PASSWORD=your-github-token
 
 **Note:** Environment variables take precedence over `gradle.properties` if both are set.
 
-#### Creating a GitHub Personal Access Token
+To create the token, go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic), and generate a token with the `read:packages` scope.
 
-If you don't have a token yet:
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Click "Generate new token (classic)"
-3. Select the `read:packages` scope
-4. Generate and copy the token
+Both build methods below pass the credentials to Gradle as Docker BuildKit secrets, so they are not stored in the image metadata.
 
 ### Using Makefile (Recommended)
 
@@ -52,13 +52,13 @@ make build
 # Tag the latest image with git version (e.g., v3.16.0)
 make tag
 
-# Push images to GitHub Packages
+# Push images to GitHub Container Registry (maintainers only)
 make push
 
 # Show current version information
 make version
 
-# Complete release workflow (build, tag, and push to GitHub Packages)
+# Build, tag, and push in one step (maintainers only)
 make release
 
 # Show all available targets
@@ -69,21 +69,23 @@ The Makefile automatically:
 
 - Builds the server distribution before creating the Docker image
 - Uses `git describe` to determine the version tag
-- Publishes to `ghcr.io/scalar-labs/scalardb-analytics-server`
+- Tags the image as `ghcr.io/scalar-labs/scalardb-analytics-server`
+
+`make push` and `make release` need write access to the `ghcr.io/scalar-labs/scalardb-analytics-server` package.
+Release images are pushed by the `release-to-ghcr` job of [`.github/workflows/release.yaml`](../../../.github/workflows/release.yaml), so you do not normally run them by hand.
 
 ### Using Docker directly
 
-From the repository root:
+From the `scalardb-analytics-core` directory:
 
 ```bash
-# Credentials are passed securely using Docker BuildKit secrets
 docker build -f docker/server/Dockerfile \
   --secret id=gpr_username,env=GPR_USERNAME \
   --secret id=gpr_password,env=GPR_PASSWORD \
   -t scalardb-analytics-server:latest .
 ```
 
-**Note:** This uses Docker BuildKit secrets to avoid exposing credentials in image metadata.
+The `--secret` options pass the credentials described in [Credentials for ScalarDB SQL (temporary)](#credentials-for-scalardb-sql-temporary).
 
 ## Usage
 
