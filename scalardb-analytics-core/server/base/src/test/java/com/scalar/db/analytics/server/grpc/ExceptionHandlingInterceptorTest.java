@@ -385,6 +385,26 @@ class ExceptionHandlingInterceptorTest {
   }
 
   @Test
+  void testAnalyticsDbTransactionConflict_mapsToUnavailable() {
+    // UNAVAILABLE is in the SDK's retryableStatusCodes, so the gRPC transport retries the request.
+    assertThatThrownBy(
+            () ->
+                stub.createCatalog(
+                    CreateCatalogRequest.newBuilder()
+                        .setCatalogName("db-transaction-conflict")
+                        .build()))
+        .isInstanceOf(StatusRuntimeException.class)
+        .satisfies(
+            e -> {
+              StatusRuntimeException sre = (StatusRuntimeException) e;
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.UNAVAILABLE.getCode());
+              assertThat(sre.getStatus().getDescription()).contains("transaction conflict");
+              assertThat(errorCodeOf(sre))
+                  .isEqualTo(AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT.getCode());
+            });
+  }
+
+  @Test
   void testInternalError_mapsToInternal() {
     assertThatThrownBy(
             () ->
@@ -512,6 +532,9 @@ class ExceptionHandlingInterceptorTest {
 
         case "scalardb-unavailable":
           throw new AnalyticsException(AnalyticsErrorCode.SCALARDB_CLUSTER_UNAVAILABLE);
+
+        case "db-transaction-conflict":
+          throw new AnalyticsException(AnalyticsErrorCode.ANALYTICS_DB_TRANSACTION_CONFLICT);
 
         case "internal-error":
           throw new AnalyticsException(AnalyticsErrorCode.INTERNAL_ERROR);

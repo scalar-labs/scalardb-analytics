@@ -37,6 +37,13 @@ public class SpringDataJdbcErrorMapper {
   public AnalyticsException mapException(
       DataAccessException e, String entityType, @Nullable String identifier) {
 
+    // A transaction conflict aborts the whole transaction, so it is reported as retryable before
+    // any other categorization (the ScalarDB SQL check below would report it as a generic operation
+    // failure).
+    if (TransactionConflicts.isConflict(e)) {
+      return TransactionConflicts.toAnalyticsException(e);
+    }
+
     // Handle ScalarDB SQL exceptions before Spring DAO exceptions.
     if (e.getMostSpecificCause() instanceof SqlException) {
       return new AnalyticsException(AnalyticsErrorCode.ANALYTICS_DB_OPERATION_FAILED, e);
@@ -63,6 +70,10 @@ public class SpringDataJdbcErrorMapper {
         return mapException(dataAccessException, entityType, identifier);
       }
       current = current.getCause();
+    }
+
+    if (TransactionConflicts.isConflict(e)) {
+      return TransactionConflicts.toAnalyticsException(e);
     }
 
     // For non-DataAccessException, create a generic database error

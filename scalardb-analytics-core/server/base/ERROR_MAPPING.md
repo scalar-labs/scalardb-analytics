@@ -95,8 +95,11 @@ Error codes with `requiresReauthentication = true` indicate that the SDK should 
 |------------|------|-------------|----------|--------|-------------|
 | `DB-ANALYTICS-30000` | `ANALYTICS_DB_CONNECTION_FAILED` | `UNAVAILABLE` | RETRYABLE | No | Analytics database connection failed |
 | `DB-ANALYTICS-30002` | `SCALARDB_CLUSTER_UNAVAILABLE` | `UNAVAILABLE` | RETRYABLE | No | ScalarDB Cluster is unreachable |
+| `DB-ANALYTICS-30003` | `ANALYTICS_DB_TRANSACTION_CONFLICT` | `UNAVAILABLE` | RETRYABLE | No | A transaction on the Analytics database conflicted with a concurrent request and was aborted (for example, two creates of the same name). None of its changes were applied |
 
 > Every `RETRYABLE_SERVER_ERROR` code maps to `UNAVAILABLE` so the gRPC transport retries it. `DB-ANALYTICS-30001` is intentionally unused: it previously held `ANALYTICS_DB_OPERATION_FAILED`, which was recategorized as non-retryable (see below) and is not reused.
+>
+> `DB-ANALYTICS-30003` is raised for a ScalarDB transaction conflict, whether it surfaces in a repository operation or at commit. The server runs its database transactions at the `SERIALIZABLE` isolation level, so a create that raced with a create of the same name fails with this code instead of leaving a duplicate; the retry either creates the entity or reports its `*_ALREADY_EXISTS` code. An unknown transaction status (the commit may have succeeded) is not a conflict and is not retried.
 
 ### 301xx — Non-retryable Internal Errors
 

@@ -28,7 +28,11 @@ import org.springframework.transaction.annotation.RollbackOn;
 // TODO: Remove ScalarDbJdbcConfiguration from @Import after scalardb-sql#1098 is merged.
 // Once the default beans have @ConditionalOnMissingBean, AutoConfiguration.imports will handle
 // loading without conflicts, making the explicit @Import unnecessary.
-@Import({JdbcAuditingConfiguration.class, ScalarDbJdbcConfiguration.class})
+@Import({
+  JdbcAuditingConfiguration.class,
+  ScalarDbJdbcConfiguration.class,
+  AnnotationDrivenTransactionManagerConfiguration.class
+})
 @ComponentScan(
     basePackages = {
       "com.scalar.db.analytics.repository.impl.spring.config",

@@ -15,28 +15,13 @@ import com.scalar.db.analytics.repository.impl.spring.support.AbstractScalarDbIn
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 /**
  * The delete methods call {@code deleteById} without checking first whether the row exists, so
- * deleting a missing row must be a no-op on the backend. The per-repository integration tests cover
- * this under the default isolation level; subclasses run the same cases under the other isolation
- * levels Consensus Commit supports.
- *
- * <p>Each subclass connects with its own ScalarDB configuration, so the ScalarDB SQL JDBC driver
- * creates separate connection pools for it. With the default pool sizes each set of pools opens
- * about 30 PostgreSQL connections up front, and together with the pools of the other test contexts
- * that exhausted the connections of the shared test container, so these tests let the pools start
- * empty.
+ * deleting a missing row must be a no-op on the backend. The server always runs its transactions at
+ * the SERIALIZABLE isolation level, so these cases run under SERIALIZABLE.
  */
-@TestPropertySource(
-    properties = {
-      "scalar.db.analytics.server.db.parameters[scalar.db.jdbc.connection_pool.min_idle]=0",
-      "scalar.db.analytics.server.db.parameters"
-          + "[scalar.db.jdbc.table_metadata.connection_pool.min_idle]=0",
-      "scalar.db.analytics.server.db.parameters[scalar.db.jdbc.admin.connection_pool.min_idle]=0"
-    })
-abstract class AbstractDeleteMissingIntegrationTest extends AbstractScalarDbIntegrationTest {
+class DeleteMissingIntegrationTest extends AbstractScalarDbIntegrationTest {
 
   @Autowired private AccessTokenRepositoryImpl accessTokenRepository;
   @Autowired private AuthUserRepositoryImpl authUserRepository;
