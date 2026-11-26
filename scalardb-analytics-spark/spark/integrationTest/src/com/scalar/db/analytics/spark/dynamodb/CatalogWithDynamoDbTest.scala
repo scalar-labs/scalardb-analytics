@@ -14,6 +14,7 @@ import com.scalar.db.analytics.spark.util.{CatalogUtil, TestImages}
 import com.scalar.db.analytics.spark.{BaseSpec, CatalogTestBase}
 import org.apache.spark.sql.connector.catalog.{Column, Identifier}
 import org.apache.spark.sql.types.{DataTypes, DecimalType}
+import org.apache.spark.storage.StorageLevel
 import org.scalatest.BeforeAndAfterAll
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -290,9 +291,10 @@ class CatalogWithDynamoDbTest extends BaseSpec with CatalogTestBase with BeforeA
       val cached = spark.table(tableFqn).cache()
       try {
         // spark.table loads a new Table instance from the catalog, so this matches only if equal
-        // tables compare equal.
+        // tables compare equal. Dataset.storageLevel looks the plan up in the cache manager and
+        // returns NONE when no cached data matches.
         val reloaded = spark.table(tableFqn)
-        assert(spark.sharedState.cacheManager.lookupCachedData(reloaded).isDefined)
+        assert(reloaded.storageLevel != StorageLevel.NONE)
       } finally
         cached.unpersist(): Unit
     }
