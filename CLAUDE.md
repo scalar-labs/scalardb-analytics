@@ -22,19 +22,13 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | CLI usage & commands | [client/cli/README.md](scalardb-analytics-core/client/cli/README.md) |
 | Third-party dependency licenses & notices | [licenses/DEPENDENCY-LICENSE-POLICY.md](licenses/DEPENDENCY-LICENSE-POLICY.md) |
 | Release process | [.claude/skills/release-process/SKILL.md](.claude/skills/release-process/SKILL.md) |
+| Issues, labels, milestones, commits & CHANGELOG | [docs/issue-workflow.md](docs/issue-workflow.md) |
 
 ## Development Rules
 
-### Commits & PRs
+### Commits, PRs & CHANGELOG
 
-- Conventional Commit style: `type(module): description`
-  - `feat`, `fix`, `refactor`, `build`, `docs`, `test`, `chore`
-  - Module name optional for project-wide changes
-- PR titles follow the same format
-- **CHANGELOG**: Every PR must include its corresponding update in `CHANGELOG.md` under the `[Unreleased]` section
-  - Use the project's custom sections: `Enhancements` (new features), `Improvements` (changes to existing behavior), `Bug fixes`
-  - Prefix breaking changes with `[BREAKING]`
-  - Omit only when there is no user-facing change (e.g. internal refactors, CI, tests, dependency bumps); regressions in not-yet-released changes are also omitted
+- Follow [docs/issue-workflow.md](docs/issue-workflow.md) for Conventional Commit types and scopes, PR titles, Issue labels and milestones, and when and how to update `CHANGELOG.md`
 
 ### Documentation
 

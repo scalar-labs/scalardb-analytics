@@ -60,9 +60,10 @@ rg -n '^scalardb = "|val scalardb ' \
    ```bash
    git tag -a vX.Y.0 -m "Release vX.Y.0" <release-commit> && git push origin vX.Y.0
    ```
-7. **Return `main` to `X.(Y+1).0-SNAPSHOT`.** This is the step that gets forgotten — see section 6.
-8. **Verify the outputs** listed in the tracking issue.
-9. **Hand over to the Enterprise release**, which moves its submodule to this `vX.Y.0` tag.
+7. **Roll over the `Next release` milestone** to `vX.Y.0`, as described in [Issue workflow](../../../docs/issue-workflow.md#at-each-release).
+8. **Return `main` to `X.(Y+1).0-SNAPSHOT`.** This is the step that gets forgotten — see section 6.
+9. **Verify the outputs** listed in the tracking issue.
+10. **Hand over to the Enterprise release**, which moves its submodule to this `vX.Y.0` tag.
 
 ## 5. Patch release (X.Y.Z, Z > 0)
 
