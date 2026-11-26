@@ -54,7 +54,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 
 **Spark module (Java 17)**: Mill build uses `temurin:17`.
 
-> **Note**: The Spark Mill JVM is `temurin:17` because the Spark cross-build targets Spark 3.4/3.5, which support up to Java 17 (JDK 21 requires Spark 4.0). It is intentionally kept at 17 — not a version-policy gap — and will move only when the Spark module adopts Spark 4.0.
+> **Note**: The Spark Mill JVM is `temurin:17` because the Spark cross-build targets Spark 3.5, 4.0, and 4.1, and Java 17 is the only version that all of them support: Spark 3.5 supports up to Java 17, and Spark 4.x requires Java 17 or later. It is intentionally kept at 17 — not a version-policy gap — and will move only when the Spark module drops Spark 3.5.
 
 ### Build Dependencies
 

@@ -13,9 +13,15 @@ changes released from here, starting with the entries below.
 
 ## [Unreleased]
 
+### Enhancements
+
+- Added Spark 4.1 and Spark 4.0 support. The Spark connector is published for Spark 4.1.4 and 4.0.5 with Scala 2.13, as `scalardb-analytics-spark-all-4.1_2.13` and `scalardb-analytics-spark-all-4.0_2.13`. Spark 4 is not published for Scala 2.12, so there are no Scala 2.12 artifacts for these versions. On Spark 4, the connector uses the Databricks JDBC dialect built into Spark (#85)
+
 ### Improvements
 
 - [BREAKING] Raised the JDK of the server-side modules and the core Gradle build from Java 21 to Java 25. The server-side modules are compiled for Java 25, the server and CLI images run on Java 25 (`eclipse-temurin:25.0.5_8-jdk-resolute` and `eclipse-temurin:25.0.5_8-jre-resolute` instead of `eclipse-temurin:21.0.13_9-jdk-resolute` and `eclipse-temurin:21.0.13_9-jre-resolute`), and building `scalardb-analytics-core` from source requires JDK 25. The client-facing modules (`api`, `lib`, `grpc`, `grpc-common`, the Java client SDK, and the CLI) still target Java 8 (#84)
+- The Spark 3.5 connector is now compiled with Scala 2.12.18 and 2.13.8, the versions that Spark 3.5 is built with and runs on, instead of 2.12.20 and 2.13.16, so it cannot call `scala-library` methods that the Spark 3.5 runtime lacks (#85)
+- [BREAKING] Dropped Spark 3.4 support. The `scalardb-analytics-spark-all-3.4_2.12` and `scalardb-analytics-spark-all-3.4_2.13` artifacts are no longer published; use Spark 3.5, 4.0, or 4.1 instead (#85)
 
 ### Bug fixes
 

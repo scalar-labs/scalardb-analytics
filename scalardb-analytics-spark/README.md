@@ -12,7 +12,7 @@ Follow the root [build instructions](../README.md#build-the-core-artifacts-used-
 ```bash
 ./mill __.compile
 ./mill __.test
-./mill 'sparkAll[2.13,3.5].assembly'
+./mill 'sparkAll[2.13,4.1].assembly'
 ```
 
 Build the assembly from `sparkAll`, not `spark`. Mill can assemble any module, so
@@ -30,7 +30,7 @@ Use these commands to check dependency licenses and generate third-party notices
 
 ```bash
 ./mill checkLicense
-./mill 'sparkAll[2.13,3.5].generateLicenseReport'
+./mill 'sparkAll[2.13,4.1].generateLicenseReport'
 ```
 
 The notices are generated into the assembly at packaging time and are not committed. See
@@ -40,10 +40,15 @@ The notices are generated into the assembly at packaging time and are not commit
 
 | Scala | Spark |
 | --- | --- |
-| 2.12.20 | 3.4.4 |
-| 2.12.20 | 3.5.6 |
-| 2.13.16 | 3.4.4 |
-| 2.13.16 | 3.5.6 |
+| 2.12.18 | 3.5.9 |
+| 2.13.8 | 3.5.9 |
+| 2.13.16 | 4.0.5 |
+| 2.13.17 | 4.1.4 |
+
+Spark 4 is published for Scala 2.13 only, so the build has no Scala 2.12 variant for Spark 4.0 or 4.1.
+Each variant compiles with the Scala version that its Spark release line is built with, because that is the `scala-library` the connector runs on: Scala patch releases are only backward compatible, so code compiled with a newer patch can call library methods that the Spark runtime lacks.
+WartRemover runs only on the `[2.13,4.1]` variant, because it is published per full Scala version and no release covers all of the versions above.
+Version-specific sources live in `compat/src-spark3.5` and `compat/src-spark4`, which Spark 4.0 and 4.1 share.
 
 ## Submodules
 
@@ -56,7 +61,7 @@ The notices are generated into the assembly at packaging time and are not commit
 | `datasource/scalardb/` | ScalarDB data source |
 | `datasource/dynamodb/` | DynamoDB data source |
 
-Mill 1.0.6 builds the module with JDK 17.
+Mill 1.0.6 builds the module with JDK 17, the newest JDK that Spark 3.5 supports and the oldest that Spark 4 supports.
 The assembly relocates selected transitive libraries to avoid conflicts with the Spark runtime.
 
 ## License

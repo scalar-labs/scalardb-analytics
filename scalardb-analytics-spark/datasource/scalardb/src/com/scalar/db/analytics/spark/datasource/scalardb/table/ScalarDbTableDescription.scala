@@ -28,7 +28,7 @@ object ScalarDbTableDescription {
       namespace: String,
       tableDetail: com.scalar.db.analytics.api.model.TableDetail
   ): ScalarDbTableDescription = {
-    val columns: Array[ScalarDbColumn] = tableDetail.getColumns.asScala.map { c =>
+    val columns: Array[ScalarDbColumn] = tableDetail.getColumns.asScala.iterator.map { c =>
       ScalarDbColumn(
         TypeMapping.toScalarDbType(c.getType),
         SchemaConverter.toSparkField(c)
