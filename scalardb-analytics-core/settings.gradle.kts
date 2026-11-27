@@ -64,5 +64,6 @@ include(
     ":client:cli",
     ":server:base",
     ":server:app",
+    ":server:e2e",
     ":tools:error-code-doc-generator",
 )

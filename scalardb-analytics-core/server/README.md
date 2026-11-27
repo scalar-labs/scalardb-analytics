@@ -12,6 +12,10 @@ Shared server implementation, including the gRPC service and dependency-injectio
 
 The server distribution, packaged as an installable archive.
 
+### `server/e2e`
+
+End-to-end tests of authentication and authorization over the full gRPC stack, with TLS and a PostgreSQL container. They run as part of `./gradlew check`; see [e2e/README.md](e2e/README.md).
+
 ## Build
 
 Use JDK 25 and the Gradle wrapper in [`scalardb-analytics-core/`](../README.md):
