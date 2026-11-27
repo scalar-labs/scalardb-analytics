@@ -14,6 +14,8 @@ import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
 import com.scalar.db.analytics.repository.impl.spring.transaction.SpringDataJdbcTransactionContext;
+import com.scalar.db.analytics.server.datasource.DefaultSchemaResolution;
+import com.scalar.db.analytics.service.SchemaResolution;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.usecase.CatalogUseCase;
 import com.scalar.db.analytics.usecase.CatalogUseCaseImpl;
@@ -23,6 +25,7 @@ import com.scalar.db.analytics.usecase.NamespaceUseCase;
 import com.scalar.db.analytics.usecase.NamespaceUseCaseImpl;
 import com.scalar.db.analytics.usecase.TableUseCase;
 import com.scalar.db.analytics.usecase.TableUseCaseImpl;
+import java.util.Optional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -42,7 +45,8 @@ public class UseCaseConfiguration {
       DataSourceNamespaceTableQueryService<SpringDataJdbcTransactionContext>
           dataSourceNamespaceTableQueryService,
       AccessControlEntryRepository<SpringDataJdbcTransactionContext> aceRepository,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService,
+      Optional<SchemaResolution> schemaResolution) {
     return new CatalogUseCaseImpl<>(
         catalogRepository,
         dataSourceRepository,
@@ -53,7 +57,8 @@ public class UseCaseConfiguration {
         dataSourceNamespaceQueryService,
         dataSourceNamespaceTableQueryService,
         aceRepository,
-        authorizationService);
+        authorizationService,
+        schemaResolutionOrDefault(schemaResolution));
   }
 
   @Bean
@@ -69,7 +74,8 @@ public class UseCaseConfiguration {
       DataSourceNamespaceTableQueryService<SpringDataJdbcTransactionContext>
           dataSourceNamespaceTableQueryService,
       AccessControlEntryRepository<SpringDataJdbcTransactionContext> aceRepository,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService,
+      Optional<SchemaResolution> schemaResolution) {
     return new DataSourceUseCaseImpl<>(
         catalogRepository,
         dataSourceRepository,
@@ -80,7 +86,8 @@ public class UseCaseConfiguration {
         dataSourceNamespaceQueryService,
         dataSourceNamespaceTableQueryService,
         aceRepository,
-        authorizationService);
+        authorizationService,
+        schemaResolutionOrDefault(schemaResolution));
   }
 
   @Bean
@@ -107,5 +114,14 @@ public class UseCaseConfiguration {
       AuthorizationService authorizationService) {
     return new TableUseCaseImpl<>(
         dataSourceNamespaceTableQueryService, repositoryTransactionManager, authorizationService);
+  }
+
+  /**
+   * Returns the declared {@link SchemaResolution} bean, or {@link DefaultSchemaResolution} when
+   * none is declared, so an embedding environment can replace how schemas are resolved.
+   */
+  private static SchemaResolution schemaResolutionOrDefault(
+      Optional<SchemaResolution> schemaResolution) {
+    return schemaResolution.orElseGet(DefaultSchemaResolution::new);
   }
 }

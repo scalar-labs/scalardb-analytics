@@ -22,7 +22,6 @@ dependencies {
     implementation(project(":service"))
     implementation(project(":repository"))
     implementation(project(":schema-resolver"))
-    implementation(project(":datasource-scalardb"))
     implementation(libs.guava)
     implementation(libs.caffeine)
     implementation(libs.slf4j)

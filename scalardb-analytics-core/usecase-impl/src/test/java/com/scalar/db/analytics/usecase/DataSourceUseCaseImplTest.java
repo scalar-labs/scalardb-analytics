@@ -38,6 +38,7 @@ import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
+import com.scalar.db.analytics.service.SuppliedSchemaResolution;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.Arrays;
 import java.util.Collections;
@@ -98,7 +99,8 @@ class DataSourceUseCaseImplTest {
             dataSourceNamespaceQueryService,
             dataSourceNamespaceTableQueryService,
             aceRepository,
-            authorizationService);
+            authorizationService,
+            new SuppliedSchemaResolution());
 
     testProvider = new PostgreSql("localhost", 5432, "user", "password", "test");
     testDataSource = new DataSource(DATA_SOURCE_ID, CATALOG_ID, DATA_SOURCE_NAME, testProvider);
