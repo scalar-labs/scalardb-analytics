@@ -38,10 +38,10 @@ import com.scalar.db.analytics.repository.NamespaceRepository;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
-import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
-import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
-import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
-import com.scalar.db.analytics.service.datasource.SchemaResolverException;
+import com.scalar.db.analytics.schema.InvalidDataSourceConfigurationException;
+import com.scalar.db.analytics.schema.InvalidSchemaMetadataException;
+import com.scalar.db.analytics.schema.SchemaMetadataValidator;
+import com.scalar.db.analytics.schema.SchemaResolverException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -224,7 +224,7 @@ class DataSourceServiceTest {
   void registerDataSource_scalarDbProviderWithConfigRejectedByScalarDb_shouldThrowInvalidArgument()
       throws Exception {
     // ScalarDB throws IllegalArgumentException for a storage it does not know. The real
-    // ScalarDbSchemaResolver runs here, and fails before connecting to anything.
+    // ScalarDbSchemaReader runs here, and fails before connecting to anything.
     RegisterDataSourceRequest request =
         new RegisterDataSourceRequest(
             CATALOG_NAME,

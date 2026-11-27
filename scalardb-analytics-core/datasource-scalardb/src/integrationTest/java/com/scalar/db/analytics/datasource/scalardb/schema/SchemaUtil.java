@@ -7,7 +7,7 @@ package com.scalar.db.analytics.datasource.scalardb.schema;
 import com.scalar.db.analytics.api.model.Column;
 import com.scalar.db.analytics.api.model.Namespace;
 import com.scalar.db.analytics.api.model.TableDetail;
-import com.scalar.db.analytics.service.datasource.ResolvedSchema;
+import com.scalar.db.analytics.schema.ResolvedSchema;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

@@ -7,7 +7,7 @@ package com.scalar.db.analytics.usecase;
 import com.scalar.db.analytics.api.error.AnalyticsErrorCode;
 import com.scalar.db.analytics.api.error.AnalyticsException;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
-import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
+import com.scalar.db.analytics.schema.InvalidSchemaMetadataException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 

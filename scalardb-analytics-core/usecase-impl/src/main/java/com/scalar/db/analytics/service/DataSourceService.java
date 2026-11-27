@@ -23,7 +23,15 @@ import com.scalar.db.analytics.api.model.datasource.provider.rdbms.Snowflake;
 import com.scalar.db.analytics.api.model.datasource.provider.rdbms.SqlServer;
 import com.scalar.db.analytics.api.request.RegisterDataSourceRequest;
 import com.scalar.db.analytics.api.request.schema.DataSourceSchema;
-import com.scalar.db.analytics.datasource.scalardb.schema.ScalarDbSchemaResolver;
+import com.scalar.db.analytics.datasource.jdbc.schema.DatabricksSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.JdbcSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.JdbcSchemaReaderOption;
+import com.scalar.db.analytics.datasource.jdbc.schema.MySqlSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.OracleSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.PostgreSqlSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.SnowflakeSchemaReader;
+import com.scalar.db.analytics.datasource.jdbc.schema.SqlServerSchemaReader;
+import com.scalar.db.analytics.datasource.scalardb.schema.ScalarDbSchemaReader;
 import com.scalar.db.analytics.lib.functional.Throwables;
 import com.scalar.db.analytics.repository.CatalogRepository;
 import com.scalar.db.analytics.repository.DataSourceNamespaceQueryService;
@@ -33,19 +41,10 @@ import com.scalar.db.analytics.repository.NamespaceRepository;
 import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
-import com.scalar.db.analytics.service.datasource.InvalidDataSourceConfigurationException;
-import com.scalar.db.analytics.service.datasource.NoOpSchemaResolver;
-import com.scalar.db.analytics.service.datasource.ResolvedSchema;
-import com.scalar.db.analytics.service.datasource.SchemaMetadataValidator;
-import com.scalar.db.analytics.service.datasource.SchemaResolverException;
-import com.scalar.db.analytics.service.datasource.rdbms.RdbmsSchemaResolver;
-import com.scalar.db.analytics.service.datasource.rdbms.RdbmsSchemaResolverOption;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverDatabricks;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverMySql;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverOracle;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverPostgreSql;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverSnowflake;
-import com.scalar.db.analytics.service.datasource.rdbms.SchemaResolverSqlServer;
+import com.scalar.db.analytics.schema.InvalidDataSourceConfigurationException;
+import com.scalar.db.analytics.schema.ResolvedSchema;
+import com.scalar.db.analytics.schema.SchemaMetadataValidator;
+import com.scalar.db.analytics.schema.SchemaResolverException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +128,7 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
       throw invalidSchema(request, "required_for_provider");
     }
 
-    return new NoOpSchemaResolver(dataSourceId, schema).resolveSchema();
+    return ResolvedSchema.fromSupplied(dataSourceId, schema);
   }
 
   /**
@@ -205,45 +204,41 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
 
     @Override
     public ResolvedSchema visit(MySql mySql) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverMySql.open(
-              dataSourceId, mySql, RdbmsSchemaResolverOption.DEFAULT, mySql.getDatabase())) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          MySqlSchemaReader.open(
+              dataSourceId, mySql, JdbcSchemaReaderOption.DEFAULT, mySql.getDatabase())) {
+        return reader.read();
       }
     }
 
     @Override
     public ResolvedSchema visit(PostgreSql postgreSql) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverPostgreSql.open(
-              dataSourceId, postgreSql, RdbmsSchemaResolverOption.DEFAULT)) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          PostgreSqlSchemaReader.open(dataSourceId, postgreSql, JdbcSchemaReaderOption.DEFAULT)) {
+        return reader.read();
       }
     }
 
     @Override
     public ResolvedSchema visit(Oracle oracle) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverOracle.open(dataSourceId, oracle, RdbmsSchemaResolverOption.DEFAULT)) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          OracleSchemaReader.open(dataSourceId, oracle, JdbcSchemaReaderOption.DEFAULT)) {
+        return reader.read();
       }
     }
 
     @Override
     public ResolvedSchema visit(SqlServer sqlServer) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverSqlServer.open(
-              dataSourceId,
-              sqlServer,
-              RdbmsSchemaResolverOption.DEFAULT,
-              sqlServer.getDatabase())) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          SqlServerSchemaReader.open(
+              dataSourceId, sqlServer, JdbcSchemaReaderOption.DEFAULT, sqlServer.getDatabase())) {
+        return reader.read();
       }
     }
 
     @Override
     public ResolvedSchema visit(ScalarDbProvider scalarDb) {
-      return ScalarDbSchemaResolver.create(dataSourceId, scalarDb).resolveSchema();
+      return ScalarDbSchemaReader.create(dataSourceId, scalarDb).read();
     }
 
     @Override
@@ -254,25 +249,19 @@ public class DataSourceService<T extends RepositoryTransactionContext> {
 
     @Override
     public ResolvedSchema visit(Databricks databricks) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverDatabricks.open(
-              dataSourceId,
-              databricks,
-              RdbmsSchemaResolverOption.DEFAULT,
-              databricks.getCatalog())) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          DatabricksSchemaReader.open(
+              dataSourceId, databricks, JdbcSchemaReaderOption.DEFAULT, databricks.getCatalog())) {
+        return reader.read();
       }
     }
 
     @Override
     public ResolvedSchema visit(Snowflake snowflake) {
-      try (RdbmsSchemaResolver resolver =
-          SchemaResolverSnowflake.open(
-              dataSourceId,
-              snowflake,
-              RdbmsSchemaResolverOption.DEFAULT,
-              snowflake.getDatabase())) {
-        return resolver.resolveSchema();
+      try (JdbcSchemaReader reader =
+          SnowflakeSchemaReader.open(
+              dataSourceId, snowflake, JdbcSchemaReaderOption.DEFAULT, snowflake.getDatabase())) {
+        return reader.read();
       }
     }
   }
