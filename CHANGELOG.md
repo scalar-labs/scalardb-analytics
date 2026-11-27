@@ -35,6 +35,7 @@ changes released from here, starting with the entries below.
 - [BREAKING] The CLI and the Spark connector now resolve the authentication credential with the same rules. In the CLI, this changes the following (#78):
   - `${...}` in `scalar.db.analytics.client.auth.username` and `scalar.db.analytics.client.auth.password` is no longer expanded and is taken literally. For example, `p${x}q` used to resolve to `pq`
   - A blank `SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME` no longer hides the username in `client.properties`. With a username in the file and no password, the CLI used to run without authentication and now fails with `REQUIRED_KEY_NOT_SET`
+- The Spark connector assemblies (`scalardb-analytics-spark-all-<spark>_<scala>`) now include the Apache-2.0 license text as `LICENSE` at the root of the JAR (#106)
 
 ### Bug fixes
 

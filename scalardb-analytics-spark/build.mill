@@ -635,8 +635,8 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     // content is preserved verbatim in META-INF/THIRD-PARTY-NOTICES.txt, so nothing is lost.
     // The match is case-insensitive because META-INF/license.txt is the same colliding path:
     // 53 dependencies ship it, and which one survives is an accident of resolution order.
-    // When this artifact ships its own LICENSE (scalardb-analytics#559), narrow these patterns
-    // or add that file after the rules are applied, or it will be stripped along with the rest.
+    // This artifact's own LICENSE sits at the archive root, which these patterns do not match;
+    // see generateLicenseReport.
     Rule.ExcludePattern("(?i)META-INF/LICENSE(\\..*)?"),
     Rule.ExcludePattern("(?i)META-INF/NOTICE(\\..*)?"),
     Rule.ExcludePattern("(?i)META-INF/(LICENSE|NOTICE)_binary(\\..*)?"),
@@ -656,12 +656,23 @@ trait SparkAllModule extends CrossBuildModule with SonatypeCentralPublishModule 
     Rule.Relocate("com.fasterxml.jackson.**", "com.scalar.db.relocated.com.fasterxml.jackson.@1")
   )
 
-  /** Aggregate notice and Oracle FUTC text for exactly what this assembly variant bundles.
+  /** The repository's LICENSE file, which this artifact is distributed under. */
+  def projectLicenseFile: T[PathRef] = Task.Source(BuildCtx.workspaceRoot / os.up / "LICENSE")
+
+  /** This artifact's own LICENSE, plus aggregate notice and Oracle FUTC text for exactly what this
+    * assembly variant bundles.
+    *
+    * Apache-2.0 section 4(a) requires giving every recipient a copy of the License, and publishing
+    * this assembly to Maven Central is distribution. The LICENSE goes to the archive root, as in
+    * the CLI fat JAR, rather than to META-INF/LICENSE, which assemblyRules strips from every input
+    * to resolve the collisions among dependencies. Entries from these inputs overwrite the upstream
+    * (dependency) assembly's entries at the same path, so no dependency can replace it.
     *
     * Generation runs as part of the build rather than from a committed copy, so the text always
     * matches the dependencies that were just resolved.
     */
   def generateLicenseReport: T[PathRef] = Task {
+    os.copy.over(projectLicenseFile().path, Task.dest / "LICENSE")
     val inventory = ujson.read(os.read(dependencyLicenseInventory().path))
     val metaInf   = Task.dest / "META-INF"
     os.makeDir.all(metaInf)
