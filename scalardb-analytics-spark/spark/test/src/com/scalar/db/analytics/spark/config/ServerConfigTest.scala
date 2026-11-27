@@ -266,6 +266,84 @@ class ServerConfigTest extends AnyFunSpec with Matchers {
       exception.getMessage should include("tls.enabled")
     }
 
+    it("keeps surrounding whitespace in the password") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.username" -> " admin ",
+        "server.auth.password" -> " secret "
+      )
+
+      val config = ServerConfig.parse(properties, noEnv)
+      config.authCredential shouldBe Some(AuthCredential("admin", " secret "))
+    }
+
+    it("keeps a whitespace-only env password, which overrides the property") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.username" -> "prop-user",
+        "server.auth.password" -> "prop-pass"
+      )
+      val env = Map("SCALAR_DB_ANALYTICS_CLIENT_AUTH_PASSWORD" -> "   ")
+
+      val config = ServerConfig.parse(properties, env.get)
+      config.authCredential shouldBe Some(AuthCredential("prop-user", "   "))
+    }
+
+    it("combines an env username with a property password") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.password" -> "prop-pass"
+      )
+      val env = Map("SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME" -> "env-user")
+
+      val config = ServerConfig.parse(properties, env.get)
+      config.authCredential shouldBe Some(AuthCredential("env-user", "prop-pass"))
+    }
+
+    it("falls back to the property username when the env username is blank") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.username" -> "prop-user",
+        "server.auth.password" -> "prop-pass"
+      )
+      val env = Map("SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME" -> "  ")
+
+      val config = ServerConfig.parse(properties, env.get)
+      config.authCredential shouldBe Some(AuthCredential("prop-user", "prop-pass"))
+    }
+
+    it("reports a missing password with the catalog option names") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.username" -> "admin"
+      )
+
+      val exception = the[IllegalArgumentException] thrownBy {
+        ServerConfig.parse(properties, noEnv)
+      }
+      exception.getMessage shouldBe
+        "`server.auth.password` is required when `server.auth.username` is set"
+    }
+
+    it("reports a missing username with the catalog option names") {
+      val properties = Map(
+        "server.host"          -> "localhost",
+        "server.tls.enabled"   -> "true",
+        "server.auth.password" -> "secret"
+      )
+
+      val exception = the[IllegalArgumentException] thrownBy {
+        ServerConfig.parse(properties, noEnv)
+      }
+      exception.getMessage shouldBe
+        "`server.auth.username` is required when `server.auth.password` is set"
+    }
+
     it("does not read env vars for keys without envVarName") {
       val properties = Map(
         "server.host" -> "localhost"

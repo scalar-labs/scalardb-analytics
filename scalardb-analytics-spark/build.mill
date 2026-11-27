@@ -401,6 +401,15 @@ trait SparkModule extends CrossBuildModule {
       mvn"org.apache.spark::spark-sql:$sparkVersion",
       mvn"org.apache.spark::spark-catalyst:$sparkVersion"
     )
+
+    // The credential resolution case table is owned by client-sdk in the Gradle build and shared
+    // with these tests, so that the SDK, the CLI, and the connector are checked against the same
+    // cases.
+    def sharedTestResources: T[Seq[PathRef]] = Task.Sources(
+      BuildCtx.workspaceRoot / os.up / "scalardb-analytics-core" / "client-sdk" / "src" / "test" /
+        "conformance"
+    )
+    override def resources = super.resources() ++ sharedTestResources()
   }
 
   object integrationTest extends TestBaseModule {

@@ -207,6 +207,15 @@ Missing --catalog, and no default catalog is set (scalar.db.analytics.client.def
 
 If a default is set but the rest of the configuration is invalid (for example, a username without a password), the command reports the configuration error, as it would with `--catalog`. The same goes for a configuration file that can't be read, whether or not a default is set.
 
+To authenticate, set both the username and the password:
+
+```properties
+scalar.db.analytics.client.auth.username=alice
+scalar.db.analytics.client.auth.password=secret
+```
+
+Each can also be set through `SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME` and `SCALAR_DB_ANALYTICS_CLIENT_AUTH_PASSWORD`, which take precedence over the file for that field, so the username and the password may come from different sources. The credential is resolved by `ClientConfigResolver` in the SDK (`client-sdk`, package `com.scalar.db.analytics.sdk.config`), which the Spark connector and SDK applications using `ScalarDbAnalyticsClient.Builder#configSources` share: a blank username is treated as unset and falls through to the file, the password is used as is (not trimmed, no `${...}` expansion, and an empty value counts as set), and a username without a password, or the reverse, is a configuration error. For setting up authentication on the server, see the [official authentication guide](https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/authentication-and-authorization).
+
 Configuration can be overridden via:
 
 - Environment variable: `SCALAR_DB_ANALYTICS_CONFIG_PATH=/path/to/config.properties`

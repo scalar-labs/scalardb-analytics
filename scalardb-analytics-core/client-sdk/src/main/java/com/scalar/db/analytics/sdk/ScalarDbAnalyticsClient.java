@@ -13,6 +13,9 @@ import com.scalar.db.analytics.sdk.auth.UserClient;
 import com.scalar.db.analytics.sdk.authz.PermissionClient;
 import com.scalar.db.analytics.sdk.authz.RoleClient;
 import com.scalar.db.analytics.sdk.catalog.CatalogClient;
+import com.scalar.db.analytics.sdk.config.ClientConfigException;
+import com.scalar.db.analytics.sdk.config.ClientConfigResolver;
+import com.scalar.db.analytics.sdk.config.ConfigSource;
 import com.scalar.db.analytics.sdk.datasource.DataSourceClient;
 import com.scalar.db.analytics.sdk.namespace.NamespaceClient;
 import com.scalar.db.analytics.sdk.retry.RetryConfig;
@@ -200,6 +203,37 @@ public interface ScalarDbAnalyticsClient extends AutoCloseable {
     Builder passwordCredential(@Nullable PasswordCredential credential);
 
     /**
+     * Reads configuration that is not set on this builder from the given sources.
+     *
+     * <p>Without this call, the builder uses only the values set on it. With it, {@link #build()}
+     * resolves the configuration through {@link ClientConfigResolver}, in the order: values set on
+     * this builder, then {@code environment}, then {@code file}. This is the same resolution the
+     * CLI and the Spark connector use. Currently only the authentication credential is resolved
+     * this way. Pass {@link ConfigSource#empty()} for a tier that should not be read.
+     *
+     * <p>{@link ConfigSource#environment()} reads the environment when {@link #build()} is called,
+     * while {@link ConfigSource#file} reads the file when the source is created.
+     *
+     * <p>Example that reads the same environment variables and {@code client.properties} keys as
+     * the CLI. The SDK does not look up the CLI's default file location, so the caller passes the
+     * path:
+     *
+     * <pre>{@code
+     * ScalarDbAnalyticsClient client = ScalarDbAnalyticsClient.builder()
+     *     .host("server.example.com")
+     *     .port(11051)
+     *     .tlsConfig(tlsConfig)
+     *     .configSources(ConfigSource.environment(), ConfigSource.file(configPath))
+     *     .build();
+     * }</pre>
+     *
+     * @param environment the environment source, such as {@link ConfigSource#environment()}
+     * @param file the configuration file source, such as {@link ConfigSource#file}
+     * @return this builder
+     */
+    Builder configSources(ConfigSource environment, ConfigSource file);
+
+    /**
      * Enables disk-based token caching with the default directory.
      *
      * <p>When enabled alongside {@link #passwordCredential}, tokens are persisted to disk so that
@@ -241,6 +275,8 @@ public interface ScalarDbAnalyticsClient extends AutoCloseable {
      * Builds the ScalarDbAnalyticsClient instance.
      *
      * @return a new ScalarDbAnalyticsClient instance
+     * @throws ClientConfigException if the configuration resolved from the sources set with {@link
+     *     #configSources} is incomplete
      * @throws AnalyticsException if the client cannot be created
      */
     ScalarDbAnalyticsClient build();

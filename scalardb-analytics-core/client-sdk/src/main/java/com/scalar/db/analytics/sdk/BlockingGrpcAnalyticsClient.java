@@ -26,6 +26,8 @@ import com.scalar.db.analytics.sdk.authz.PermissionClient;
 import com.scalar.db.analytics.sdk.authz.RoleClient;
 import com.scalar.db.analytics.sdk.catalog.BlockingGrpcCatalogClient;
 import com.scalar.db.analytics.sdk.catalog.CatalogClient;
+import com.scalar.db.analytics.sdk.config.ClientConfigResolver;
+import com.scalar.db.analytics.sdk.config.ConfigSource;
 import com.scalar.db.analytics.sdk.datasource.BlockingGrpcDataSourceClient;
 import com.scalar.db.analytics.sdk.datasource.DataSourceClient;
 import com.scalar.db.analytics.sdk.exception.GrpcExceptionMapper;
@@ -40,6 +42,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -166,6 +169,8 @@ class BlockingGrpcAnalyticsClient implements ScalarDbAnalyticsClient {
     private RetryConfig retryConfig = RetryConfig.defaultConfig();
     private boolean tokenCacheEnabled;
     @Nullable private Path tokenCacheDir;
+    @Nullable private ConfigSource environmentSource;
+    @Nullable private ConfigSource fileSource;
 
     @Override
     public Builder host(String host) {
@@ -188,6 +193,13 @@ class BlockingGrpcAnalyticsClient implements ScalarDbAnalyticsClient {
     @Override
     public Builder passwordCredential(@Nullable PasswordCredential credential) {
       this.credential = credential;
+      return this;
+    }
+
+    @Override
+    public Builder configSources(ConfigSource environment, ConfigSource file) {
+      this.environmentSource = Objects.requireNonNull(environment, "environment");
+      this.fileSource = Objects.requireNonNull(file, "file");
       return this;
     }
 
@@ -221,12 +233,15 @@ class BlockingGrpcAnalyticsClient implements ScalarDbAnalyticsClient {
             AnalyticsErrorCode.INVALID_ARGUMENT, ImmutableMap.of("field", "port"));
       }
 
+      // Resolve before creating the channel so that an incomplete configuration does not leak it.
+      PasswordCredential resolvedCredential = resolveCredential();
+
       ManagedChannel managedChannel = createChannel();
 
       Channel channel = managedChannel;
       TokenManager tokenManager = null;
 
-      if (credential != null) {
+      if (resolvedCredential != null) {
         if (tlsConfig == null) {
           logger.warning(
               "Authentication credentials are configured without TLS. "
@@ -235,7 +250,7 @@ class BlockingGrpcAnalyticsClient implements ScalarDbAnalyticsClient {
         try {
           AuthClient authClient = new AuthClient(channel);
           Path cacheDir = tokenCacheEnabled ? resolveTokenCacheDir() : null;
-          tokenManager = new TokenManager(authClient, credential, cacheDir);
+          tokenManager = new TokenManager(authClient, resolvedCredential, cacheDir);
           tokenManager.initialize();
           ClientAuthInterceptor interceptor = new ClientAuthInterceptor(tokenManager);
           channel = ClientInterceptors.intercept(channel, interceptor);
@@ -249,6 +264,16 @@ class BlockingGrpcAnalyticsClient implements ScalarDbAnalyticsClient {
       }
 
       return new BlockingGrpcAnalyticsClient(managedChannel, channel, tokenManager);
+    }
+
+    @VisibleForTesting
+    @Nullable PasswordCredential resolveCredential() {
+      if (environmentSource == null || fileSource == null) {
+        return credential;
+      }
+      return ClientConfigResolver.resolve(credential, environmentSource, fileSource)
+          .passwordCredential()
+          .orElse(null);
     }
 
     private Path resolveTokenCacheDir() {

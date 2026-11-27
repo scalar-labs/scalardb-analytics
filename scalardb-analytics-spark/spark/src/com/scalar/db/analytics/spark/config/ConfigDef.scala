@@ -13,10 +13,6 @@ package com.scalar.db.analytics.spark.config
   *   the environment variable name that can override the property value
   * @param default
   *   the default value when no value is found
-  * @param allowEmpty
-  *   when true, the value is still trimmed but an empty result is preserved as a valid value (e.g.
-  *   an empty password). By default (false), values are trimmed and an empty result is treated as
-  *   absent.
   * @param parse
   *   function to convert the raw string value to the target type
   * @tparam T
@@ -26,7 +22,6 @@ final case class ConfigDef[T](
     propertyKey: String,
     envVarName: Option[String],
     default: Option[T],
-    allowEmpty: Boolean,
     parse: String => T
 )
 
@@ -34,10 +29,9 @@ object ConfigDef {
   @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   def string(
       propertyKey: String,
-      envVarName: String = "",
-      allowEmpty: Boolean = false
+      envVarName: String = ""
   ): ConfigDef[String] =
-    ConfigDef(propertyKey, envOption(envVarName), None, allowEmpty, identity)
+    ConfigDef(propertyKey, envOption(envVarName), None, identity)
 
   @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   def int(
@@ -45,7 +39,7 @@ object ConfigDef {
       default: Int,
       envVarName: String = ""
   ): ConfigDef[Int] =
-    ConfigDef(propertyKey, envOption(envVarName), Some(default), allowEmpty = false, _.toInt)
+    ConfigDef(propertyKey, envOption(envVarName), Some(default), _.toInt)
 
   @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   def boolean(
@@ -53,7 +47,7 @@ object ConfigDef {
       default: Boolean,
       envVarName: String = ""
   ): ConfigDef[Boolean] =
-    ConfigDef(propertyKey, envOption(envVarName), Some(default), allowEmpty = false, _.toBoolean)
+    ConfigDef(propertyKey, envOption(envVarName), Some(default), _.toBoolean)
 
   private def envOption(envVarName: String): Option[String] =
     if (envVarName.isEmpty) None else Some(envVarName)

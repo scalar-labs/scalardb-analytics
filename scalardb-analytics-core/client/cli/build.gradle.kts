@@ -93,6 +93,11 @@ tasks.named<Test>("test") {
     )
 }
 
+// The credential resolution case table is owned by client-sdk and shared with these tests.
+sourceSets.test {
+    resources.srcDir(project(":client-sdk").file("src/test/conformance"))
+}
+
 tasks.check {
     dependsOn(testing.suites.named("integrationTest"))
 }

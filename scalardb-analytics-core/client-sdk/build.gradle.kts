@@ -42,3 +42,8 @@ testing.suites {
 publishing.publications.named<MavenPublication>("maven") {
     artifactId = "scalardb-analytics-client-sdk"
 }
+
+// The credential resolution case table is shared with the CLI and Spark connector tests.
+sourceSets.test {
+    resources.srcDir("src/test/conformance")
+}

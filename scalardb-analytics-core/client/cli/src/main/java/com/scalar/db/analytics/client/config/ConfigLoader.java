@@ -8,6 +8,9 @@ import com.scalar.db.analytics.client.exception.ClientException;
 import com.scalar.db.analytics.client.exception.ConfigValidationErrorDetail;
 import com.scalar.db.analytics.client.exception.ErrorDetail.ConfigLoadError;
 import com.scalar.db.analytics.client.exception.ErrorDetail.ConfigValidationError;
+import com.scalar.db.analytics.sdk.config.ClientConfigException;
+import com.scalar.db.analytics.sdk.config.ClientConfigResolver;
+import com.scalar.db.analytics.sdk.config.ConfigSource;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,6 +55,8 @@ import org.jspecify.annotations.Nullable;
  * SCALAR_DB_ANALYTICS_CLIENT_SERVER_TLS_CA_ROOT_CERT_PATH=/path/to/ca-cert.pem
  * SCALAR_DB_ANALYTICS_CLIENT_SERVER_TLS_OVERRIDE_AUTHORITY=example.com
  * SCALAR_DB_ANALYTICS_CLIENT_DEFAULT_CATALOG=my_catalog
+ * SCALAR_DB_ANALYTICS_CLIENT_AUTH_USERNAME=alice
+ * SCALAR_DB_ANALYTICS_CLIENT_AUTH_PASSWORD=secret
  * }</pre>
  *
  * <h3>Precedence</h3>
@@ -59,6 +64,11 @@ import org.jspecify.annotations.Nullable;
  * <p>When both configuration sources are present, <b>environment variables take precedence</b> over
  * configuration file values. This allows for easy override of file-based configuration in different
  * deployment environments without modifying the configuration file.
+ *
+ * <p>The authentication credential ({@code scalar.db.analytics.client.auth.*}) is resolved by the
+ * SDK's {@link ClientConfigResolver}, so it follows the same rules as the SDK and the Spark
+ * connector: a blank username in the environment falls through to the file, and the password is
+ * used as is.
  *
  * <h3>Configuration File Location</h3>
  *
@@ -97,7 +107,8 @@ class ConfigLoader {
    * @throws ClientException if there is an error loading or validating the configuration
    */
   static AppConfig load(Path configPath) {
-    return validateConfig(loadUnvalidated(configPath));
+    Properties fileProps = loadFile(configPath);
+    return validateConfig(createUnvalidated(fileProps), fileProps);
   }
 
   /**
@@ -110,50 +121,44 @@ class ConfigLoader {
    */
   @Nullable
   static String loadDefaultCatalog(Path configPath) {
-    return normalizeBlank(loadUnvalidated(configPath).defaultCatalog());
+    return normalizeBlank(createUnvalidated(loadFile(configPath)).defaultCatalog());
   }
 
-  private static UnvalidatedConfig loadUnvalidated(Path configPath) {
+  private static Properties loadFile(Path configPath) {
     try {
-      return ConfigFactory.create(
-          UnvalidatedConfig.class,
-          loadPropertiesFromEnvironment(),
-          loadPropertiesFromFile(configPath));
+      return loadPropertiesFromFile(configPath);
     } catch (IOException e) {
       throw new ClientException(new ConfigLoadError(e));
     }
   }
 
-  private static AppConfig validateConfig(UnvalidatedConfig config) {
+  private static UnvalidatedConfig createUnvalidated(Properties fileProps) {
+    return ConfigFactory.create(
+        UnvalidatedConfig.class, loadPropertiesFromEnvironment(), fileProps);
+  }
+
+  private static AppConfig validateConfig(UnvalidatedConfig config, Properties fileProps) {
     return new AppConfig(
         validateCatalogServerConfig(config),
-        validateAuthConfig(config),
+        validateAuthConfig(fileProps),
         // Blank is treated as unset, so that "default.catalog=" disables the default.
         normalizeBlank(config.defaultCatalog()));
   }
 
-  private static AppConfig.@Nullable AuthConfig validateAuthConfig(UnvalidatedConfig config) {
-    // Normalize blank username to null so that "auth.username=" is treated as unset.
-    // Password is intentionally not checked: empty passwords may be valid in some configurations.
-    String username = normalizeBlank(config.authUsername());
-    String password = config.authPassword();
-
-    if (username == null) {
-      if (password == null) {
-        return null;
-      }
+  private static AppConfig.@Nullable AuthConfig validateAuthConfig(Properties fileProps) {
+    // The raw file properties are used rather than the Owner config, so that Owner's variable
+    // expansion does not alter the password.
+    try {
+      return ClientConfigResolver.resolve(
+              ConfigSource.environment(), ConfigSource.properties(fileProps))
+          .passwordCredential()
+          .map(c -> new AppConfig.AuthConfig(c.getUsername(), c.getPassword()))
+          .orElse(null);
+    } catch (ClientConfigException e) {
       throw new ClientException(
           new ConfigValidationError(
-              UnvalidatedConfig.AUTH_USERNAME_KEY,
-              ConfigValidationErrorDetail.REQUIRED_KEY_NOT_SET));
+              e.key().propertyKey(), ConfigValidationErrorDetail.REQUIRED_KEY_NOT_SET));
     }
-    if (password == null) {
-      throw new ClientException(
-          new ConfigValidationError(
-              UnvalidatedConfig.AUTH_PASSWORD_KEY,
-              ConfigValidationErrorDetail.REQUIRED_KEY_NOT_SET));
-    }
-    return new AppConfig.AuthConfig(username, password);
   }
 
   private static AppConfig.CatalogServerConfig validateCatalogServerConfig(
