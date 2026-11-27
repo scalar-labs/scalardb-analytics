@@ -50,7 +50,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 
 **Client-side modules (Java 8 target)**: `api`, `lib`, `client-sdk`, `client/cli`, `grpc`, `grpc-common`. These are compiled with a modern JDK using `--release 8` (so current Error Prone / NullAway tooling can run) and have their tests executed on a real Java 8 runtime — see `build-logic.java8-conventions`.
 
-**Server-side modules (Java 25)**: `domain`, `usecase`, `usecase-impl`, `service`, `repository`, `repository-impl-spring-data-jdbc`, `server/*`, `tools/*`, `schema-resolver`, `datasource-scalardb`. The `build-logic.java-common-conventions` default toolchain is Java 25; modules fall through to it unless they opt into `java8-conventions`.
+**Server-side modules (Java 25)**: `domain`, `usecase`, `usecase-impl`, `service`, `repository`, `repository-impl-spring-data-jdbc`, `server/*`, `tools/*`, `schema-resolver`, `datasource-jdbc`, `datasource-scalardb`. The `build-logic.java-common-conventions` default toolchain is Java 25; modules fall through to it unless they opt into `java8-conventions`.
 
 **Spark module (Java 17)**: Mill build uses `temurin:17`.
 

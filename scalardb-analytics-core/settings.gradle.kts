@@ -60,6 +60,7 @@ include(
     "grpc",
     "grpc-common",
     "client-sdk",
+    "datasource-jdbc",
     "datasource-scalardb",
     ":client:cli",
     ":server:base",

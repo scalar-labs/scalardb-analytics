@@ -49,8 +49,9 @@ server/base (gRPC + DI) --> usecase-impl --> service --> repository
 | [`server/`](server/README.md) | Catalog server distributions |
 | `client-sdk/` | Java client SDK |
 | [`client/cli/`](client/cli/README.md) | Command-line client |
-| `schema-resolver/` | Database schema discovery |
-| `datasource-scalardb/` | ScalarDB data-source integration |
+| `schema-resolver/` | Resolved schema model, its validation, and the schema resolution exceptions |
+| `datasource-jdbc/` | Schema readers for JDBC data sources |
+| `datasource-scalardb/` | Schema reader for ScalarDB data sources |
 
 ## Ports and configuration
 
