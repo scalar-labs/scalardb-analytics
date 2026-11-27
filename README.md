@@ -17,6 +17,11 @@ See the [ScalarDB Analytics documentation](https://scalardb.scalar-labs.com/docs
 
 ## Build from source
 
+> [!NOTE]
+> Until ScalarDB SQL is published under an open license, building the catalog server needs credentials for a private registry that only Scalar can access.
+> The client-side modules and the Spark connector build without them.
+> See [#17](https://github.com/scalar-labs/scalardb-analytics/issues/17) for what builds and how to build the Spark connector without credentials.
+
 The core build publishes its artifacts to Maven Local, and the Spark build resolves them from there.
 
 ### Prerequisites
