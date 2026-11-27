@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":usecase-impl"))
     implementation(project(":grpc"))
     implementation(project(":schema-resolver"))
+    implementation(project(":datasource-scalardb"))
 
     // Spring Boot
     implementation(libs.spring.boot.starter)
@@ -98,6 +99,7 @@ testing.suites {
                 implementation(project(":usecase"))
                 implementation(project(":usecase-impl"))
                 implementation(project(":service"))
+                implementation(project(":schema-resolver"))
                 implementation(libs.spring.boot.starter.test)
                 implementation(libs.assertj.core)
                 implementation(libs.testcontainers.core)

@@ -37,6 +37,7 @@ import com.scalar.db.analytics.repository.RepositoryTransactionContext;
 import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
+import com.scalar.db.analytics.service.SuppliedSchemaResolution;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import java.util.Collections;
 import java.util.List;
@@ -90,7 +91,8 @@ class CatalogUseCaseImplTest {
             dataSourceNamespaceQueryService,
             dataSourceNamespaceTableQueryService,
             aceRepository,
-            authorizationService);
+            authorizationService,
+            new SuppliedSchemaResolution());
 
     testCatalog = Catalog.of(CATALOG_ID, CATALOG_NAME);
 

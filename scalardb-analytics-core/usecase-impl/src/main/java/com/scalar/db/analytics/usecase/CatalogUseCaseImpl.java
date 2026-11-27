@@ -23,6 +23,7 @@ import com.scalar.db.analytics.repository.RepositoryTransactionManager;
 import com.scalar.db.analytics.repository.TableRepository;
 import com.scalar.db.analytics.repository.authz.AccessControlEntryRepository;
 import com.scalar.db.analytics.service.DataSourceService;
+import com.scalar.db.analytics.service.SchemaResolution;
 import com.scalar.db.analytics.service.authz.AuthorizationService;
 import com.scalar.db.analytics.service.authz.PermissionRequirement;
 import com.scalar.db.analytics.service.datasource.InvalidSchemaMetadataException;
@@ -52,7 +53,8 @@ public class CatalogUseCaseImpl<T extends RepositoryTransactionContext> implemen
       DataSourceNamespaceQueryService<T> dataSourceNamespaceQueryService,
       DataSourceNamespaceTableQueryService<T> dataSourceNamespaceTableQueryService,
       AccessControlEntryRepository<T> aceRepository,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService,
+      SchemaResolution schemaResolution) {
     this.catalogRepository = catalogRepository;
     this.dataSourceQueryService = dataSourceQueryService;
     this.txManager = txManager;
@@ -67,7 +69,8 @@ public class CatalogUseCaseImpl<T extends RepositoryTransactionContext> implemen
             tableRepository,
             dataSourceNamespaceQueryService,
             dataSourceNamespaceTableQueryService,
-            aceRepository);
+            aceRepository,
+            schemaResolution);
   }
 
   @Override
