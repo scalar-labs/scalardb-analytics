@@ -8,6 +8,7 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 |-----------|-------------|
 | [`scalardb-analytics-core/`](scalardb-analytics-core/README.md) | Java server, CLI, client SDK (Gradle) |
 | [`scalardb-analytics-spark/`](scalardb-analytics-spark/README.md) | Scala Spark connector (Mill) |
+| [`docs/`](docs/README.md) | Developer documentation: architecture and design decisions |
 
 ## Where to Find Information
 
@@ -16,7 +17,9 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 | Project design & concepts | [Official design document](https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/design/) |
 | Running analytical queries | [Official query guide](https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/run-analytical-queries) |
 | Authentication & authorization | [Official auth guide](https://scalardb.scalar-labs.com/docs/latest/scalardb-analytics/authentication-and-authorization) |
-| Core architecture & modules | [scalardb-analytics-core/README.md](scalardb-analytics-core/README.md) |
+| Architecture, components & flows | [docs/architecture.md](docs/architecture.md) |
+| Design decisions & rationale | [docs/design/](docs/design/) |
+| Core build & module list | [scalardb-analytics-core/README.md](scalardb-analytics-core/README.md) |
 | Spark build & cross-build | [scalardb-analytics-spark/README.md](scalardb-analytics-spark/README.md) |
 | Server startup & Docker | [server/README.md](scalardb-analytics-core/server/README.md), [docker/server/README.md](scalardb-analytics-core/docker/server/README.md) |
 | CLI usage & commands | [client/cli/README.md](scalardb-analytics-core/client/cli/README.md) |
@@ -33,8 +36,10 @@ ScalarDB Analytics enables analytical queries across heterogeneous databases man
 ### Documentation
 
 - **Root README.md**: Project overview, prerequisites, getting started, module links, license
-- **Module READMEs** (`scalardb-analytics-core/README.md`, `scalardb-analytics-spark/README.md`): Architecture, build commands, module/submodule listings, configuration
-- **Sub-module READMEs** (e.g., `server/`, `grpc/`, `client/cli/`): Detailed implementation docs for that component
+- **Developer documentation** (`docs/`): Architecture, component boundaries, representative flows, and design decisions. Follow the layers and placement rules in [docs/README.md](docs/README.md)
+  - Design decisions go to `docs/design/<question>.md`, one question per file, and are rewritten in place when the decision changes. Do not add numbered or immutable ADRs
+  - When a change alters a documented boundary, flow, invariant, or decision, update `docs/` in the same PR
+- **Module READMEs** (`scalardb-analytics-core/README.md`, `scalardb-analytics-spark/README.md`) and **sub-module READMEs** (e.g., `server/`, `grpc/`, `client/cli/`): Build commands, module listings, configuration, and local orientation. Link to `docs/` instead of explaining architecture
 - Do not duplicate information from the official docs — link to them instead
 
 ### Code Style & Formatting

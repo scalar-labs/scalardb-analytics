@@ -249,7 +249,8 @@ public class AuthenticationUseCaseImpl<T extends RepositoryTransactionContext>
     Instant expiresAt = Instant.now().plus(tokenTtl).truncatedTo(ChronoUnit.MILLIS);
     IssuedToken issuedToken = IssuedToken.issue(identity.userId(), expiresAt);
 
-    // Replace any existing token for the user (1:1 user-to-token relationship, ADR-0005)
+    // Replace any existing token for the user (1:1 user-to-token relationship; see
+    // docs/design/keep-one-access-token-per-user.md)
     accessTokenRepository.deleteByUserId(ctx, identity.userId());
     accessTokenRepository.create(ctx, issuedToken);
 

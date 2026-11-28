@@ -19,18 +19,8 @@ Publish the same artifacts to Maven Local before building the Spark connector:
 
 ## Architecture
 
-The core modules follow dependency inversion: the server depends on use cases and repository interfaces, while infrastructure modules implement those interfaces.
-
-```text
-server/base (gRPC + DI) --> usecase-impl --> service --> repository
-                                  |             |           |
-                                  v             v           v
-                               usecase       domain       repository-impl-*
-                                  |             |
-                                  +------+------+
-                                         v
-                                        api
-```
+The layering of these modules, their dependency rules, and the main flows are explained in the
+[developer documentation](../docs/architecture.md).
 
 ## Modules
 

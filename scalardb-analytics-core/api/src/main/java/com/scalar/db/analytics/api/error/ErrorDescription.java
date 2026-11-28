@@ -16,7 +16,8 @@ import lombok.Value;
  *
  * <p><b>The text content is not part of the API contract.</b> Consumers must not parse or branch on
  * the wording — it may be reworded, translated, or restructured at any time. Programmatic control
- * flow uses the error code itself or {@link AnalyticsErrorCode.ErrorCategory} (see ADR-0010).
+ * flow uses the error code itself or {@link AnalyticsErrorCode.ErrorCategory} (see
+ * docs/design/drive-control-flow-from-the-error-code.md).
  *
  * @see AnalyticsErrorCode
  */
